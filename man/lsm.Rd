@@ -1,0 +1,90 @@
+\name{lsm}
+\alias{lsm}
+%- Also NEED an '\alias' for EACH other topic documented here.
+\title{Latent Space Model
+%%  ~~function to do ... ~~
+}
+\description{Fit a 2-D Latent Space model for a newtork
+%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+}
+\usage{
+lsm(YY, total = 100, kk = 2, verbose = FALSE, tune.default = list(MH =
+list(ZZ.sd = 0.5, alpha.sd = 0.1), prior = list(ZZ.sd = 1, alpha.sd =
+0.5), init = list(ZZ.sd = 5, alpha.sd = 5)), flatTable = NULL,
+multiImpute = TRUE)
+}
+%- maybe also 'usage' for other objects documented here.
+\arguments{
+  \item{YY}{Adjacency matrix for the network to model.
+%%     ~~Describe \code{YY} here~~
+}
+  \item{total}{number of steps for MCMC chain.
+%%     ~~Describe \code{total} here~~
+}
+  \item{kk}{number of dimensions for latent space
+%%     ~~Describe \code{kk} here~~
+}
+  \item{verbose}{TRUE causes additional output to be printed while running
+%%     ~~Describe \code{verbose} here~~
+}
+  \item{tune.default}{Default tuning parameters for MCMC chain
+%%     ~~Describe \code{tune.default} here~~
+}
+  \item{flatTable}{flatTable for initializing MCMC chain
+%%     ~~Describe \code{flatTable} here~~
+}
+  \item{multiImpute}{if TRUE, missing values are dealt with using
+    multiple imputations
+%%     ~~Describe \code{flatTable} here~~
+}
+}
+%\details{
+%%  ~~ If necessary, more details than the description above ~~
+%}
+\value{An object of class \code{lsm}, including the following elements
+  \item{alpha}{Intercept parameter}
+  \item{ZZ}{Matrix of Latent Space Positions}
+
+  %    return(structure(list(alpha = alpha.vec, ZZ = ZZ, YY = YY, 
+%        logLik = ll.vec, flat.mat = full.mat), class = "lsm"))
+%%  ~Describe the value returned
+%%  If it is a LIST, use
+%%  \item{comp1 }{Description of 'comp1'}
+%%  \item{comp2 }{Description of 'comp2'}
+%% ...
+}
+%\references{
+%%% ~put references to the literature/web site here ~
+%}
+\author{Beau Dabbs
+%%  ~~who you are~~
+}
+%\note{
+%%  ~~further notes~~
+%}
+
+%% ~Make other sections like Warning with \section{Warning }{....} ~
+
+\seealso{\code{\link{sbm}} \code{\link{mmsbm}}
+%% ~~objects to See Also as \code{\link{help}}, ~~~
+}
+\examples{
+data(latent50)
+
+##  Running MCMC Chain
+lsm.fit <- lsm(YY=latent50,total=1500)
+plot(lsm.fit$logLik)
+
+##  Summarizing Reults
+lsm.summ <- summary(lsm.fit)
+lsm.summ$ZZ
+
+## Creating Matrix of Edge Probabilities
+pred.mat <- predict(lsm.summ)
+
+
+}
+% Add one or more standard keywords, see file 'KEYWORDS' in the
+% R documentation directory.
+\keyword{networks}
+

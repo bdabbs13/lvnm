@@ -1,0 +1,8 @@
+Package: mmsbm
+Version: 0.2
+Date: 2013-07-25
+Title: Mixed Membership Stochastic Block Models
+Author: Beau Dabbs <bdabbs@andrew.cmu.edu>
+Maintainer: Beau Dabbs <bdabbs@andrew.cmu.edu>
+Description: mmsbm fits both MMSBM and SBM models.
+License: GPL (>= 2.0)

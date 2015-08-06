@@ -54,7 +54,7 @@ data.gen.sbm <- function(nn=50,
 
 
 
-                                        #  Wrapper for C Implementation of SBM
+###  Wrapper for C Implementation of SBM
 sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
                 burn.in=0,thin=1,
@@ -70,6 +70,30 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
   short.total <- total
   total <- short.total*thin + burn.in
   flatVec = double(short.total*(kk*(kk+nn)))
+
+  if(!is.null(init.vals)){
+    if(is.null(init.vals$BB) | is.null(init.vals$PI)){
+      stop("init.vals must be a list containing BB and PI")
+    }
+    ## Checking BB
+    if(any(dim(init.vals$BB) != kk)) stop("BB must be a kk by kk matrix")
+    if(any(init.vals$BB < 0 | init.vals$BB > 1))
+      stop("BB must have values between 0 and 1")
+
+    ## Checking PI
+    if(any(dim(init.vals$PI)!=c(nn,kk))) stop("PI must be an nn by kk matrix")
+
+    BB.init <- double(kk^2)
+    PI.init <- double(kk*nn)
+    for(jj in 1:kk){
+      BB.init[((jj-1) * kk + 1):(jj*kk)] <- init.vals$BB[jj,]
+    }
+    for(jj in 1:nn){
+      PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
+    }
+    flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
+  }
+
   start = 0
   if(!is.null(flatTable)){
     start = nrow(flatTable)
@@ -77,6 +101,7 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
     flatVec[1:total.start] = as.double(t(flatTable))
   }
   ##  Calling C Implementation of MCMC
+  message("start: ",start)
   out <- .C("sbm",as.integer(total),as.integer(nn),as.integer(kk),
             as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
             as.double(priors$eta), flatVec,

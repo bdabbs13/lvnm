@@ -1,4 +1,4 @@
-useDynLib(mmsbm)
+useDynLib(lvnm)
 export(mmsbm)
 #export(summary.mmsbm)
 export(predict.mmsbm)

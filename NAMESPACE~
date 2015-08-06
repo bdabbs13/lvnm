@@ -17,4 +17,6 @@ export(predict.lsm)
 export(data.gen.lsm)
 export(lsm.metric)
 
-export(plot.net.sbm,plot.fit.sbm,plot.ll.sbm)
+export(plot.net.sbm)
+export(plot.fit.sbm)
+export(plot.ll.sbm)

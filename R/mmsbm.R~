@@ -97,15 +97,27 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
   diag(YY.clean) <- -1
   for(ii in 1:short.total){
 
-    ##  3D BB Matrix
-    for(jj in 1:kk){
-      BB[jj,,ii] <- BB.flat[ii,((jj-1)*kk + 1):(jj*kk)]
-    }
     ##  3D PI Matrix
     for(jj in 1:nn){
       PI[jj,,ii] <- PI.flat[ii,((jj-1)*kk + 1):(jj*kk)]
     }
+    ##  3D BB Matrix
+    for(jj in 1:kk){
+      BB[jj,,ii] <- BB.flat[ii,((jj-1)*kk + 1):(jj*kk)]
+    }
+
+##### Rotating Blocks
+#    old.memb <- apply(PI[,,ii],1,which.max)
+#    rotation <- SBM.ID.rotation(old.memb,kk)
+#    new.memb <- rotation[old.memb]
+#    for(jj in 1:nn){
+#      PI[jj,,ii] <- 0
+#      PI[jj,new.memb[jj],ii] <- 1
+#    }
+#    BB[,,ii] <- BB[rotation,rotation,ii]
+
     ##  Log-Likelihood Vector
+
     ll.vec[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
     pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
   }
@@ -288,6 +300,53 @@ plot.ll.sbm <- function(sbm.obj,add=FALSE){
 ##########################################################
 ##################  INTERNAL FUNCTIONS  ##################
 ##########################################################
+
+
+SBM.ID.rotation <- function(ID.labels, label.count=max(ID.labels)) {
+  #ID.labels=c(3,4,4,1,1,2,5); label.count=max(ID.labels)
+
+  #first pin down the keepers.
+  assigned <- replaced <- rep(NA, label.count)
+  replacements <- rep(NA, length(ID.labels))
+
+  for (ii in 1:label.count) {
+    if (is.na(replacements[ii])) {
+      assigned[ID.labels[ii]] <- ii
+      replaced[ii] <- ID.labels[ii]
+      replacements[ID.labels==ID.labels[ii]] <- ii
+    }
+  }
+  while (sum(is.na(assigned))>0) {
+    #node <- min(which(is.na(replacements)))
+    vacancy <- min(which(is.na(assigned)))
+    newlabel <- min(which(is.na(replaced)))
+
+    assigned[vacancy] <- newlabel
+    replaced[newlabel] <- vacancy
+
+    replacements[ID.labels==vacancy] <- newlabel
+  }
+
+  return (assigned)
+}
+
+SBM.rotate.bvector <- function(sbm.b.vector, rotation) {
+  bvt <- cbind(make.edge.list.selfies(length(rotation)), sbm.b.vector)
+  bvt[,1] <- rotation[bvt[,1]]; bvt[,2] <- rotation[bvt[,2]];
+  bvt[,1:2] <- t(apply(rbind(bvt[,1:2]), 1, sort))
+  bvt <- rbind(bvt[order(bvt[,1], bvt[,2]),])
+  bvt[,3]
+}
+
+SBM.rotate.block <- function (sbm.block, rotation) {
+  sbm.block[rotation, rotation]
+}
+
+rotate <- function (){
+  rotation <- SBM.ID.rotation(membership, n.groups)
+  membership <<- rotation[membership]
+  block.matrix <<- SBM.rotate.block(block.matrix, rotation)
+}
 
 
 

@@ -139,6 +139,16 @@ void mmsbmImputeMissingValues(int nn, int dd, int *YY,
 		       double *BB, double *PP,
 		       double *flatTable);
 
+  void shiftFlatTable(int shift_size, int nn, int dd, int total,
+		      double *flatTable);
+
+  //  HELPER FUNCTIONS 
+  void getMeanVar(double *vec, int lower, int upper,
+		  double *Mean_t, double *Var_t, double * Len_t);
+  
+  int convergenceCheck(double *logLik, int total, double qq);
+
+  
 }
 #endif
 

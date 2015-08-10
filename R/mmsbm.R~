@@ -101,7 +101,6 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
     flatVec[1:total.start] = as.double(t(flatTable))
   }
   ##  Calling C Implementation of MCMC
-  message("start: ",start)
   out <- .C("sbm",as.integer(total),as.integer(nn),as.integer(kk),
             as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
             as.double(priors$eta), flatVec,

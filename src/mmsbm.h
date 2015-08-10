@@ -12,7 +12,7 @@ extern "C" {
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	   double *betaPrior, double *eta,
 	   double *flatTable, int *burn_t, int *thin_t,
-	   int *start_t, int *multi_t);
+	   int *start_t, int *multi_t,double *logLik);
   
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,
@@ -29,7 +29,7 @@ extern "C" {
   void sbmInit(int *YY, int nn, int dd,
 	       double *eta, double *betaPrior,
 	       double *BB, double *PP, int *PPint,
-	       int *yyComplete,double *flatTable,
+	       int *yyComplete, double *logLik, double *flatTable,
 	       int start, int multiImpute);
   
   void sbmStep(int *YY, int nn, int dd, 
@@ -46,7 +46,7 @@ extern "C" {
   
   void sbmMCMC(int total,int burnIn, int thin,
 	       int *YY,int nn,int dd,
-	       double *eta,double *betaPrior,
+	       double *eta,double *betaPrior, double *logLik,
 	       double *BB,double *PP, int *PPint, 
 	       int *yyComplete,double *flatTable,
 	       int start, int multiImpute);

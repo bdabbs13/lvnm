@@ -58,18 +58,19 @@ data.gen.sbm <- function(nn=50,
 sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
                 burn.in=0,thin=1,
-                flatTable=NULL,multiImpute=TRUE){
+                flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
   multi.int <- as.integer(ifelse(multiImpute,1,0))
   YY.clean <- YY
-  diag(YY.clean) <- 0
+  diag(YY.clean) <- -1
   YY.clean[is.na(YY)] <- -1
   nn <- nrow(YY.clean)
 
   short.total <- total
   total <- short.total*thin + burn.in
   flatVec = double(short.total*(kk*(kk+nn)))
+  ll.vec <- double(short.total)
 
   if(!is.null(init.vals)){
     if(is.null(init.vals$BB) | is.null(init.vals$PI)){
@@ -91,33 +92,39 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
     for(jj in 1:nn){
       PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
     }
-    flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
+    ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
+    flatTable <- array(c(BB.init,PI.init,ll.init),c(1,kk*(kk+nn)))
+
   }
 
   start = 0
   if(!is.null(flatTable)){
+    if(is.null(ll.init)) stop("flatTables require ll.init vector")
+
     start = nrow(flatTable)
     total.start = start*(kk*(kk+nn))
     flatVec[1:total.start] = as.double(t(flatTable))
+    ll.vec[1:start] <- ll.init
   }
   ##  Calling C Implementation of MCMC
   out <- .C("sbm",as.integer(total),as.integer(nn),as.integer(kk),
             as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
             as.double(priors$eta), flatVec,
             as.integer(burn.in), as.integer(thin),
-            as.integer(start),multi.int)
+            as.integer(start),multi.int,ll.vec)
 
   ##  Pulling the flat matrices from the C output
   full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
 
   BB.flat <- as.matrix(full.mat[,1:kk^2])
   PI.flat <- as.matrix(full.mat[,-(1:kk^2)])
+  ll.vec <- as.vector(out[[12]])
 
   ##  Formatting data for output
   BB <- array(NA,c(kk,kk,short.total))
   PI <- array(NA,c(nn,kk,short.total))
   pmat.mat <- array(NA,c(nn,nn,short.total))
-  ll.vec <- rep(NA,short.total)
+  ll.vec.old <- rep(NA,short.total)
   diag(YY.clean) <- -1
   for(ii in 1:short.total){
 
@@ -142,12 +149,12 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
 
     ##  Log-Likelihood Vector
 
-    ll.vec[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
+    ll.vec.old[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
     pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
   }
 
-  sbm.out <- structure(list(BB=BB,PI=PI,YY=YY,
-                            logLik=ll.vec,flat.mat=full.mat,
+  sbm.out <- structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,
+                            logLik.old=ll.vec.old,flat.mat=full.mat,
                             burn.in=burn.in,thin=thin,
                             pmat=pmat.mat),class="sbm")
   sbm.summ <- summary(sbm.out,burn.in=0,thin=1)
@@ -155,7 +162,7 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
   sbm.summ$YY <- sbm.out$YY
   ## Calculating DIC
   sbm.summ$logLik <- with(sbm.summ,mmsbm.log.like.YY(YY,BB,PI))
-  sbm.summ$DIC <- 2*sbm.summ$logLik - 4 * mean(ll.vec)
+  sbm.summ$DIC <- 2*sbm.summ$logLik - 4 * mean(ll.vec.old)
   sbm.summ$burn.in <- burn.in; sbm.summ$thin <- thin
   if(clean.out){
     sbm.summ$chain <- list(logLik=sbm.out$logLik)
@@ -590,7 +597,7 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
 
 
 mmsbm.log.like.YY <- function(YY,BB,PI){
-  diag(YY) <- 0
+  diag(YY) <- -1
   p.mat <- PI %*% BB %*% t(PI)
   return(sum(log(p.mat[YY==1])) + sum(log(1 - p.mat[YY==0])))
 }

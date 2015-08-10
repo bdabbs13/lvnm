@@ -24,7 +24,7 @@ extern "C" {
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	   double *betaPrior, double *eta,
 	   double *flatTable, int *burn_t, int *thin_t,
-	   int *start_t, int *multi_t)
+	   int *start_t, int *multi_t,double *logLik)
   {
     
     GetRNGstate();
@@ -37,7 +37,7 @@ extern "C" {
     int yyComplete[nn*nn], PPint[nn];
     
 
-    sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, 
+    sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, logLik,
 	    BB, PP, PPint, yyComplete, flatTable, start, multiImpute);
 
     PutRNGstate();
@@ -91,7 +91,7 @@ extern "C" {
   
   void sbmInit(int *YY, int nn, int dd, double *eta, double *betaPrior, 
 	       double *BB, double *PP, int *PPint, int *yyComplete,
-	       double *flatTable, int start, int multiImpute){
+	       double *logLik, double *flatTable, int start, int multiImpute){
     
     int ii,kk;
     //    Rprintf("start: %d\n ",start);
@@ -180,7 +180,8 @@ extern "C" {
     }
   }
   
-  void sbmLoadTable(int start, int nn, int dd, double *BB, double *PP, int *PPint, double *flatTable){
+  void sbmLoadTable(int start, int nn, int dd, double *BB, 
+		    double *PP, int *PPint, double *flatTable){
 
 
     int ii, jj, offset;
@@ -211,8 +212,8 @@ extern "C" {
 
   void sbmMCMC(int total,int burnIn,int thin,
 	       int *YY,int nn,int dd,
-	       double *eta,double *betaPrior, double *BB, 
-	       double *PP, int *PPint, int *yyComplete,
+	       double *eta,double *betaPrior, double *logLik,
+	       double *BB, double *PP, int *PPint, int *yyComplete,
 	       double *flatTable,int start, int multiImpute){
     
     int ii;
@@ -220,7 +221,7 @@ extern "C" {
     //    int thin = 1;
 
     sbmInit(YY,nn,dd,eta,betaPrior,BB,PP,PPint,
-	    yyComplete,flatTable,start,multiImpute);
+	    yyComplete,logLik,flatTable,start,multiImpute);
     
     //  MCMC Loop
     for(ii = start ; ii < total ; ii++){
@@ -230,6 +231,7 @@ extern "C" {
       sbmStep(yyComplete, nn, dd, eta, betaPrior, BB, PP,PPint);
       sbmRotate(nn,dd,BB,PP,PPint);
       if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
+	logLik[(ii - burnIn)/thin] = sbmLogLikYY(nn,dd,YY,BB,PP,PPint);
 	updateFlatTable((ii - burnIn)/thin, nn, dd, BB, PP, flatTable);
       }//    printTableMMSBM(nn, dd, BB, PP, sendMat, recMat);
     }
@@ -425,14 +427,14 @@ extern "C" {
     // Summing over all tie probabilities, ignoring diagonal
     double total = 0.0;
     for(ii = 0 ; ii < nn*nn ; ii++){
-      if((ii / nn) != (ii % nn)){
-	if(YY[ii] == 1){
-	  total = total + log(pMat[ii]);
-	}else{
-	  total = total + log(1 - pMat[ii]);
-	}
+      //      if((ii / nn) != (ii % nn)){
+      if(YY[ii] == 1){
+	total = total + log(pMat[ii]);
+      }else if(YY[ii] == 0){
+	total = total + log(1 - pMat[ii]);
       }
     }
+    //    }
     return(total);
   }
 

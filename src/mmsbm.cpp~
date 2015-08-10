@@ -35,6 +35,7 @@ extern "C" {
     int nn = *nn_t, dd = *kk_t;
     double BB[dd*dd], PP[nn*dd];
     int yyComplete[nn*nn], PPint[nn];
+    
 
     sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, 
 	    BB, PP, PPint, yyComplete, flatTable, start, multiImpute);
@@ -93,12 +94,20 @@ extern "C" {
 	       double *flatTable, int start, int multiImpute){
     
     int ii,kk;
-    
+    //    Rprintf("start: %d\n ",start);
     if(start > 0){
+    //      Rprintf("start is greater than 0\n");
       sbmLoadTable(start,nn,dd,BB,PP,PPint,flatTable);
       
       // Creating Initial Imputation if Necessary
       if(multiImpute==1){
+	for(ii = 0 ; ii < nn*nn ; ii++){
+	  if(yyComplete[ii] < 0){
+	    yyComplete[ii] = 0;
+	  }else{
+	    yyComplete[ii] = YY[ii];
+	  }
+	}
 	sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
       }else{
 	for(ii = 0 ; ii < nn*nn ; ii++){
@@ -172,7 +181,8 @@ extern "C" {
   }
   
   void sbmLoadTable(int start, int nn, int dd, double *BB, double *PP, int *PPint, double *flatTable){
-    
+
+
     int ii, jj, offset;
     //  skip first (start - 1) sets of draws
     offset = (start - 1) * (dd * (nn + dd));
@@ -187,7 +197,6 @@ extern "C" {
     for(ii = 0 ; ii < nn*dd ; ii++){
       PP[ii] = flatTable[offset + ii];
     }
-
     //  Loading PPint
     for(ii = 0 ; ii < nn ; ii++){
       jj = 0;

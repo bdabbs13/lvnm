@@ -105,7 +105,9 @@ void mmsbmImputeMissingValues(int nn, int dd, int *YY,
   void sbmDrawPP(int nn, int dd, int *YY,
 		 double *BB, double *PP,
 		 double *eta, int *PPint);
-  
+  void sbmRotate(int nn, int dd, double *BB, 
+		 double *PP, int *PPint);
+
   
   /**********  MMSBM  **********/
   

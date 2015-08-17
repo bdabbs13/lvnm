@@ -218,9 +218,9 @@ extern "C" {
     
     int ii, converged;
     double qq = 3.2;
+    int shift_size = 100;
     int extend_max = 10;
     int extend_count = 0;
-    int shift_size = 100;
     //    int burnIn = 0;
     //    int thin = 1;
     
@@ -864,7 +864,8 @@ void printTableMMSBM(int nn, int dd, double *BB, double *PP,
   */
   
   //  Saves the current MMSBM state to the flatTable
-  void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, double *flatTable){
+  void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, 
+		       double *flatTable){
     int ii, offset;
     offset = iter * (dd * (nn + dd));
     for(ii = 0 ; ii < dd*dd ; ii++){

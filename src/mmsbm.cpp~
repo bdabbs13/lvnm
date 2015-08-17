@@ -216,26 +216,44 @@ extern "C" {
 	       double *BB, double *PP, int *PPint, int *yyComplete,
 	       double *flatTable,int start, int multiImpute){
     
-    int ii;
+    int ii, converged;
+    double qq = 3.2;
+    int shift_size = 100;
+    int extend_max = 10;
+    int extend_count = 0;
     //    int burnIn = 0;
     //    int thin = 1;
-
+    
     sbmInit(YY,nn,dd,eta,betaPrior,BB,PP,PPint,
 	    yyComplete,logLik,flatTable,start,multiImpute);
     
     //  MCMC Loop
-    for(ii = start ; ii < total ; ii++){
-      if(multiImpute == 1){
-	sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+    converged = 0;
+    while((converged != 1) & (extend_count <= extend_max)){
+      for(ii = start ; ii < total ; ii++){
+	if(multiImpute == 1){
+	  sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+	}
+	sbmStep(yyComplete, nn, dd, eta, betaPrior, BB, PP,PPint);
+	sbmRotate(nn,dd,BB,PP,PPint);
+	
+	if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
+	  logLik[(ii - burnIn)/thin] = sbmLogLikYY(nn,dd,YY,BB,PP,PPint);
+	  updateFlatTable((ii - burnIn)/thin, nn, dd, BB, PP, flatTable);
+	}//    printTableMMSBM(nn, dd, BB, PP, sendMat, recMat);
       }
-      sbmStep(yyComplete, nn, dd, eta, betaPrior, BB, PP,PPint);
-      sbmRotate(nn,dd,BB,PP,PPint);
-      if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	logLik[(ii - burnIn)/thin] = sbmLogLikYY(nn,dd,YY,BB,PP,PPint);
-	updateFlatTable((ii - burnIn)/thin, nn, dd, BB, PP, flatTable);
-      }//    printTableMMSBM(nn, dd, BB, PP, sendMat, recMat);
+      //Rprintf("total = %d\n",total);
+      converged = convergenceCheck(logLik,(total - burnIn)/thin,qq);
+      Rprintf("Converged Status %d, after %d extensions\n",converged,extend_count);
+      if(converged != 1){
+	extend_count = extend_count + 1;
+	shiftFlatTable(shift_size,nn,dd,(total - burnIn)/thin,flatTable);
+	start = total - (shift_size*thin);
+      }
     }
-    
+    if(converged != 1){
+      Rprintf("MCMC Failed to Converge\n");
+    }
   }
   
 
@@ -846,7 +864,8 @@ void printTableMMSBM(int nn, int dd, double *BB, double *PP,
   */
   
   //  Saves the current MMSBM state to the flatTable
-  void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, double *flatTable){
+  void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, 
+		       double *flatTable){
     int ii, offset;
     offset = iter * (dd * (nn + dd));
     for(ii = 0 ; ii < dd*dd ; ii++){
@@ -857,6 +876,68 @@ void printTableMMSBM(int nn, int dd, double *BB, double *PP,
       flatTable[offset + ii] = PP[ii];
     }
     
+  }
+
+  void shiftFlatTable(int shift_size, int nn, int dd, int total,
+		      double *flatTable){
+    int ii;
+    int flatTotal = total * (dd * (nn + dd));
+    int flatShift = shift_size * (dd *(nn + dd));
+    for(ii = 0 ; ii < flatTotal - flatShift ; ii++){
+      flatTable[ii] = flatTable[ii + flatShift];
+    }
+    
+  }
+
+
+
+  void getMeanVar(double *vec, int lower, int upper,
+		  double *Mean_t, double *Var_t, double * Len_t){
+
+    
+    double Var;
+    double Mean = 0.0;
+    double Len = upper - lower;
+    double SumSq = 0.0;
+    int ii;
+    for(ii = lower ; ii < upper ; ii++){
+      Mean = Mean + vec[ii];
+      SumSq = SumSq + vec[ii] * vec[ii];
+    }
+    Mean = Mean / Len;
+    Var = ((SumSq/Len) - (Mean * Mean))*(Len / (Len-1));
+    *Mean_t = Mean;
+    *Var_t = Var;
+    *Len_t = Len;
+    
+  }
+  
+  int convergenceCheck(double *logLik, int total, double qq){
+    
+    double llMean1, llVar1, llLen1;
+    double llMean2, llVar2, llLen2;
+    double sdTot;
+    
+    
+    //Rprintf("lower1 = %d, upper1 = %d\n",0,total/10);
+    getMeanVar(logLik,0,total/10,
+	       &llMean1, &llVar1, & llLen1);
+    //Rprintf("lower2 = %d, upper2 = %d\n",total/2,total);    
+    getMeanVar(logLik,total/2,total,
+	       &llMean2, &llVar2, & llLen2);
+    sdTot = sqrt((llVar1/llLen1) + (llVar2/llLen2));
+    
+    //Rprintf("Mean 1 = %f \t Mean 2 = %f \t sd.est = %f\n",
+    //llMean1,llMean2,sdTot);
+    
+
+    if((llMean2 - llMean1) <= (qq * sdTot)){
+      if((llMean1 - llMean2) <= (qq * sdTot)){
+	return(1);
+      }
+    }
+    return(0);
+      
   }
 
 

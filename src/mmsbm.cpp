@@ -17,6 +17,167 @@ using std::ifstream;
 //gsl_rng *rng;
 //ofstream myfile;
 
+class sbm_t {
+  int nn, dd;
+  int *YY;
+  int *yyComplete;
+  double *BB;
+  double *PP;
+  int *PPint;
+  double betaPrior[2];
+  double *eta;
+  bool multiImpute;
+public:
+  //  sbm_t ();
+  sbm_t (int, int, int*, double*, double*, int);
+  //  sbm_t (int, int, int*, double *, double *, int, int, double *);
+  void loadTable (int, double*);
+  void print (bool);
+};
+
+
+
+
+
+//  Initialization without BB and PI
+sbm_t::sbm_t (int nodes, int blocks, int *adjMat, 
+	      double *betaP, double * etaP, int mImpute){
+
+  int ii, kk;
+  
+  // Loading Constants
+  nn = nodes; dd = blocks;
+
+  // Loading Adjacency Matrix
+  YY = new int[nn*nn];
+  yyComplete = new int[nn*nn];
+
+  std::copy(adjMat,adjMat+(nn*nn),YY);
+  multiImpute = mImpute == 1;
+
+  if(multiImpute){
+    for(ii = 0 ;ii < nn*nn ; ii++){
+      if(yyComplete[ii] < 0){
+	yyComplete[ii] = 0;
+      }else{
+	yyComplete[ii] = YY[ii];
+      }
+    }
+  }else{
+    std::copy(adjMat,adjMat + (nn*nn),yyComplete);
+  }
+  
+  //  Initializing BB Matrix
+  std::copy(betaP,betaP+2,betaPrior);
+  BB = new double[dd*dd];
+  double holder[2];
+  for(ii = 0 ; ii < dd*dd ; ii++){
+    rdirichlet(2,betaPrior,holder);
+    BB[ii] = holder[0];
+  }
+  
+  PP = new double[nn*dd];
+  PPint = new int[nn];
+  
+  // Initializing PP Matrix
+  eta = new double[dd];
+  std::copy(etaP,etaP+dd,eta);
+  
+  int ind[dd];
+  for(ii = 0 ; ii < nn ; ii++){
+    rmultinom(1,eta,dd,ind);
+    
+    // Setting PP[ii,] Value
+    for(kk = 0 ; kk < dd ; kk++){
+      if(ind[kk] == 1){
+	    PP[ii*dd + kk] = 1.0;
+	    PPint[ii] = kk;
+      }else{
+	PP[ii*dd + kk] = 0.0;
+      }
+    }   
+  }
+}
+
+
+void sbm_t::loadTable(int start, double *flatTable){
+  int ii, jj;
+  sbmLoadTable(start,nn,dd,BB,PP,flatTable);
+  
+  for(ii = 0; ii < nn; ii++){
+    jj = 0;
+    while(PP[ii*dd + jj] != 1.0){
+      jj++;
+    }
+    PPint[ii] = jj;
+  }
+  
+  sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+}
+
+/*
+sbm_t::sbm_t (int nodes, int blocks, int *adjMat, double *betaP, double* etaP,
+	      int mImpute, int start, double *flatTable){
+  int ii, jj;
+
+  // Loading Constants
+  nn = nodes; dd = blocks;
+  YY = new int[nn*nn];
+  yyComplete = new int[nn*nn];
+  
+  // Loading Adjacency Matrix
+  std::copy(adjMat,adjMat+(nn*nn),YY);
+  multiImpute = mImpute == 1;
+
+  if(multiImpute){
+    for(ii = 0 ;ii < nn*nn ; ii++){
+      if(yyComplete[ii] < 0){
+	yyComplete[ii] = 0;
+      }else{
+	yyComplete[ii] = YY[ii];
+      }
+    }
+  }else{
+    std::copy(adjMat,adjMat + (nn*nn),yyComplete);
+  }
+
+  // Loading Parameters at Current Step
+  BB = new double[dd*dd];
+  PP = new double[nn*dd];
+  sbmLoadTable(start,nn,dd,BB,PP,flatTable);
+
+  PPint = new int[nn];
+  for(ii = 0; ii < nn; ii++){
+    jj = 0;
+    while(PP[ii*dd + jj] != 1.0){
+      jj++;
+    }
+    PPint[ii] = jj;
+  }
+  
+  // Loading Priors
+  eta = new double[dd];
+  std::copy(betaP,betaP+2,betaPrior);
+  std::copy(etaP,etaP+dd,eta);
+  
+  sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+}
+*/
+
+
+void sbm_t::print(bool printNetwork){
+  Rprintf("dd = %d, nn = %d\n",dd,nn);
+  Rprintf("bbPrior = (%.2f, %.2f)\n",betaPrior[0],betaPrior[1]);
+  Rprintf("multiPrior = ");
+  RprintDoubleMat(1,dd,eta);
+  Rprintf("BB = \n"); RprintDoubleMat(dd, dd, BB);
+  Rprintf("PI = \n"); RprintIntMat(1,nn,PPint);
+  if(printNetwork){
+    Rprintf("YY = \n"); RprintIntMat(nn,nn,YY);
+  }
+  
+}
+
 extern "C" {
   
   
@@ -36,7 +197,17 @@ extern "C" {
     double BB[dd*dd], PP[nn*dd];
     int yyComplete[nn*nn], PPint[nn];
     
+    //  Testing my classs!!!
+    sbm_t mySBM (*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+    
+    if(start > 0){
+      mySBM.loadTable(start,flatTable);
+    }
+    mySBM.print(0 == 1);
 
+    
+
+    //  Done Testing...
     sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, logLik,
 	    BB, PP, PPint, yyComplete, flatTable, start, multiImpute);
 
@@ -79,7 +250,7 @@ extern "C" {
   }
 
 
-
+}
 
 
 
@@ -89,50 +260,48 @@ extern "C" {
 
   /**********  SBM  **********/
   
-  void sbmInit(int *YY, int nn, int dd, double *eta, double *betaPrior, 
-	       double *BB, double *PP, int *PPint, int *yyComplete,
-	       double *logLik, double *flatTable, int start, int multiImpute){
-    
-    int ii,kk;
-    //    Rprintf("start: %d\n ",start);
-    if(start > 0){
+void sbmInit(int *YY, int nn, int dd, double *eta, double *betaPrior, 
+	     double *BB, double *PP, int *PPint, int *yyComplete,
+	     double *logLik, double *flatTable, int start, int multiImpute){
+  
+  int ii,kk;
+  //    Rprintf("start: %d\n ",start);
+  if(start > 0){
     //      Rprintf("start is greater than 0\n");
-      sbmLoadTable(start,nn,dd,BB,PP,PPint,flatTable);
-      
+    sbmLoadTable(start,nn,dd,BB,PP,flatTable);
+    
       // Creating Initial Imputation if Necessary
-      if(multiImpute==1){
-	for(ii = 0 ; ii < nn*nn ; ii++){
-	  if(yyComplete[ii] < 0){
+    if(multiImpute==1){
+      for(ii = 0 ; ii < nn*nn ; ii++){
+	if(yyComplete[ii] < 0){
 	    yyComplete[ii] = 0;
-	  }else{
-	    yyComplete[ii] = YY[ii];
-	  }
-	}
-	sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
-      }else{
-	for(ii = 0 ; ii < nn*nn ; ii++){
+	}else{
 	  yyComplete[ii] = YY[ii];
-	}	
+	}
+      }
+      sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+    }else{
+      for(ii = 0 ; ii < nn*nn ; ii++){
+	yyComplete[ii] = YY[ii];
+      }	
+    }
+  }else{
+    //  Initializing Complete YY Matrix
+    if(multiImpute==1){
+      for(ii = 0 ; ii < nn*nn ; ii++){
+	if(yyComplete[ii] < 0){
+	  yyComplete[ii] = 0;
+	}else{
+	  yyComplete[ii] = YY[ii];
+	}
       }
     }else{
-      
-      
-      //  Initializing Complete YY Matrix
-      if(multiImpute==1){
-	for(ii = 0 ; ii < nn*nn ; ii++){
-	  if(yyComplete[ii] < 0){
-	    yyComplete[ii] = 0;
-	  }else{
-	    yyComplete[ii] = YY[ii];
-	  }
-	}
-      }else{
-	for(ii = 0 ; ii < nn*nn ; ii++){
-	  yyComplete[ii] = YY[ii];
-	}	
-      }
-      //  Initializing BB Matrix
-      double holder[2];
+      for(ii = 0 ; ii < nn*nn ; ii++){
+	yyComplete[ii] = YY[ii];
+      }	
+    }
+    //  Initializing BB Matrix
+    double holder[2];
       for(ii = 0 ; ii < dd*dd ; ii++){
 	rdirichlet(2,betaPrior,holder);
 	BB[ii] = holder[0];
@@ -153,8 +322,8 @@ extern "C" {
 	  }
 	}   
       }
-    }
   }
+}
   void sbmStep(int *YY, int nn, int dd, double *eta, double *betaPrior,
 	       double *BB, double *PP, int *PPint){
     //  Drawing new BB Matrix Values
@@ -181,10 +350,10 @@ extern "C" {
   }
   
   void sbmLoadTable(int start, int nn, int dd, double *BB, 
-		    double *PP, int *PPint, double *flatTable){
+		    double *PP, double *flatTable){
 
 
-    int ii, jj, offset;
+    int ii, offset;
     //  skip first (start - 1) sets of draws
     offset = (start - 1) * (dd * (nn + dd));
 
@@ -199,13 +368,14 @@ extern "C" {
       PP[ii] = flatTable[offset + ii];
     }
     //  Loading PPint
-    for(ii = 0 ; ii < nn ; ii++){
-      jj = 0;
-      while(PP[ii*dd + jj] != 1.0){
-	jj++;
-      }
-      PPint[ii] = jj;
-    }
+    /*    for(ii = 0 ; ii < nn ; ii++){
+	  jj = 0;
+	  while(PP[ii*dd + jj] != 1.0){
+	  jj++;
+	  }
+	  PPint[ii] = jj;
+	  }
+    */
 
   }
   
@@ -811,7 +981,7 @@ extern "C" {
     int ii, jj;
     for(ii = 0 ; ii < rows ; ii++){
       for(jj = 0 ; jj < cols ; jj++){
-	Rprintf("%f ",mat[ii*cols + jj]);
+	Rprintf("%.3f ",mat[ii*cols + jj]);
       }
       Rprintf("\n");
     }
@@ -964,4 +1134,4 @@ int *readCSV(const char *file, int *rows, int *cols){
   */
 
 
-}
+

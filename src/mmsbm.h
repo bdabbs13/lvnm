@@ -18,8 +18,37 @@ extern "C" {
 	     double *betaPrior, double *alpha,
 	     double *flatTable, int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t);
+}
   
-  
+class sbm_t {
+  int nn, dd;
+  int *YY;
+  int *yyComplete;
+  double *BB;
+  double *PP;
+  int *PPint;
+  double betaPrior[2];
+  double *eta;
+  bool multiImpute;
+ public:
+  //  sbm_t ();
+  sbm_t (int, int, int*, double*, double*, int);
+  //  sbm_t (int, int, int*, double *, double *, int, int, double *);
+  void loadTable (int, double*);
+  void step ();
+  void drawBB();
+  void drawPP();
+  void rotate();
+  void imputeMissingValues();
+  double LL();
+  double nodeLL(int);
+  void updateFlatTable(int, double*);
+  void print (bool);
+};
+
+
+
+
   /*****************************************************
    *************  MCMC CONTROL FUNCTIONS  **************
    ****************************************************/
@@ -148,6 +177,6 @@ void mmsbmImputeMissingValues(int nn, int dd, int *YY,
   int convergenceCheck(double *logLik, int total, double qq);
 
   
-}
+
 #endif
 

@@ -41,8 +41,7 @@ extern "C" {
 			      double* BB, double *PP, int *PPint);
   
   void sbmLoadTable(int start, int nn, int dd,
-		    double *BB, double *PP, int *PPint,
-		    double *flatTable);
+		    double *BB, double *PP, double *flatTable);
   
   void sbmMCMC(int total,int burnIn, int thin,
 	       int *YY,int nn,int dd,

@@ -32,29 +32,32 @@ public:
   sbm_t (int, int, int*, double*, double*, int);
   //  sbm_t (int, int, int*, double *, double *, int, int, double *);
   void loadTable (int, double*);
+  void step ();
+  void drawBB();
+  void drawPP();
+  void rotate();
+  void imputeMissingValues();
+  double LL();
+  double nodeLL(int);
+  void updateFlatTable(int, double*);
   void print (bool);
 };
-
-
-
 
 
 //  Initialization without BB and PI
 sbm_t::sbm_t (int nodes, int blocks, int *adjMat, 
 	      double *betaP, double * etaP, int mImpute){
-
   int ii, kk;
-  
   // Loading Constants
   nn = nodes; dd = blocks;
-
+  
   // Loading Adjacency Matrix
   YY = new int[nn*nn];
   yyComplete = new int[nn*nn];
-
+  
   std::copy(adjMat,adjMat+(nn*nn),YY);
   multiImpute = mImpute == 1;
-
+  
   if(multiImpute){
     for(ii = 0 ;ii < nn*nn ; ii++){
       if(yyComplete[ii] < 0){
@@ -115,54 +118,275 @@ void sbm_t::loadTable(int start, double *flatTable){
   sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
 }
 
-/*
-sbm_t::sbm_t (int nodes, int blocks, int *adjMat, double *betaP, double* etaP,
-	      int mImpute, int start, double *flatTable){
-  int ii, jj;
 
-  // Loading Constants
-  nn = nodes; dd = blocks;
-  YY = new int[nn*nn];
-  yyComplete = new int[nn*nn];
+void sbm_t::step(){
+  drawBB();
+  drawPP();
+}
+
+void sbm_t::drawBB(){
+  int dd2 = dd*dd;
+  double hit[dd2], miss[dd2];
+  int ii;
   
-  // Loading Adjacency Matrix
-  std::copy(adjMat,adjMat+(nn*nn),YY);
-  multiImpute = mImpute == 1;
+  // Setting Up Hit and Miss Counts
+  for(ii = 0 ; ii < dd2 ; ii++){
+    hit[ii] = 0.0;
+    miss[ii] = 0.0;
+  }
+  
+  //  Populating Hit and Miss Counts
+  int rr, cc, index;
+  for(rr = 0 ; rr < nn ; rr++){
+    for(cc = 0 ; cc < nn ; cc++){
+      index = PPint[rr] * dd + PPint[cc];
+      if(YY[rr * nn + cc] == 1){
+	hit[index] = hit[index] + 1;
+	}else if(YY[rr * nn + cc] == 0){
+	miss[index] = miss[index] + 1;
+      }
+      }
+  }
+  
+  //  Drawing From Posterior Distribution
+  double alpha_new[2];
+  double holder[2];
+  for(ii = 0 ; ii < dd2 ; ii++){
+    alpha_new[0] = betaPrior[0] + hit[ii];
+    alpha_new[1] = betaPrior[1] + miss[ii];
+    rdirichlet(2,alpha_new,holder);
+    BB[ii] = holder[0];
+  }
+}
 
-  if(multiImpute){
-    for(ii = 0 ;ii < nn*nn ; ii++){
-      if(yyComplete[ii] < 0){
-	yyComplete[ii] = 0;
-      }else{
-	yyComplete[ii] = YY[ii];
+void sbm_t::drawPP(){
+    int ii,jj,kk;
+    double pp[dd], total, pMax;
+    int ind[dd];
+    for(ii = 0 ; ii < nn ; ii++){
+      total = 0.0;
+      for(jj = 0 ; jj < dd ; jj++){
+	PPint[ii] = jj;
+	
+	// Calculating Log Posterior Probability
+	pp[jj] = nodeLL(ii);
+	if(jj == 0){
+	  pMax = pp[jj];
+	}else{
+	  if(pp[jj] > pMax){
+	    pMax = pp[jj];
+	  }
+	}
+      }
+      
+      // Exponentiating Probabilities
+      for(jj = 0 ; jj < dd ; jj++){
+	pp[jj] = exp(pp[jj] - pMax);
+
+	total = total + pp[jj];
+      }
+
+      // Normalizing Probabilities
+      for(jj = 0 ; jj < dd ; jj++){
+	pp[jj] = pp[jj] / total;
+      }
+      
+      // Drawing from Multinomial
+      rmultinom(1,pp,dd,ind);
+      
+      // Setting PP[ii,] Value
+      for(kk = 0 ; kk < dd ; kk++){
+	if(ind[kk] == 1){
+	  PP[ii*dd + kk] = 1.0;
+	  PPint[ii] = kk;
+	}else{
+	  PP[ii*dd + kk] = 0.0;
+	}
       }
     }
-  }else{
-    std::copy(adjMat,adjMat + (nn*nn),yyComplete);
-  }
 
-  // Loading Parameters at Current Step
-  BB = new double[dd*dd];
-  PP = new double[nn*dd];
-  sbmLoadTable(start,nn,dd,BB,PP,flatTable);
-
-  PPint = new int[nn];
-  for(ii = 0; ii < nn; ii++){
-    jj = 0;
-    while(PP[ii*dd + jj] != 1.0){
-      jj++;
-    }
-    PPint[ii] = jj;
-  }
-  
-  // Loading Priors
-  eta = new double[dd];
-  std::copy(betaP,betaP+2,betaPrior);
-  std::copy(etaP,etaP+dd,eta);
-  
-  sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
 }
-*/
+
+void sbm_t::rotate(){
+  int ii, jj, kk;
+  int assigned[dd], replaced[dd];
+  for(ii = 0 ; ii < dd ; ii++){
+    assigned[ii] = -1;
+    replaced[ii] = -1;
+  }
+  int PPtmp[nn];
+  for(ii = 0 ; ii < nn ; ii++){
+    PPtmp[ii] = PPint[ii];
+  }
+  int replacements[nn];
+  for(ii = 0 ; ii < nn ; ii++){
+    replacements[ii] = -1;
+  }
+  
+  for(ii = 0 ; ii < dd ; ii++){
+    if(replacements[ii] == -1){
+      assigned[PPtmp[ii]] = ii;
+      replaced[ii] = PPtmp[ii];
+      for(jj = 0 ; jj < nn ; jj++){
+	if(PPtmp[jj] == PPtmp[ii]){
+	  replacements[jj] = ii;
+	}
+      }
+    }
+  }
+
+  int uncount = 0;
+  for(ii = 0 ; ii < dd ; ii++){
+    if(assigned[ii] == -1){
+      uncount++;
+    }
+  }
+  int vacancy, newlabel;
+  while(uncount > 0){
+      
+    //  Setting Vacancy to Minimum Unassigned
+    for(ii = 0 ; ii < dd ; ii++){
+      if(assigned[ii] == -1){
+	vacancy = ii;
+	break;
+      }
+    }
+    //  Setting newlabel to Minimum unreplaced
+    for(ii = 0 ; ii < dd ;  ii++){
+      if(replaced[ii] == -1){
+	newlabel = ii;
+	break;
+      }
+    }
+    /*
+      Rprintf("uncount: %d ",uncount);
+      Rprintf("vacancy: %d ",vacancy);
+      Rprintf("newlabel: %d ",newlabel);
+      Rprintf("\n");
+      RprintIntMat(1, dd, assigned);
+    */	   
+
+    assigned[vacancy] = newlabel;
+    replaced[newlabel] = vacancy;
+    for(jj = 0 ; jj < nn ; jj++){
+      if(PPtmp[jj] == vacancy){
+	replacements[jj] = newlabel;
+      }
+    }
+    uncount = 0;
+    for(ii = 0 ; ii < dd ; ii++){
+      if(assigned[ii] == -1){
+	uncount++;
+      }
+    }
+      
+  }
+
+  //  Updating Membership Vectors
+  for(ii = 0 ; ii < nn ; ii++){
+    PPint[ii] = assigned[PPint[ii]];
+    for(kk = 0 ; kk < dd ; kk++){
+      if(PPint[ii] == kk){
+	PP[ii*dd + kk] = 1.0;
+      }else{
+	PP[ii*dd + kk] = 0.0;
+      }
+    }
+  }
+  //  Updating Block Matrix
+  for(ii = 0 ; ii < dd ; ii++){
+    for(jj = 0 ; jj < dd ; jj++){
+      BB[ii*dd + jj] = BB[assigned[ii]*dd + assigned[jj]];
+    }
+  }
+}
+
+void sbm_t::imputeMissingValues(){
+  int rr, cc, index;
+  for(rr = 0 ; rr < nn ; rr++){ // row loop
+    for(cc = 0 ; cc < nn ; cc++){ // col loop
+      if(rr != cc){ // ignore diagonal entries
+	if(YY[rr*nn + cc] < 0){ // missing values coded -1
+	  index = PPint[rr] * dd + PPint[cc];
+	  yyComplete[rr*nn + cc] = (int) rbinom(1.0,BB[index]);
+	}
+      }
+    }
+  }
+}
+
+double sbm_t::LL(){
+  int ii;
+  
+  // Reading in BB Matrix Values
+  double pMat[nn*nn];
+  int rr, cc, index;
+  
+  // Creating matrix of tie probabilities
+  for(rr = 0 ; rr < nn ; rr++){
+    for(cc = 0 ; cc < nn ; cc++){
+      index = PPint[rr] * dd + PPint[cc];
+      pMat[rr * nn + cc] = BB[index];
+    }
+  }
+  
+  // Summing over all tie probabilities, ignoring diagonal
+  double total = 0.0;
+  for(ii = 0 ; ii < nn*nn ; ii++){
+    //      if((ii / nn) != (ii % nn)){
+    if(YY[ii] == 1){
+      total = total + log(pMat[ii]);
+    }else if(YY[ii] == 0){
+      total = total + log(1 - pMat[ii]);
+    }
+  }
+  //    }
+  return(total);
+  
+}
+
+double sbm_t::nodeLL(int ii){
+  int jj;
+  int PPii = PPint[ii];
+  int index;
+  double total = 0.0;
+  
+  //  sums the (i,j)th and (j,i)th probabilities for all j
+  for(jj = 0 ; jj < nn ; jj++){
+    if(jj != ii){
+      
+      //  (i,j)th term
+      index = PPii * dd + PPint[jj];
+      if(YY[ii*nn + jj] == 1){
+	total = total + log(BB[index]);
+      }else if(YY[ii*nn + jj] == 1){
+	total = total + log(1 - BB[index]);
+      }
+      
+      //  (j,i)th term
+      index = PPint[jj] * dd + PPii;
+      if(YY[jj*nn + ii] == 1){
+	total = total + log(BB[index]);
+      }else if(YY[jj*nn + ii] == 0){
+	total = total + log(1 - BB[index]);
+      }
+    }
+  }
+  
+  return(total);
+}
+
+void sbm_t::updateFlatTable(int iter, double *flatTable){
+  int ii, offset;
+  offset = iter * (dd * (nn + dd));
+  for(ii = 0 ; ii < dd*dd ; ii++){
+    flatTable[offset + ii] = BB[ii];
+  }
+  offset = offset + dd*dd;
+  for(ii = 0 ; ii < nn*dd ; ii++){
+    flatTable[offset + ii] = PP[ii];
+  }
+}
 
 
 void sbm_t::print(bool printNetwork){
@@ -190,29 +414,67 @@ extern "C" {
     
     GetRNGstate();
 
-    int total = *iters;
-    int burnIn = *burn_t, thin = *thin_t;
+    
     int start = *start_t, multiImpute = *multi_t;
     int nn = *nn_t, dd = *kk_t;
-    double BB[dd*dd], PP[nn*dd];
-    int yyComplete[nn*nn], PPint[nn];
+    //    double BB[dd*dd], PP[nn*dd];
+    //    int yyComplete[nn*nn], PPint[nn];
     
-    //  Testing my classs!!!
+
+    /*****  INITIALIZATION  *****/
+    //  Initializing SBM object
     sbm_t mySBM (*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
-    
+    //  If start is positive, load initial values
     if(start > 0){
       mySBM.loadTable(start,flatTable);
     }
     mySBM.print(0 == 1);
-
     
 
-    //  Done Testing...
-    sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, logLik,
-	    BB, PP, PPint, yyComplete, flatTable, start, multiImpute);
-
+    int total = *iters, burnIn = *burn_t, thin = *thin_t;
+    int ii, converged;
+    double qq = 3.2;
+    int shift_size = 100, extend_max = 10, extend_count = 0;
+    
+    //    sbmMCMC(total, burnIn, thin, YY, nn, dd, eta, betaPrior, logLik,
+    //	    BB, PP, PPint, yyComplete, flatTable, start, multiImpute);
+    
+    //  MCMC Loop
+    converged = 0;
+    while((converged != 1) & (extend_count <= extend_max)){
+      for(ii = start ; ii < total ; ii++){
+	if(multiImpute == 1){
+	  //sbmImputeMissingValues(nn,dd,YY,yyComplete,BB,PP,PPint);
+	  mySBM.imputeMissingValues();
+	}
+	//	sbmStep(yyComplete, nn, dd, eta, betaPrior, BB, PP,PPint);
+	mySBM.step();
+	//sbmRotate(nn,dd,BB,PP,PPint);
+	mySBM.rotate();
+	
+	if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
+	  logLik[(ii - burnIn)/thin] = mySBM.LL();
+	  //sbmLogLikYY(nn,dd,YY,BB,PP,PPint);
+	  mySBM.updateFlatTable((ii - burnIn)/thin,flatTable);
+	  //updateFlatTable((ii - burnIn)/thin, nn, dd, BB, PP, flatTable);
+	}//    printTableMMSBM(nn, dd, BB, PP, sendMat, recMat);
+      }
+      //Rprintf("total = %d\n",total);
+      converged = convergenceCheck(logLik,(total - burnIn)/thin,qq);
+      Rprintf("Converged Status %d, after %d extensions\n",converged,extend_count);
+      if(converged != 1){
+	extend_count = extend_count + 1;
+	shiftFlatTable(shift_size,nn,dd,(total - burnIn)/thin,flatTable);
+	start = total - (shift_size*thin);
+      }
+    }
+    if(converged != 1){
+      Rprintf("MCMC Failed to Converge\n");
+    }
+    
+    
     PutRNGstate();
-
+    
   }
   
   //  Function to be called by R
@@ -628,36 +890,36 @@ void sbmInit(int *YY, int nn, int dd, double *eta, double *betaPrior,
 
 
   //  Computes log-likelihood affected by single node, ii
-  double sbmLogLikYY_ii(int ii, int nn, int dd, int *YY, double *BB, double *PP, int *PPint){
-    int jj;
-    int PPii = PPint[ii];
-    int index;
-    double total = 0.0;
-
-    //  sums the (i,j)th and (j,i)th probabilities for all j
-    for(jj = 0 ; jj < nn ; jj++){
-      if(jj != ii){
-
-	//  (i,j)th term
-	index = PPii * dd + PPint[jj];
-	if(YY[ii*nn + jj] == 1){
-	  total = total + log(BB[index]);
-	}else if(YY[ii*nn + jj] == 1){
-	  total = total + log(1 - BB[index]);
-	}
-
-	//  (j,i)th term
-	index = PPint[jj] * dd + PPii;
-	if(YY[jj*nn + ii] == 1){
-	  total = total + log(BB[index]);
-	}else if(YY[jj*nn + ii] == 0){
-	  total = total + log(1 - BB[index]);
-	}
+double sbmLogLikYY_ii(int ii, int nn, int dd, int *YY, double *BB, double *PP, int *PPint){
+  int jj;
+  int PPii = PPint[ii];
+  int index;
+  double total = 0.0;
+  
+  //  sums the (i,j)th and (j,i)th probabilities for all j
+  for(jj = 0 ; jj < nn ; jj++){
+    if(jj != ii){
+      
+      //  (i,j)th term
+      index = PPii * dd + PPint[jj];
+      if(YY[ii*nn + jj] == 1){
+	total = total + log(BB[index]);
+      }else if(YY[ii*nn + jj] == 1){
+	total = total + log(1 - BB[index]);
+      }
+      
+      //  (j,i)th term
+      index = PPint[jj] * dd + PPii;
+      if(YY[jj*nn + ii] == 1){
+	total = total + log(BB[index]);
+      }else if(YY[jj*nn + ii] == 0){
+	total = total + log(1 - BB[index]);
       }
     }
-
-    return(total);
   }
+  
+  return(total);
+}
 
 
   void sbmDrawPP(int nn, int dd, int *YY, double *BB, double *PP, double *eta,

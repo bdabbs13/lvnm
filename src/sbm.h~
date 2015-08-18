@@ -1,0 +1,38 @@
+/*****  sbm.h
+ *****  Header File for cidR.cpp
+ *****/
+
+#ifndef SBM_R
+#define SBM_R
+
+class sbm_t {
+  int nn, dd;
+  int *YY;
+  int *yyComplete;
+  double *BB;
+  double *PP;
+  int *PPint;
+  double betaPrior[2];
+  double *eta;
+  bool multiImpute;
+ public:
+  //  sbm_t ();
+  sbm_t (int, int, int*, double*, double*, int);
+  //  sbm_t (int, int, int*, double *, double *, int, int, double *);
+  void loadTable (int, double*);
+  void step ();
+  void drawBB();
+  void drawPP();
+  void rotate();
+  void imputeMissingValues();
+  double LL();
+  double nodeLL(int);
+  void updateFlatTable(int, double*);
+  void print (bool);
+};
+
+
+  
+
+#endif
+

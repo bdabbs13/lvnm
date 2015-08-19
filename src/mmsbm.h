@@ -37,7 +37,7 @@ class mmsbm_t {
   
 void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
 	       int shift_size, int extend_max, double qq,
-	       double *flatTable, double *logLik);
+	       double *flatTable, double *logLik, int verbose);
   
 #endif
 

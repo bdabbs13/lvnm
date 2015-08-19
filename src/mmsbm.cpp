@@ -27,7 +27,7 @@ using std::ifstream;
   
 void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
 	       int shift_size, int extend_max, double qq,
-	       double *flatTable, double *logLik){
+	       double *flatTable, double *logLik, int verbose){
   
   int ii;
   int flatLength = myMMSBM.dd * (myMMSBM.nn + myMMSBM.dd);
@@ -45,17 +45,26 @@ void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
       }
     }
     converged = convergenceCheck(logLik,(total - burnIn)/thin,qq);
-    Rprintf("Converged Status %d, after %d extensions\n",converged,extend_count);
+    if(verbose > 0){
+      Rprintf("Converged Status %d, after %d extensions\n",converged,extend_count);
+    }
     
-    if(converged != 1){
+    if(converged != 1 ){
       extend_count = extend_count + 1;
-      shiftFlatTable(shift_size,flatLength,flatTotal,flatTable);
-      std::copy(logLik + shift_size, logLik + flatTotal,logLik);
-      start = total - (shift_size*thin);
+      if(extend_count <= extend_max){
+	shiftFlatTable(shift_size,flatLength,flatTotal,flatTable);
+	std::copy(logLik + shift_size, logLik + flatTotal,logLik);
+	start = total - (shift_size*thin);
+      }
     }
   }
-  if(converged != 1){
-    Rprintf("MCMC Failed to Converge\n");
+
+  if(verbose > 0){
+    if(converged != 1){
+      Rprintf("Warning: MCMC Failed to Converge\n");
+    }else{
+      Rprintf("MCMC Converged\n");
+    }
   }
 }
 

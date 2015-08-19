@@ -55,9 +55,10 @@ data.gen.sbm <- function(nn=50,
 
 
 ###  Wrapper for C Implementation of SBM
-sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
+sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
                 burn.in=0,thin=1,
+                autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
                 flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
@@ -73,28 +74,8 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
   ll.vec <- double(short.total)
 
   if(!is.null(init.vals)){
-    if(is.null(init.vals$BB) | is.null(init.vals$PI)){
-      stop("init.vals must be a list containing BB and PI")
-    }
-    ## Checking BB
-    if(any(dim(init.vals$BB) != kk)) stop("BB must be a kk by kk matrix")
-    if(any(init.vals$BB < 0 | init.vals$BB > 1))
-      stop("BB must have values between 0 and 1")
-
-    ## Checking PI
-    if(any(dim(init.vals$PI)!=c(nn,kk))) stop("PI must be an nn by kk matrix")
-
-    BB.init <- double(kk^2)
-    PI.init <- double(kk*nn)
-    for(jj in 1:kk){
-      BB.init[((jj-1) * kk + 1):(jj*kk)] <- init.vals$BB[jj,]
-    }
-    for(jj in 1:nn){
-      PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
-    }
+    flatTable <- sbm.load.init.vals(init.vals)
     ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
-    flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
-
   }
 
   start = 0
@@ -105,12 +86,23 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
     flatVec[1:total.start] = as.double(t(flatTable))
     ll.vec[1:start] <- ll.init
   }
+
+  if(is.null(autoconverge)){
+    extend.max <- 0; shift.size <- 100
+    qq <- 3
+  }else{
+    extend.max <- as.integer(autoconverge$extend.max)
+    shift.size <- as.integer(autoconverge$shift.size)
+    qq <- as.double(qnorm(1 - autoconverge$alpha/2))
+  }
+
   ##  Calling C Implementation of MCMC
   out <- .C("sbm",as.integer(total),as.integer(nn),as.integer(kk),
             as.integer(t(YY.clean)),as.double(c(priors$aa,priors$bb)),
             as.double(priors$eta), flatVec,
             as.integer(burn.in), as.integer(thin),
-            as.integer(start),multi.int,ll.vec)
+            as.integer(start),multi.int,ll.vec,
+            extend.max,shift.size,qq,as.integer(verbose))
 
   ##  Pulling the flat matrices from the C output
   full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
@@ -181,7 +173,8 @@ mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
                   priors=list(aa=1,bb=1,alpha=rep(.25,kk)),init.vals=NULL,
                   max.starts=40,start.length=50,steps=2,clean.out=TRUE,
                   burn.in=0,thin=1,flatTable=NULL,ll.init=NULL,
-                  verbose=FALSE,multiImpute=TRUE){
+                  autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
+                  verbose=0,multiImpute=TRUE){
 
   mode <- match.arg(mode)
   flatTable <- NULL; ll.init <- NULL
@@ -198,16 +191,17 @@ mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
   }
 
   ##  Running Full Chain from Initial Chain
-  if(verbose){
+  if(verbose>0){
     print("Running Chain...")
   }
 
   mmsbm.out <- mmsbm.C(total=total,YY=YY,kk=kk,verbose=verbose,
                        burn.in=burn.in,thin=thin,init.vals=init.vals,
                        flatTable=flatTable,ll.init=ll.init,
+                       autoconverge=autoconverge,
                        priors=priors, multiImpute=multiImpute)
-  if(verbose) browser()
-  if(verbose) print("Finished Chain")
+  if(verbose>1) browser()
+  if(verbose>0) print("Finished Chain")
                                         #    mmsbm.out <- postprocess.mmsbm(mmsbm.out)
   mmsbm.summ <- summary(mmsbm.out,burn.in=0,thin=1)
   mmsbm.summ$pmat <- predict(mmsbm.summ)
@@ -263,7 +257,7 @@ predict.sbm <- predict.mmsbm
 
 
 mmsbm.metric <- function(graph,kk=3,total=2000,
-                         thin=1,burn.in=1000,verbose=FALSE){
+                         thin=1,burn.in=1000,verbose=0){
   mmsbm.fit <- mmsbm(total=total,YY=graph,kk=kk,verbose=verbose,
                      thin=thin,burn.in=burn.in)
                                         #	mmsbm.summ <- summary(mmsbm.fit,thin=thin,burn.in=burn.in)
@@ -271,7 +265,7 @@ mmsbm.metric <- function(graph,kk=3,total=2000,
 }
 
 sbm.metric <- function(graph,kk=2,total=1500,
-                       thin=1,burn.in=500,verbose=FALSE){
+                       thin=1,burn.in=500,verbose=0){
   sbm.fit <- sbm(total=total,YY=graph,kk=kk,verbose=verbose,
                  thin=thin,burn.in=burn.in)
                                         #    sbm.summ <- summary(sbm.fit,thin=thin,burn.in=burn.in)
@@ -484,11 +478,11 @@ postprocess.mmsbm <- function(mmsbm.obj,burn.in=0,thin=1){
 #####  Uses a large number of relatively short chains to find an
 #####  initial value in the mode.
 #####  Note:  This mode should also be close to the mmsbm mode.
-sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=FALSE,
+sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=0,
                             priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),steps=2,
                             multiImpute=TRUE){
 
-  if(verbose) message("Trying Initial Values...")
+  if(verbose>0) message("Trying Initial Values...")
   start.out <- NULL
 
   ##  Matrix holding likelihood values
@@ -499,13 +493,13 @@ sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=FALSE,
   ##  Continue generating chains until a significant maximum is found
   while(!max.found & iter < max.starts){
     iter <- iter + 1
-    if(verbose){
+    if(verbose>1){
       message("Start ", iter)
     }
 
     ##  Generating SBM chain
     start.out[[iter]] <- sbm(total=start.length,YY=YY,kk=kk,
-                             verbose=verbose,priors=priors,clean.out=FALSE,
+                             verbose=verbose-1,priors=priors,clean.out=FALSE,
                              multiImpute=multiImpute)$chain
     ##  Updating Likelihood Matrix
     ll.mat[,iter] <- start.out[[iter]]$logLik
@@ -522,7 +516,7 @@ sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=FALSE,
   }
 
   ##  Notify if Maximum was Found
-  if(verbose){
+  if(verbose>0){
     if(iter < max.starts){
       message("Mode found after ",iter," iterations.")
     }else{
@@ -537,9 +531,10 @@ sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=FALSE,
 
 }
 
-mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
+mmsbm.C <- function(total=10,YY,kk=3,verbose=0,
                     burn.in=0,thin=1,init.vals=NULL,
                     priors=list(aa=1,bb=1,alpha=rep(.25,kk)),
+                    autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
                     flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
@@ -568,12 +563,23 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
     ll.vec[1:start] <- ll.init
   }
 
+  if(is.null(autoconverge)){
+    extend.max <- 0; shift.size <- 100
+    qq <- 3
+  }else{
+    extend.max <- as.integer(autoconverge$extend.max)
+    shift.size <- as.integer(autoconverge$shift.size)
+    qq <- as.double(qnorm(1 - autoconverge$alpha/2))
+  }
+
+
   ##  Calling C Implementation of MCMC
   out <- .C("mmsbm",as.integer(total),as.integer(nn),as.integer(kk),
             as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
             as.double(priors$alpha), flatVec,
             as.integer(burn.in),as.integer(thin),
-            as.integer(start),multi.int,ll.vec)
+            as.integer(start),multi.int,ll.vec,
+            extend.max,shift.size,qq,as.integer(verbose))
 
   ##  Pulling the flat matrices from the C output
   full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)

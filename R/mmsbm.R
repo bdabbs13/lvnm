@@ -93,14 +93,13 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
       PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
     }
     ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
-    flatTable <- array(c(BB.init,PI.init,ll.init),c(1,kk*(kk+nn)))
+    flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
 
   }
 
   start = 0
   if(!is.null(flatTable)){
     if(is.null(ll.init)) stop("flatTables require ll.init vector")
-
     start = nrow(flatTable)
     total.start = start*(kk*(kk+nn))
     flatVec[1:total.start] = as.double(t(flatTable))
@@ -179,13 +178,14 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
 
 #####  Wrapper function implementing sbm starts near the mode
 mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
-                  priors=list(aa=1,bb=1,alpha=rep(.25,kk)),
+                  priors=list(aa=1,bb=1,alpha=rep(.25,kk)),init.vals=NULL,
                   max.starts=40,start.length=50,steps=2,clean.out=TRUE,
-                  burn.in=0,thin=1,
+                  burn.in=0,thin=1,flatTable=NULL,ll.init=NULL,
                   verbose=FALSE,multiImpute=TRUE){
 
   mode <- match.arg(mode)
-  flat.mat <- NULL
+  flatTable <- NULL; ll.init <- NULL
+
   ##  Finding Initial Chain Near Mode
   if(mode == "multistart"){
     initial.obj <- sbm.mode.search(max.starts=max.starts,
@@ -193,7 +193,8 @@ mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
                                    steps=steps,
                                    YY=YY,kk=kk,verbose=verbose,
                                    multiImpute=multiImpute)
-    flat.mat <- initial.obj$flat.mat
+    flatTable <- initial.obj$flat.mat
+    init.vals <- NULL  #NEED TO ADD ACTUAL FUNCTIONALITY HERE!!
   }
 
   ##  Running Full Chain from Initial Chain
@@ -202,9 +203,9 @@ mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
   }
 
   mmsbm.out <- mmsbm.C(total=total,YY=YY,kk=kk,verbose=verbose,
-                       burn.in=burn.in,thin=thin,
-                       priors=priors,flatTable=flat.mat,
-                       multiImpute=multiImpute)
+                       burn.in=burn.in,thin=thin,init.vals=init.vals,
+                       flatTable=flatTable,ll.init=ll.init,
+                       priors=priors, multiImpute=multiImpute)
   if(verbose) browser()
   if(verbose) print("Finished Chain")
                                         #    mmsbm.out <- postprocess.mmsbm(mmsbm.out)
@@ -539,7 +540,7 @@ sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=FALSE,
 mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
                     burn.in=0,thin=1,init.vals=NULL,
                     priors=list(aa=1,bb=1,alpha=rep(.25,kk)),
-                    flatTable=NULL,multiImpute=TRUE){
+                    flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
   multi.int <- as.integer(ifelse(multiImpute,1,0))
@@ -551,11 +552,20 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
   short.total <- total
   total <- short.total * thin + burn.in
   flatVec = double(short.total*(kk*(kk+nn)))
+  ll.vec <- double(short.total)
+
+  if(!is.null(init.vals)){
+    flatTable <- sbm.load.init.vals(init.vals)
+    ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
+  }
+
   start = 0
   if(!is.null(flatTable)){
+    if(is.null(ll.init)) stop("flatTables require ll.init vector")
     start = nrow(flatTable)
     total.start = start*(kk*(kk+nn))
     flatVec[1:total.start] = as.double(t(flatTable))
+    ll.vec[1:start] <- ll.init
   }
 
   ##  Calling C Implementation of MCMC
@@ -563,7 +573,7 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
             as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
             as.double(priors$alpha), flatVec,
             as.integer(burn.in),as.integer(thin),
-            as.integer(start),multi.int)
+            as.integer(start),multi.int,ll.vec)
 
   ##  Pulling the flat matrices from the C output
   full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
@@ -575,7 +585,8 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
   BB <- array(NA,c(kk,kk,short.total))
   PI <- array(NA,c(nn,kk,short.total))
   pmat.mat <- array(NA,c(nn,nn,short.total))
-  ll.vec <- rep(NA,short.total)
+  ll.vec.old <- rep(NA,short.total)
+  ll.vec <- as.vector(out[[12]])
   diag(YY.clean) <- -1
   for(ii in 1:short.total){
 
@@ -588,11 +599,11 @@ mmsbm.C <- function(total=10,YY,kk=3,verbose=FALSE,
       PI[jj,,ii] <- PI.flat[ii,((jj-1)*kk + 1):(jj*kk)]
     }
     ##  Log-Likelihood Vector
-    ll.vec[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
+    ll.vec.old[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
     pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
   }
 
-  return(structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,flat.mat=full.mat,pmat=pmat.mat),class="mmsbm"))
+  return(structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,logLik.old=ll.vec.old,flat.mat=full.mat,pmat=pmat.mat),class="mmsbm"))
 }
 
 
@@ -601,6 +612,33 @@ mmsbm.log.like.YY <- function(YY,BB,PI){
   p.mat <- PI %*% BB %*% t(PI)
   return(sum(log(p.mat[YY==1])) + sum(log(1 - p.mat[YY==0])))
 }
+
+sbm.load.init.vals <- function(init.vals){
+
+  if(is.null(init.vals$BB) | is.null(init.vals$PI)){
+    stop("init.vals must be a list containing BB and PI")
+  }
+  ## Checking BB
+  if(any(dim(init.vals$BB) != kk)) stop("BB must be a kk by kk matrix")
+  if(any(init.vals$BB < 0 | init.vals$BB > 1))
+    stop("BB must have values between 0 and 1")
+
+  ## Checking PI
+  if(any(dim(init.vals$PI)!=c(nn,kk))) stop("PI must be an nn by kk matrix")
+
+  BB.init <- double(kk^2)
+  PI.init <- double(kk*nn)
+  for(jj in 1:kk){
+    BB.init[((jj-1) * kk + 1):(jj*kk)] <- init.vals$BB[jj,]
+  }
+  for(jj in 1:nn){
+    PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
+  }
+  flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
+  return(flatTable)
+}
+
+
 
 
 

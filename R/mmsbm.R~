@@ -108,7 +108,7 @@ sbm <- function(total=10,YY,kk=3,verbose=FALSE,init.vals=NULL,start=0,
   }
   ##  Calling C Implementation of MCMC
   out <- .C("sbm",as.integer(total),as.integer(nn),as.integer(kk),
-            as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
+            as.integer(t(YY.clean)),as.double(c(priors$aa,priors$bb)),
             as.double(priors$eta), flatVec,
             as.integer(burn.in), as.integer(thin),
             as.integer(start),multi.int,ll.vec)

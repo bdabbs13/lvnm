@@ -34,6 +34,8 @@ void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
   //  MCMC Loop
   int converged = 0, extend_count = 0;
   while((converged != 1) & (extend_count <= extend_max)){
+
+    // Main MCMC Loop
     for(ii = start ; ii < total ; ii++){
       mySBM.step();
       
@@ -50,6 +52,7 @@ void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
     if(converged != 1){
       extend_count = extend_count + 1;
       shiftFlatTable(shift_size,flatLength,flatTotal,flatTable);
+      std::copy(logLik + shift_size, logLik + flatTotal,logLik);
       start = total - (shift_size*thin);
     }
   }

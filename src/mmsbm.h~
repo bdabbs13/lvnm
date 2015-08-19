@@ -49,6 +49,8 @@ void mmsbmDrawBB(int nn, int dd, int *YY,
 		 int *sendMat, int *recMat,
 		 double *BB, double *betaPrior);
   
+void updateFlatTable(int iter, int nn, int dd, double *BB, 
+		     double *PP, double *flatTable);
   
 #endif
 

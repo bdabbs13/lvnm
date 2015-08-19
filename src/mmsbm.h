@@ -5,52 +5,39 @@
 #ifndef MMSBM_R
 #define MMSBM_R
 
-/**********  MMSBM  **********/
-  
-void mmsbmInit(int *YY, int nn, int dd, 
-	       double *alpha, double *betaPrior,
-	       double *BB, double *PP,
-	       int *sendMat, int *recMat, double *flatTable,
-	       int *yyComplete, int start, int multiImpute);
-  
-void mmsbmStep(int *YY, int nn, int dd,
-	       double *alpha, double *betaPrior,
-	       double *BB, double *PP,
-	       int *sendMat, int *recMat);
-  
-void mmsbmImputeMissingValues(int nn, int dd, int *YY,
-			      int *yyComplete, double* BB,
-			      int *sendMat,int *recMat);
-  
-void mmsbmLoadTable(int start, int nn, int dd,
-		    double *BB, double *PP, 
-		    double *flatTable);
-  
-void mmsbmMCMC(int total,int burnIn, int thin,
-	       int *YY,int nn,int dd,
-	       double *alpha,double *betaPrior,
-	       double *BB, double *PP,
-	       int *sendMat, int *recMat,
-	       int *yyComplete, double *flatTable,
-	       int start, int multiImpute);
-  
-  
-/**********  MMSBM  **********/
 
-void mmsbmDrawPP(int n, int d,
-		 int *sendMat, int *recMat,
-		 double *BB, double *alpha, double *PP);
+class mmsbm_t {
+  int *YY;
+  int *yyComplete;
+  double *BB;
+  double *PP;
+  int *sendMat;
+  int *recMat;
+  double betaPrior[2];
+  double *alpha;
+  bool multiImpute;
+ public:
+  int nn, dd;
+  mmsbm_t (int, int, int*, double*, double*, int);
+  void loadTable (int, double*);
+  void step ();
+  void drawBB();
+  void drawPP();
+  void drawZZ();
+  void rotate();
+  void imputeMissingValues();
+  double LL();
+  void updateFlatTable(int, double*);
+  void print (bool);
+};
+
+
+
+/**********  MMSBM  **********/
   
-void mmsbmDrawZZ(int nn, int dd,int *YY,
-		 double *BB, double *PP,
-		 int *sendMat, int *recMat);
-  
-void mmsbmDrawBB(int nn, int dd, int *YY,
-		 int *sendMat, int *recMat,
-		 double *BB, double *betaPrior);
-  
-void updateFlatTable(int iter, int nn, int dd, double *BB, 
-		     double *PP, double *flatTable);
+void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
+	       int shift_size, int extend_max, double qq,
+	       double *flatTable, double *logLik);
   
 #endif
 

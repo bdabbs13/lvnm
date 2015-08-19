@@ -63,7 +63,7 @@ extern "C" {
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,
 	     double *flatTable, int *burn_t, int *thin_t,
-	     int *start_t,int *multi_t)
+	     int *start_t,int *multi_t, double *logLik)
   {
     
     /* Initializing Random Number Generator */
@@ -75,20 +75,33 @@ extern "C" {
     //  Reading in values from pointers
     int total = *iters;
     int burnIn = *burn_t, thin = *thin_t;
-    int start = *start_t, multiImpute = *multi_t;
-    int dd = *kk_t, nn = *nn_t;
+    int start = *start_t;//, multiImpute = *multi_t;
+    //    int dd = *kk_t, nn = *nn_t;
     
     //  Allocating memory for variables
-    int yyComplete[nn*nn];
-    double BB[dd*dd];
-    double PP[nn*dd];
-    int sendMat[nn*nn]; int recMat[nn*nn];
+    //    int yyComplete[nn*nn];
+    //    double BB[dd*dd];
+    //    double PP[nn*dd];
+    //    int sendMat[nn*nn]; int recMat[nn*nn];
     
+    //  TESTING OBJECT ORIENTED CODE
+    mmsbm_t myMMSBM (*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
+    if(start > 0){
+      myMMSBM.loadTable(start, flatTable);
+    }
+    myMMSBM.print(1 == 1);
+    double qq = 3.2;
+    int shift_size = 100, extend_max = 10;
+
     //  Performing MCMC Algorithm
-    mmsbmMCMC(total,burnIn,thin,YY,nn,dd,alpha,betaPrior,
+    /*
+    mmsbmMCMCold(total,burnIn,thin,YY,nn,dd,alpha,betaPrior,
 	      BB,PP,sendMat,recMat,yyComplete,
 	      flatTable,start,multiImpute);
-    
+    */
+    mmsbmMCMC(myMMSBM, start, total, burnIn, thin,
+	       shift_size, extend_max, qq, flatTable, logLik);
+
     //  Sending RNG state back to R
     PutRNGstate();
   }

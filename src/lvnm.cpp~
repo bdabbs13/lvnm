@@ -34,64 +34,30 @@ extern "C" {
     
     GetRNGstate();
 
-    
-    int start = *start_t, multiImpute = *multi_t;
-    int nn = *nn_t, dd = *kk_t;
-    //    double BB[dd*dd], PP[nn*dd];
-    //    int yyComplete[nn*nn], PPint[nn];
-    
+    int start = *start_t;
+    int total = *iters, burnIn = *burn_t, thin = *thin_t;
+
+    //    int verbose = 0;
+    double qq = 3.2;
+    int shift_size = 100, extend_max = 10;
+
 
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
     sbm_t mySBM (*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
-    //  If start is positive, load initial values
     if(start > 0){
-      mySBM.loadTable(start,flatTable);
-    }
-    mySBM.print(0 == 1);
-    
-
-    int total = *iters, burnIn = *burn_t, thin = *thin_t;
-    int flatLength = dd * (nn + dd);
-    int flatTotal = (total - burnIn) / thin;
-    int ii, converged;
-    double qq = 3.2;
-    int shift_size = 100, extend_max = 10, extend_count = 0;
-    
-    //  MCMC Loop
-    converged = 0;
-    while((converged != 1) & (extend_count <= extend_max)){
-      for(ii = start ; ii < total ; ii++){
-	if(multiImpute == 1){
-	  mySBM.imputeMissingValues();
-	}
-	mySBM.step();
-	mySBM.rotate();
-	
-	if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	  logLik[(ii - burnIn)/thin] = mySBM.LL();
-	  mySBM.updateFlatTable((ii - burnIn)/thin,flatTable);
-	}
-      }
-      converged = convergenceCheck(logLik,(total - burnIn)/thin,qq);
-      Rprintf("Converged Status %d, after %d extensions\n",converged,extend_count);
-      if(converged != 1){
-	extend_count = extend_count + 1;
-	//	int flatStart = shift_size * flatLength;
-	//	int flatEnd = total * flatLength;
-	//	td::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
-	shiftFlatTable(shift_size,flatLength,(total - burnIn)/thin,flatTable);
-	start = total - (shift_size*thin);
-      }
-    }
-    if(converged != 1){
-      Rprintf("MCMC Failed to Converge\n");
+      mySBM.loadTable(start, flatTable);
     }
     
+    sbmMCMC(mySBM, start, total, burnIn, thin,
+	    shift_size, extend_max, qq, flatTable, logLik);
     
     PutRNGstate();
-    
   }
+  
+
+
+  
   
   //  Function to be called by R
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
@@ -105,7 +71,7 @@ extern "C" {
     //  rng = gsl_rng_alloc(gsl_rng_mt19937); /* start the RNG */
     //  gsl_rng_set(rng, static_cast<unsigned long int>(seed));
     GetRNGstate();
-   
+    Rprintf("this is the correct function\n");
     //  Reading in values from pointers
     int total = *iters;
     int burnIn = *burn_t, thin = *thin_t;

@@ -294,3 +294,18 @@ void mmsbmDrawZZ(int nn, int dd,int *YY, double *BB, double *PP, int *sendMat, i
   }
 }
   
+
+
+void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, double *flatTable){
+  int ii, offset;
+  offset = iter * (dd * (nn + dd));
+  for(ii = 0 ; ii < dd*dd ; ii++){
+    flatTable[offset + ii] = BB[ii];
+  }
+  offset = offset + dd*dd;
+  for(ii = 0 ; ii < nn*dd ; ii++){
+    flatTable[offset + ii] = PP[ii];
+  }
+  
+}
+

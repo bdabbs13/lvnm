@@ -18,7 +18,7 @@ extern "C" {
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,
 	     double *flatTable, int *burn_t, int *thin_t,
-	     int *start_t,int *multi_t);
+	     int *start_t,int *multi_t, double *logLik);
   
   
 }

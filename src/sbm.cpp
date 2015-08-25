@@ -60,10 +60,12 @@ void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
       }
     }
   }
-  if(verbose > 0){
-    if(converged != 1){
+  if(converged != 1){
+    if(verbose > -1){
       Rprintf("Warning: MCMC Failed to Converge\n");
-    }else{
+    }
+  }else{
+    if(verbose > 0){
       Rprintf("MCMC Converged\n");
     }
   }

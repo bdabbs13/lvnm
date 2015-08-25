@@ -14,30 +14,13 @@ rdirichlet <- function(n,alpha){
   x/as.vector(sm)
 }
 
-#####  Function to generate data from MMSBM model
-data.gen.mmsbm <- function(nn=50,
-                           BB=array(c(.25,0.05,0.05,.25),c(2,2)),
-                           PI.alpha=c(.25,.25)){
-
-  PI <- rdirichlet(nn,alpha=PI.alpha)
-  p.mat <- PI %*% BB %*% t(PI)
-  YY <- array(rbinom(nn*nn,1,p.mat),c(nn,nn))
-  diag(YY) <- NA
-  return(list(YY=YY,PI=PI,BB=BB,p.mat=p.mat))
-}
-
-#####  Function to generate data from MMSBM model
+#####  Function to generate data from SBM model
 data.gen.sbm <- function(nn=50,
                          BB=array(c(.25,0.05,0.05,.25),c(2,2)),
                          pp=c(.5,.5)){
 
   kk <- length(pp)
   ll <- round(pp*nn)
-#  total <- 1
-#  for(ii in 1:(kk-1)){
-#    block.vec[total:(total+ll[ii])] <- ii
-#    total = total + ll[ii]
-#  }
 
   block.vec <- sort(sample(kk,nn,replace=TRUE,prob=pp))
   PI <- array(0,c(nn,kk))
@@ -167,74 +150,6 @@ sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   return(sbm.summ)
 }
 
-
-#####  Wrapper function implementing sbm starts near the mode
-mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
-                  priors=list(aa=1,bb=1,alpha=rep(.25,kk)),init.vals=NULL,
-                  max.starts=40,start.length=50,steps=2,clean.out=TRUE,
-                  burn.in=0,thin=1,flatTable=NULL,ll.init=NULL,
-                  autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
-                  verbose=0,multiImpute=TRUE){
-
-  mode <- match.arg(mode)
-  flatTable <- NULL; ll.init <- NULL
-
-  ##  Finding Initial Chain Near Mode
-  if(mode == "multistart"){
-    initial.obj <- sbm.mode.search(max.starts=max.starts,
-                                   start.length=start.length,
-                                   steps=steps,
-                                   YY=YY,kk=kk,verbose=verbose,
-                                   multiImpute=multiImpute)
-    flatTable <- initial.obj$flat.mat
-    init.vals <- NULL  #NEED TO ADD ACTUAL FUNCTIONALITY HERE!!
-  }
-
-  ##  Running Full Chain from Initial Chain
-  if(verbose>0){
-    print("Running Chain...")
-  }
-
-  mmsbm.out <- mmsbm.C(total=total,YY=YY,kk=kk,verbose=verbose,
-                       burn.in=burn.in,thin=thin,init.vals=init.vals,
-                       flatTable=flatTable,ll.init=ll.init,
-                       autoconverge=autoconverge,
-                       priors=priors, multiImpute=multiImpute)
-  if(verbose>1) browser()
-  if(verbose>0) print("Finished Chain")
-                                        #    mmsbm.out <- postprocess.mmsbm(mmsbm.out)
-  mmsbm.summ <- summary(mmsbm.out,burn.in=0,thin=1)
-  mmsbm.summ$pmat <- predict(mmsbm.summ)
-  mmsbm.summ$YY <- mmsbm.out$YY
-  ##  Calculating DIC
-  mmsbm.summ$logLik <- with(mmsbm.summ,mmsbm.log.like.YY(YY,BB,PI))
-  mmsbm.summ$DIC <- 2*mmsbm.summ$logLik - 4 * mean(mmsbm.out$logLik)
-  mmsbm.summ$burn.in <- burn.in; mmsbm.summ$thin <- thin
-
-  if(clean.out){
-    mmsbm.summ$chain <- list(logLik=mmsbm.out$logLik)
-    mmsbm.summ$clean <- TRUE
-  }else{
-    mmsbm.summ$chain <- mmsbm.out
-    mmsbm.summ$chain$YY <- NULL
-    mmsbm.summ$clean <- FALSE
-  }
-
-  return(mmsbm.summ)
-}
-
-
-summary.mmsbm <- function(object,burn.in=0,thin=1,...){
-
-  total <- dim(object$PI)[3]
-  my.sub <- seq(burn.in+thin,total,by=thin)
-
-  PI.hat <- t(apply(object$PI[,,my.sub],1,rowMeans))
-  BB.hat <- t(apply(object$BB[,,my.sub],1,rowMeans))
-
-  return(structure(list(PI=PI.hat,BB=BB.hat),class="mmsbm"))
-}
-
 summary.sbm <- function(object,burn.in=0,thin=1,...){
   total <- dim(object$PI)[3]; kk <- dim(object$BB)[1]
   my.sub <- seq(burn.in + thin, total, by = thin)
@@ -247,28 +162,17 @@ summary.sbm <- function(object,burn.in=0,thin=1,...){
 
 }
 
-predict.mmsbm <- function(object,...){
+predict.sbm <- function(object,...){
   p.mat <- object$PI %*% object$BB %*% t(object$PI)
   diag(p.mat) <- NA
   return(p.mat)
 }
 
-predict.sbm <- predict.mmsbm
-
-
-mmsbm.metric <- function(graph,kk=3,total=2000,
-                         thin=1,burn.in=1000,verbose=0){
-  mmsbm.fit <- mmsbm(total=total,YY=graph,kk=kk,verbose=verbose,
-                     thin=thin,burn.in=burn.in)
-                                        #	mmsbm.summ <- summary(mmsbm.fit,thin=thin,burn.in=burn.in)
-  return(mmsbm.fit$pmat)
-}
 
 sbm.metric <- function(graph,kk=2,total=1500,
                        thin=1,burn.in=500,verbose=0){
   sbm.fit <- sbm(total=total,YY=graph,kk=kk,verbose=verbose,
                  thin=thin,burn.in=burn.in)
-                                        #    sbm.summ <- summary(sbm.fit,thin=thin,burn.in=burn.in)
   return(sbm.fit$pmat)
 }
 

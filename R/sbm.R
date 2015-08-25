@@ -1,4 +1,4 @@
-#####  cid-C.R
+#####  sbm.R
 #####  Functions Implementing SBM and MMSBM Fitting in C:
 #####    sbm - Fits SBM Model
 #####    mmsbm.C - Fits MMSBM Model
@@ -14,30 +14,13 @@ rdirichlet <- function(n,alpha){
   x/as.vector(sm)
 }
 
-#####  Function to generate data from MMSBM model
-data.gen.mmsbm <- function(nn=50,
-                           BB=array(c(.25,0.05,0.05,.25),c(2,2)),
-                           PI.alpha=c(.25,.25)){
-
-  PI <- rdirichlet(nn,alpha=PI.alpha)
-  p.mat <- PI %*% BB %*% t(PI)
-  YY <- array(rbinom(nn*nn,1,p.mat),c(nn,nn))
-  diag(YY) <- NA
-  return(list(YY=YY,PI=PI,BB=BB,p.mat=p.mat))
-}
-
-#####  Function to generate data from MMSBM model
+#####  Function to generate data from SBM model
 data.gen.sbm <- function(nn=50,
                          BB=array(c(.25,0.05,0.05,.25),c(2,2)),
                          pp=c(.5,.5)){
 
   kk <- length(pp)
   ll <- round(pp*nn)
-#  total <- 1
-#  for(ii in 1:(kk-1)){
-#    block.vec[total:(total+ll[ii])] <- ii
-#    total = total + ll[ii]
-#  }
 
   block.vec <- sort(sample(kk,nn,replace=TRUE,prob=pp))
   PI <- array(0,c(nn,kk))
@@ -55,7 +38,7 @@ data.gen.sbm <- function(nn=50,
 
 
 ###  Wrapper for C Implementation of SBM
-sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
+sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
                 burn.in=0,thin=1,
                 autoconverge=list(alpha=0.001,extend.max=20,shift.size=100),
@@ -75,7 +58,7 @@ sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
 
   if(!is.null(init.vals)){
     flatTable <- sbm.load.init.vals(init.vals)
-    ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
+    ll.init <- sbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
   }
 
   start = 0
@@ -128,19 +111,9 @@ sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
       BB[jj,,ii] <- BB.flat[ii,((jj-1)*kk + 1):(jj*kk)]
     }
 
-##### Rotating Blocks
-#    old.memb <- apply(PI[,,ii],1,which.max)
-#    rotation <- SBM.ID.rotation(old.memb,kk)
-#    new.memb <- rotation[old.memb]
-#    for(jj in 1:nn){
-#      PI[jj,,ii] <- 0
-#      PI[jj,new.memb[jj],ii] <- 1
-#    }
-#    BB[,,ii] <- BB[rotation,rotation,ii]
-
     ##  Log-Likelihood Vector
 
-    ll.vec.old[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
+    ll.vec.old[ii] <- sbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
     pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
   }
 
@@ -152,7 +125,7 @@ sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   sbm.summ$pmat <- predict(sbm.summ)
   sbm.summ$YY <- sbm.out$YY
   ## Calculating DIC
-  sbm.summ$logLik <- with(sbm.summ,mmsbm.log.like.YY(YY,BB,PI))
+  sbm.summ$logLik <- with(sbm.summ,sbm.log.like.YY(YY,BB,PI))
   sbm.summ$DIC <- 2*sbm.summ$logLik - 4 * mean(ll.vec.old)
   sbm.summ$burn.in <- burn.in; sbm.summ$thin <- thin
   if(clean.out){
@@ -168,72 +141,155 @@ sbm <- function(total=10,YY,kk=3,verbose=0,init.vals=NULL,start=0,
 }
 
 
-#####  Wrapper function implementing sbm starts near the mode
-mmsbm <- function(YY,total=200,kk=3,mode=c("multistart","random"),
-                  priors=list(aa=1,bb=1,alpha=rep(.25,kk)),init.vals=NULL,
-                  max.starts=40,start.length=50,steps=2,clean.out=TRUE,
-                  burn.in=0,thin=1,flatTable=NULL,ll.init=NULL,
-                  autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
-                  verbose=0,multiImpute=TRUE){
+sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
+  if(any(is.na(diag(YY)))){
+    diag(YY) <- 0
+  }
+  nn <- ncol(YY)
+  YY <- YY[,cols]
+  eig <- svd(YY,kk,kk)
+  mmb <- kmeans(eig$u,kk,iter.max=100,nstart=10)$cluster
 
-  mode <- match.arg(mode)
-  flatTable <- NULL; ll.init <- NULL
+  BB <- BB.tot <- array(0,c(kk,kk))
 
-  ##  Finding Initial Chain Near Mode
-  if(mode == "multistart"){
-    initial.obj <- sbm.mode.search(max.starts=max.starts,
-                                   start.length=start.length,
-                                   steps=steps,
-                                   YY=YY,kk=kk,verbose=verbose,
-                                   multiImpute=multiImpute)
-    flatTable <- initial.obj$flat.mat
-    init.vals <- NULL  #NEED TO ADD ACTUAL FUNCTIONALITY HERE!!
+  if(mode == "short"){
+    PI <- array(0,c(nn,kk))
+    PI[cbind(1:nn,mmb)] <- 1
+    for(ll in 1:kk){
+      for(rr in 1:kk){
+        mmb.2 <- PI[,ll,drop=FALSE] %*% t(PI[,rr,drop=FALSE])
+        diag(mmb.2) <- NA
+        mmb.2 <- mmb.2[,cols]
+        BB.tot[ll,rr] <- sum(mmb.2,na.rm=TRUE)
+        BB[ll,rr] <- sum(mmb.2*YY,na.rm=TRUE)
+      }
+    }
   }
 
-  ##  Running Full Chain from Initial Chain
-  if(verbose>0){
-    print("Running Chain...")
+  if(mode == "long"){
+    for(ii in 1:nrow(YY)){
+      for(jj in 1:ncol(YY)){
+        if(ii != jj){
+          BB.tot[mmb[ii],mmb[cols[jj]]] <- BB.tot[mmb[ii],mmb[cols[jj]]] + 1
+          BB[mmb[ii],mmb[cols[jj]]] <- BB[mmb[ii],mmb[cols[jj]]] + YY[ii,jj]
+        }
+      }
+    }
   }
 
-  mmsbm.out <- mmsbm.C(total=total,YY=YY,kk=kk,verbose=verbose,
-                       burn.in=burn.in,thin=thin,init.vals=init.vals,
-                       flatTable=flatTable,ll.init=ll.init,
-                       autoconverge=autoconverge,
-                       priors=priors, multiImpute=multiImpute)
-  if(verbose>1) browser()
-  if(verbose>0) print("Finished Chain")
-                                        #    mmsbm.out <- postprocess.mmsbm(mmsbm.out)
-  mmsbm.summ <- summary(mmsbm.out,burn.in=0,thin=1)
-  mmsbm.summ$pmat <- predict(mmsbm.summ)
-  mmsbm.summ$YY <- mmsbm.out$YY
-  ##  Calculating DIC
-  mmsbm.summ$logLik <- with(mmsbm.summ,mmsbm.log.like.YY(YY,BB,PI))
-  mmsbm.summ$DIC <- 2*mmsbm.summ$logLik - 4 * mean(mmsbm.out$logLik)
-  mmsbm.summ$burn.in <- burn.in; mmsbm.summ$thin <- thin
+  BB <- BB / BB.tot
+  PI <- array(0,c(nn,kk))
+  PI[cbind(1:nn,mmb)] <- 1
+  logLik <- sbm.log.like.YY(YY,BB,PI)
 
-  if(clean.out){
-    mmsbm.summ$chain <- list(logLik=mmsbm.out$logLik)
-    mmsbm.summ$clean <- TRUE
+  return(list(PI=PI,BB=BB,logLik=logLik))
+}
+
+get.random.params <- function(ee){
+  BB <- array(runif(kk*kk,0,1),c(kk,kk))
+  PI <- t(rmultinom(nn,1,rep(1,kk)/kk))
+  PI[PI==1] <- 1 - ee
+  PI[PI==0] <- ee/(kk-1)
+  return(list(BB=BB,PI=PI))
+}
+
+
+sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
+                   debug=FALSE,start=c("spectral","random","multi"),
+                   b.min=0.001,ee=0.1,n.starts=100,calc.marginal.ll=FALSE){
+  start <- match.arg(start)
+  nn <- ncol(YY)
+  YY.na <- YY
+  YY.na[is.na(YY.na)] <- mean(YY.na,na.rm=TRUE)
+  pi.prior <- rep(1/kk,kk)
+
+  if(start == "multi"){
+    em.out <- list(logLik.marginal = -Inf)
+    for(ii in 1:n.starts){
+      obj <- get.random.params(ee)
+      BB <- obj$BB
+      PI <- obj$PI
+      em.tmp <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
+                             iter.max=iter.max,thresh=thresh,verbose=verbose,
+                             debug=debug,calc.marginal.ll=TRUE)
+      if(em.out$logLik.marginal < em.tmp$logLik.marginal){
+        em.out <- em.tmp
+      }
+    }
+
+    return(em.out)
   }else{
-    mmsbm.summ$chain <- mmsbm.out
-    mmsbm.summ$chain$YY <- NULL
-    mmsbm.summ$clean <- FALSE
+    if(start == "spectral"){
+      spec.fit <- sbm.spectral(YY.na,kk=kk)
+      BB <- spec.fit$BB
+      PI <- array(ee/(kk-1),c(nn,kk))
+      PI[cbind(1:nn,spec.fit$mmb)] <- 1 - ee
+    }else if(start =="random"){
+      obj <- get.random.params(ee)
+      BB <- obj$BB
+      PI <- obj$PI
+    }
+
+    BB[BB==0] <- b.min
+    em.out <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
+                           iter.max=iter.max,thresh=thresh,verbose=verbose,
+                           debug=debug,calc.marginal.ll=calc.marginal.ll)
+    return(em.out)
+  }
+}
+sbm.em.climb <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
+                         verbose=FALSE,debug=FALSE,calc.marginal.ll){
+  HH <- array(0,c(nn,kk))
+  BB.tot <- BB*0
+  if(debug) browser()
+  for(ii in 1:iter.max){
+    BB.old <- BB
+###  E step
+    HH <- 0 * HH
+    for(rr in 1:kk){
+      for(ss in 1:kk){
+        ll.amat <- YY * log(BB[rr,ss]) + (1 - YY) * log(1 - BB[rr,ss])
+        HH[,rr] = HH[,rr] + sapply(1:nn, function(x){sum(ll.amat[x,-x] * PI[-x,ss], na.rm=TRUE)})
+        HH[,rr] = HH[,rr] + sapply(1:nn,function(x){sum(ll.amat[-x,x] * PI[-x,ss],na.rm=TRUE)})
+      }
+    }
+    HH = HH - max(HH)
+    HH.exp <- t(pi.prior * t(exp(HH)))
+    PI = HH.exp / rowSums(HH.exp)
+
+###  M step
+    pi.prior = apply(PI, 2, sum) / nn
+
+    for(ll in 1:kk){
+      for(rr in 1:kk){
+        mmb.2 <- PI[,ll,drop=FALSE] %*% t(PI[,rr,drop=FALSE])
+        diag(mmb.2) <- NA
+        mmb.2[is.na(YY)] <- NA
+        mmb.2 <- mmb.2
+        BB.tot[ll,rr] <- sum(mmb.2,na.rm=TRUE)
+        BB[ll,rr] <- sum(mmb.2*YY,na.rm=TRUE)
+      }
+    }
+    BB <- BB/BB.tot
+                                        #BB[BB==0] <- b.min
+
+    delta <- sum((BB - BB.old)^2)
+    if(delta < thresh){
+      if(verbose) message("iter - ",ii," delta - ",delta)
+      break;
+    }
+  }
+  logLik <- sbm.log.like.YY(YY,BB,PI)
+  if(calc.marginal.ll){
+    logLik.marginal <- sbm.marginal.log.like.YY(YY,BB,pi.prior)
+  }else{
+    logLik.marginal <- NULL
   }
 
-  return(mmsbm.summ)
+  return(list(BB=BB,PI=PI,pi.prior=pi.prior,
+              logLik=logLik,logLik.marginal=logLik.marginal))
 }
 
-
-summary.mmsbm <- function(object,burn.in=0,thin=1,...){
-
-  total <- dim(object$PI)[3]
-  my.sub <- seq(burn.in+thin,total,by=thin)
-
-  PI.hat <- t(apply(object$PI[,,my.sub],1,rowMeans))
-  BB.hat <- t(apply(object$BB[,,my.sub],1,rowMeans))
-
-  return(structure(list(PI=PI.hat,BB=BB.hat),class="mmsbm"))
-}
 
 summary.sbm <- function(object,burn.in=0,thin=1,...){
   total <- dim(object$PI)[3]; kk <- dim(object$BB)[1]
@@ -247,28 +303,17 @@ summary.sbm <- function(object,burn.in=0,thin=1,...){
 
 }
 
-predict.mmsbm <- function(object,...){
+predict.sbm <- function(object,...){
   p.mat <- object$PI %*% object$BB %*% t(object$PI)
   diag(p.mat) <- NA
   return(p.mat)
 }
 
-predict.sbm <- predict.mmsbm
-
-
-mmsbm.metric <- function(graph,kk=3,total=2000,
-                         thin=1,burn.in=1000,verbose=0){
-  mmsbm.fit <- mmsbm(total=total,YY=graph,kk=kk,verbose=verbose,
-                     thin=thin,burn.in=burn.in)
-                                        #	mmsbm.summ <- summary(mmsbm.fit,thin=thin,burn.in=burn.in)
-  return(mmsbm.fit$pmat)
-}
 
 sbm.metric <- function(graph,kk=2,total=1500,
                        thin=1,burn.in=500,verbose=0){
   sbm.fit <- sbm(total=total,YY=graph,kk=kk,verbose=verbose,
                  thin=thin,burn.in=burn.in)
-                                        #    sbm.summ <- summary(sbm.fit,thin=thin,burn.in=burn.in)
   return(sbm.fit$pmat)
 }
 
@@ -295,28 +340,18 @@ max.acf <- function(flatTable,kk.max=100,make.plot=TRUE){
 }
 
 
-plot.net.sbm <- function(sbm.obj,ord = order(apply(sbm.obj$PI,1,which.max)),...){
-###    ord <- order(apply(sbm.obj$PI,1,which.max))
+plot.net.sbm <- function(sbm.obj,
+                         ord = order(apply(sbm.obj$PI,1,which.max)),...){
   nn <- nrow(sbm.obj$YY)
-###    image(1:nn,1:nn,sbm.obj$YY[ord,ord],col=grey((50:1)/50))
   image(1:nn,1:nn,sbm.obj$YY[ord[nn:1],ord],col=grey((50:1)/50),
         ylab="",xlab="",yaxt="n",xaxt="n",...)
 }
 
-plot.fit.sbm <- function(sbm.obj,ord = order(apply(sbm.obj$PI,1,which.max)),...){
-###    ord <- order(apply(sbm.obj$PI,1,which.max))
+plot.fit.sbm <- function(sbm.obj,
+                         ord = order(apply(sbm.obj$PI,1,which.max)),...){
   nn <- nrow(sbm.obj$YY)
-###    image(1:nn,1:nn,sbm.obj$pmat[ord,ord],col=grey((50:1)/50))
   image(1:nn,1:nn,sbm.obj$pmat[ord[nn:1],ord],col=grey((50:1)/50),
         ylab="",xlab="",yaxt="n",xaxt="n",...)
-}
-
-plot.ll.sbm <- function(sbm.obj,add=FALSE){
-  if(add){
-    lines(sbm.obj$chain$logLik,type="l")
-  }else{
-    plot(sbm.obj$chain$logLik,type="l")
-  }
 }
 
 
@@ -324,7 +359,7 @@ plot.ll.sbm <- function(sbm.obj,add=FALSE){
 
 
 ##########################################################
-##################  INTERNAL FUNCTIONS  ##################
+##################  ROTATION FUNCTIONS  ##################
 ##########################################################
 
 
@@ -409,12 +444,12 @@ fake.data.check <- function(trials=10,draws=100,burn.in=1000,thin=50,
 
 }
 
-                                        #input: ID.labels for a number of nodes, chosen to be the "dominant" ones.
-                                        #output: the permutation to switch labels to a simpler convention.
+##input: ID.labels for a number of nodes, chosen to be the "dominant" ones.
+##output: the permutation to switch labels to a simpler convention.
 postprocess.SBM.IDs <- function(ID.labels, label.count=max(ID.labels)) {
-                                        #ID.labels=c(3,4,4,1,1,2,5); label.count=max(ID.labels)
+  ##ID.labels=c(3,4,4,1,1,2,5); label.count=max(ID.labels)
 
-                                        #first pin down the keepers.
+  ##first pin down the keepers.
   assigned <- replaced <- rep(NA, label.count)
   replacements <- rep(NA, length(ID.labels))
 
@@ -435,189 +470,39 @@ postprocess.SBM.IDs <- function(ID.labels, label.count=max(ID.labels)) {
 
     replacements[ID.labels==vacancy] <- newlabel
   }
-                                        #check replacements manually.
+  ##check replacements manually.
 
   return (assigned)
 
 }
 
-postprocess.mmsbm <- function(mmsbm.obj,burn.in=0,thin=1){
 
-  nn <- dim(mmsbm.obj$PI)[1]
-  kk <- dim(mmsbm.obj$PI)[2]
-  total <- dim(mmsbm.obj$PI)[3]
-
-  my.seq <- seq(burn.in + thin,total,by=thin)
-
-  PP.summ <- apply(mmsbm.obj$PI[,,my.seq],c(1,2),mean)
-  IDs <- apply(PP.summ,1,which.max)
-
-  rot.vec <- postprocess.SBM.IDs(IDs)
-  rot.mat <- array(0,c(kk,kk))
-  for(ii in 1:kk){
-    rot.mat[ii,rot.vec[ii]] <- 1
-  }
-  rotate <- function(mat,rot.mat){
-    solve(rot.mat) %*% mat %*% rot.mat
-  }
-  mult <- function(mat,rot.mat){
-    mat %*% rot.mat
-  }
-
-  mmsbm.obj$BB <- array(apply(mmsbm.obj$BB,3,rotate,rot.mat=rot.mat),
-                        c(kk,kk,total))
-
-  mmsbm.obj$PI <- array(apply(mmsbm.obj$PI,3,mult,rot.mat=rot.mat),
-                        c(nn,kk,total))
-
-  return(mmsbm.obj)
-
-}
-
-
-#####  Uses a large number of relatively short chains to find an
-#####  initial value in the mode.
-#####  Note:  This mode should also be close to the mmsbm mode.
-sbm.mode.search <- function(max.starts=40,start.length=50,YY,kk=2,verbose=0,
-                            priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),steps=2,
-                            multiImpute=TRUE){
-
-  if(verbose>0) message("Trying Initial Values...")
-  start.out <- NULL
-
-  ##  Matrix holding likelihood values
-  ll.mat <- array(-Inf,c(start.length,max.starts))
-
-  max.found <- FALSE
-  iter <- 0
-  ##  Continue generating chains until a significant maximum is found
-  while(!max.found & iter < max.starts){
-    iter <- iter + 1
-    if(verbose>1){
-      message("Start ", iter)
-    }
-
-    ##  Generating SBM chain
-    start.out[[iter]] <- sbm(total=start.length,YY=YY,kk=kk,
-                             verbose=verbose-1,priors=priors,clean.out=FALSE,
-                             multiImpute=multiImpute)$chain
-    ##  Updating Likelihood Matrix
-    ll.mat[,iter] <- start.out[[iter]]$logLik
-
-    ##  Checking for Maximum value
-    if(iter > 9){
-      max.val = max(ll.mat[start.length,1:iter])
-      mean.val = mean(ll.mat[start.length,1:iter])
-      sd.val = sd(ll.mat[start.length,1:iter])
-      ##  Check if max is steps stand. dev. greater than mean
-      max.found <- max.val  >  (mean.val + steps*sd.val)
-    }
-
-  }
-
-  ##  Notify if Maximum was Found
-  if(verbose>0){
-    if(iter < max.starts){
-      message("Mode found after ",iter," iterations.")
-    }else{
-      message("Mode not found after ",max.starts,
-              " iterations.  Continuing with best result")
-    }
-  }
-  ##  Returning best start
-  best.start <- start.out[[which.max(ll.mat[start.length,1:iter])]]
-
-  return(best.start)
-
-}
-
-mmsbm.C <- function(total=10,YY,kk=3,verbose=0,
-                    burn.in=0,thin=1,init.vals=NULL,
-                    priors=list(aa=1,bb=1,alpha=rep(.25,kk)),
-                    autoconverge=list(alpha=0.001,extend.max=10,shift.size=100),
-                    flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
-
-  ##  Formatting Adjacency Matrix for C
-  multi.int <- as.integer(ifelse(multiImpute,1,0))
-  YY.clean <- YY
-  diag(YY.clean) <- 0
-  YY.clean[is.na(YY)] <- -1
-  nn <- nrow(YY.clean)
-
-  short.total <- total
-  total <- short.total * thin + burn.in
-  flatVec = double(short.total*(kk*(kk+nn)))
-  ll.vec <- double(short.total)
-
-  if(!is.null(init.vals)){
-    flatTable <- sbm.load.init.vals(init.vals)
-    ll.init <- mmsbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
-  }
-
-  start = 0
-  if(!is.null(flatTable)){
-    if(is.null(ll.init)) stop("flatTables require ll.init vector")
-    start = nrow(flatTable)
-    total.start = start*(kk*(kk+nn))
-    flatVec[1:total.start] = as.double(t(flatTable))
-    ll.vec[1:start] <- ll.init
-  }
-
-  if(is.null(autoconverge)){
-    extend.max <- 0; shift.size <- 100
-    qq <- 3
-  }else{
-    extend.max <- as.integer(autoconverge$extend.max)
-    shift.size <- as.integer(autoconverge$shift.size)
-    qq <- as.double(qnorm(1 - autoconverge$alpha/2))
-  }
-
-
-  ##  Calling C Implementation of MCMC
-  out <- .C("mmsbm",as.integer(total),as.integer(nn),as.integer(kk),
-            as.integer(YY.clean),as.double(c(priors$aa,priors$bb)),
-            as.double(priors$alpha), flatVec,
-            as.integer(burn.in),as.integer(thin),
-            as.integer(start),multi.int,ll.vec,
-            extend.max,shift.size,qq,as.integer(verbose))
-
-  ##  Pulling the flat matrices from the C output
-  full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
-
-  BB.flat <- as.matrix(full.mat[,1:kk^2])
-  PI.flat <- as.matrix(full.mat[,-(1:kk^2)])
-
-  ##  Formatting data for output
-  BB <- array(NA,c(kk,kk,short.total))
-  PI <- array(NA,c(nn,kk,short.total))
-  pmat.mat <- array(NA,c(nn,nn,short.total))
-  ll.vec.old <- rep(NA,short.total)
-  ll.vec <- as.vector(out[[12]])
-  diag(YY.clean) <- -1
-  for(ii in 1:short.total){
-
-    ##  3D BB Matrix
-    for(jj in 1:kk){
-      BB[jj,,ii] <- BB.flat[ii,((jj-1)*kk + 1):(jj*kk)]
-    }
-    ##  3D PI Matrix
-    for(jj in 1:nn){
-      PI[jj,,ii] <- PI.flat[ii,((jj-1)*kk + 1):(jj*kk)]
-    }
-    ##  Log-Likelihood Vector
-    ll.vec.old[ii] <- mmsbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
-    pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
-  }
-
-  return(structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,logLik.old=ll.vec.old,flat.mat=full.mat,pmat=pmat.mat),class="mmsbm"))
-}
-
-
-mmsbm.log.like.YY <- function(YY,BB,PI){
+sbm.log.like.YY <- function(YY,BB,PI){
   diag(YY) <- -1
   p.mat <- PI %*% BB %*% t(PI)
   return(sum(log(p.mat[YY==1])) + sum(log(1 - p.mat[YY==0])))
 }
+
+marginal.ll.single <- function(YY,BB,theta=rep(1/ncol(BB),ncol(BB))){
+  nn <- ncol(YY)
+  kk <- ncol(BB)
+
+  PI.t <- rmultinom(nn,1,theta)
+  PP <- t(PI.t) %*% BB %*% PI.t
+  diag(PP) <- NA
+  ll <- sum(log(PP * YY + (1-PP) * (1 - YY)),na.rm=TRUE)
+  return(ll)
+}
+
+sbm.marginal.log.like.YY <- function(YY,BB,theta=rep(1/ncol(BB),ncol(BB)),
+                                     iter.max=1e4){
+  ll.vec <- replicate(iter.max,marginal.ll.single(YY,BB,theta))
+  ll.max <- max(ll.vec)
+  ll.vec <- ll.vec - ll.max
+  return(log(mean(exp(ll.vec))) + ll.max)
+}
+
+
 
 sbm.load.init.vals <- function(init.vals){
 

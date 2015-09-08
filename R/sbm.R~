@@ -98,7 +98,7 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   BB <- array(NA,c(kk,kk,short.total))
   PI <- array(NA,c(nn,kk,short.total))
   pmat.mat <- array(NA,c(nn,nn,short.total))
-  ll.vec.old <- rep(NA,short.total)
+###  ll.vec.old <- rep(NA,short.total)
   diag(YY.clean) <- -1
   for(ii in 1:short.total){
 
@@ -113,12 +113,13 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
 
     ##  Log-Likelihood Vector
 
-    ll.vec.old[ii] <- sbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
+###    ll.vec.old[ii] <- sbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
     pmat.mat[,,ii] <- predict.mmsbm(list(PI=PI[,,ii],BB=BB[,,ii]))
   }
 
   sbm.out <- structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,
-                            logLik.old=ll.vec.old,flat.mat=full.mat,
+###logLik.old=ll.vec.old,
+                            flat.mat=full.mat,
                             burn.in=burn.in,thin=thin,
                             pmat=pmat.mat),class="sbm")
   sbm.summ <- summary(sbm.out,burn.in=0,thin=1)
@@ -211,7 +212,7 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
       PI <- obj$PI
       em.tmp <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
                              iter.max=iter.max,thresh=thresh,verbose=verbose,
-                             debug=debug)
+                             debug=debug,calc.marginal.ll=TRUE)
       if(em.out$logLik.marginal < em.tmp$logLik.marginal){
         em.out <- em.tmp
       }
@@ -233,12 +234,12 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
     BB[BB==0] <- b.min
     em.out <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
                            iter.max=iter.max,thresh=thresh,verbose=verbose,
-                           debug=debug)
+                           debug=debug,calc.marginal.ll=calc.marginal.ll)
     return(em.out)
   }
 }
 sbm.em.climb <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
-                         verbose=FALSE,debug=FALSE){
+                         verbose=FALSE,debug=FALSE,calc.marginal.ll){
   HH <- array(0,c(nn,kk))
   BB.tot <- BB*0
   if(debug) browser()
@@ -280,8 +281,11 @@ sbm.em.climb <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
     }
   }
   logLik <- sbm.log.like.YY(YY,BB,PI)
-  if(calc.marginal.ll)
+  if(calc.marginal.ll){
     logLik.marginal <- sbm.marginal.log.like.YY(YY,BB,pi.prior)
+  }else{
+    logLik.marginal <- NULL
+  }
 
   return(list(BB=BB,PI=PI,pi.prior=pi.prior,
               logLik=logLik,logLik.marginal=logLik.marginal))

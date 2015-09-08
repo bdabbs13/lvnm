@@ -23,12 +23,12 @@ using std::ifstream;
  *********  FUNCTION DEFINITIONS FOR SBM OBJECT CLASS  ***********
  ****************************************************************/
 
-void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
+void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
 	     double *flatTable, double *logLik, int verbose){
   
   int ii;
-  int flatLength = mySBM.dd * (mySBM.nn + mySBM.dd);
+  int flatLength = mySBM->dd * (mySBM->nn + mySBM->dd);
   int flatTotal = (total - burnIn) / thin;
   
   //  MCMC Loop
@@ -37,11 +37,11 @@ void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
 
     // Main MCMC Loop
     for(ii = start ; ii < total ; ii++){
-      mySBM.step();
+      mySBM->step();
       
       if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	logLik[(ii - burnIn)/thin] = mySBM.LL();
-	mySBM.updateFlatTable((ii - burnIn)/thin,flatTable);
+	logLik[(ii - burnIn)/thin] = mySBM->LL();
+	mySBM->updateFlatTable((ii - burnIn)/thin,flatTable);
       }
     }
     
@@ -60,13 +60,16 @@ void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
       }
     }
   }
-  if(verbose > 0){
-    if(converged != 1){
+  if(converged != 1){
+    if(verbose > -1){
       Rprintf("Warning: MCMC Failed to Converge\n");
-    }else{
+    }
+  }else{
+    if(verbose > 0){
       Rprintf("MCMC Converged\n");
     }
   }
+  
 }
 	     
 
@@ -129,6 +132,17 @@ sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
     }   
   }
 }
+
+sbm_t::~sbm_t (){
+  delete[] YY;
+  delete[] yyComplete;
+  delete[] BB;
+  delete[] PP;
+  delete[] PPint;
+  delete[] eta;
+  Rprintf("Freeing Allocated Memory for SBM Object\n");
+}
+
 
 
 void sbm_t::loadTable(int start, double *flatTable){

@@ -29,29 +29,32 @@ extern "C" {
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	   double *betaPrior, double *eta,
 	   double *flatTable, int *burn_t, int *thin_t,
-	   int *start_t, int *multi_t,double *logLik)
+	   int *start_t, int *multi_t,double *logLik,
+	   int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t)
   {
     
     GetRNGstate();
 
-    int start = *start_t;
+    int start = *start_t, verbose = *verbose_t;
     int total = *iters, burnIn = *burn_t, thin = *thin_t;
 
     //    int verbose = 0;
-    double qq = 3.2;
-    int shift_size = 100, extend_max = 10;
+    double qq = *qq_t;
+    int shift_size = *shift_t;
+    int extend_max = *extend_max_t;
 
 
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
-    sbm_t mySBM (*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+    sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
     if(start > 0){
-      mySBM.loadTable(start, flatTable);
+      mySBM->loadTable(start, flatTable);
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,
-	    shift_size, extend_max, qq, flatTable, logLik);
-    
+	    shift_size, extend_max, qq, flatTable, logLik, verbose);
+
+    delete mySBM;
     PutRNGstate();
   }
   
@@ -63,32 +66,28 @@ extern "C" {
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,
 	     double *flatTable, int *burn_t, int *thin_t,
-	     int *start_t,int *multi_t)
+	     int *start_t,int *multi_t, double *logLik,
+	     int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t)
   {
     
-    /* Initializing Random Number Generator */
-    //  time_t seed = time(NULL);
-    //  rng = gsl_rng_alloc(gsl_rng_mt19937); /* start the RNG */
-    //  gsl_rng_set(rng, static_cast<unsigned long int>(seed));
     GetRNGstate();
-    Rprintf("this is the correct function\n");
+
     //  Reading in values from pointers
-    int total = *iters;
+    int total = *iters, verbose = *verbose_t;
     int burnIn = *burn_t, thin = *thin_t;
-    int start = *start_t, multiImpute = *multi_t;
-    int dd = *kk_t, nn = *nn_t;
+    int start = *start_t;//, multiImpute = *multi_t;
     
-    //  Allocating memory for variables
-    int yyComplete[nn*nn];
-    double BB[dd*dd];
-    double PP[nn*dd];
-    int sendMat[nn*nn]; int recMat[nn*nn];
-    
-    //  Performing MCMC Algorithm
-    mmsbmMCMC(total,burnIn,thin,YY,nn,dd,alpha,betaPrior,
-	      BB,PP,sendMat,recMat,yyComplete,
-	      flatTable,start,multiImpute);
-    
+    mmsbm_t myMMSBM (*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
+    if(start > 0){
+      myMMSBM.loadTable(start, flatTable);
+    }
+    double qq = *qq_t;
+    int shift_size = *shift_t;
+    int extend_max = *extend_max_t;
+
+    mmsbmMCMC(myMMSBM, start, total, burnIn, thin,
+	      shift_size, extend_max, qq, flatTable, logLik,verbose);
+
     //  Sending RNG state back to R
     PutRNGstate();
   }

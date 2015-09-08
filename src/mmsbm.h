@@ -19,6 +19,7 @@ class mmsbm_t {
  public:
   int nn, dd;
   mmsbm_t (int, int, int*, double*, double*, int);
+  ~mmsbm_t ();
   void loadTable (int, double*);
   void step ();
   void drawBB();
@@ -35,7 +36,7 @@ class mmsbm_t {
 
 /**********  MMSBM  **********/
   
-void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
+void mmsbmMCMC(mmsbm_t *myMMSBM, int start, int total, int burnIn, int thin,
 	       int shift_size, int extend_max, double qq,
 	       double *flatTable, double *logLik, int verbose);
   

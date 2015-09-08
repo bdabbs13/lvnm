@@ -25,23 +25,23 @@ using std::ifstream;
  *******************************************/
 
   
-void mmsbmMCMC(mmsbm_t myMMSBM, int start, int total, int burnIn, int thin,
+void mmsbmMCMC(mmsbm_t *myMMSBM, int start, int total, int burnIn, int thin,
 	       int shift_size, int extend_max, double qq,
 	       double *flatTable, double *logLik, int verbose){
   
   int ii;
-  int flatLength = myMMSBM.dd * (myMMSBM.nn + myMMSBM.dd);
+  int flatLength = myMMSBM->dd * (myMMSBM->nn + myMMSBM->dd);
   int flatTotal = (total - burnIn) / thin;
 
   int converged = 0, extend_count = 0;
   while((converged != 1) & (extend_count <= extend_max)){
     // Main MCMC Loop
     for(ii = start ; ii < total ; ii++){
-      myMMSBM.step();
+      myMMSBM->step();
       
       if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	logLik[(ii - burnIn)/thin] = myMMSBM.LL();
-	myMMSBM.updateFlatTable((ii - burnIn)/thin, flatTable);
+	logLik[(ii - burnIn)/thin] = myMMSBM->LL();
+	myMMSBM->updateFlatTable((ii - burnIn)/thin, flatTable);
       }
     }
     converged = convergenceCheck(logLik,(total - burnIn)/thin,qq);
@@ -123,6 +123,16 @@ mmsbm_t::mmsbm_t (int nodes, int blocks, int* adjMat, double* betaP, double* alp
   sendMat = new int[nn*nn];
   recMat = new int[nn*nn];
     
+}
+
+mmsbm_t::~mmsbm_t(){
+  delete[] YY;
+  delete[] yyComplete;
+  delete[] BB;
+  delete[] PP;
+  delete[] alpha;
+  delete[] sendMat;
+  delete[] recMat;
 }
 
 

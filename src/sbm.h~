@@ -34,7 +34,7 @@ class sbm_t {
 //  Function for performing the MCMC algorithm
 void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
-	     double *flatTable, double *logLik);
+	     double *flatTable, double *logLik, int verbose);
 
 
   

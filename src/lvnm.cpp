@@ -46,14 +46,15 @@ extern "C" {
 
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
-    sbm_t mySBM (*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+    sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
     if(start > 0){
-      mySBM.loadTable(start, flatTable);
+      mySBM->loadTable(start, flatTable);
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,
 	    shift_size, extend_max, qq, flatTable, logLik, verbose);
-    
+
+    delete mySBM;
     PutRNGstate();
   }
   
@@ -76,9 +77,9 @@ extern "C" {
     int burnIn = *burn_t, thin = *thin_t;
     int start = *start_t;//, multiImpute = *multi_t;
     
-    mmsbm_t myMMSBM (*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
+    mmsbm_t *myMMSBM = new mmsbm_t(*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
     if(start > 0){
-      myMMSBM.loadTable(start, flatTable);
+      myMMSBM->loadTable(start, flatTable);
     }
     double qq = *qq_t;
     int shift_size = *shift_t;
@@ -88,6 +89,7 @@ extern "C" {
 	      shift_size, extend_max, qq, flatTable, logLik,verbose);
 
     //  Sending RNG state back to R
+    delete myMMSBM;
     PutRNGstate();
   }
 }

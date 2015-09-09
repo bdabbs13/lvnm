@@ -138,6 +138,33 @@ int convergenceCheck(double *logLik, int total, double qq){
 
 
 
+void colSums(double *mat, int rows, int cols, double *totals){
+  int ii, jj, rr;
+  for(ii = 0; ii < cols ; ii++){
+    totals[ii] = 0.0;
+  }
+
+  for(ii = 0 ; ii < rows ; ii++){
+    rr = ii * cols;
+    for(jj = 0 ; jj < cols; jj++){
+      totals[jj] = totals[jj] + mat[rr + jj];
+    }
+  }
+}
+
+void rowSums(double *mat, int rows, int cols, double *totals){
+  int ii, jj, rr;
+  for(jj = 0 ; jj < rows ; jj++){
+    totals[jj] = 0.0;
+    rr = jj * cols;
+    for(ii = 0 ; ii < cols ; ii++){
+      totals[jj] = totals[jj] + mat[rr + ii];
+    }
+  }
+}
+
+
+
 
 /*
 void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, 

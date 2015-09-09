@@ -57,11 +57,38 @@ extern "C" {
     delete mySBM;
     PutRNGstate();
   }
-  
-
 
   
+  void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,
+		double *eta,
+		double *flatTable, double *threshold_t,
+		double *logLik,int *verbose_t)
+  {
+    
+    GetRNGstate();
+    
+    int verbose = *verbose_t;
+    int iter_max = *iter_max_t;
+    int multi = 1;
+    double threshold = *threshold_t;
+    double betaPrior[2] = {0,0};
+    
+    /*****  INITIALIZATION  *****/
+    //  Initializing SBM object
+    Rprintf("Initializing SBM Object\n");
+    sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+    Rprintf("Loading Table\n");
+    mySBM->loadTable(1, flatTable);
+    
+    Rprintf("Loaded Table\n");
+    sbmEM(mySBM, iter_max, threshold, flatTable, logLik, eta, verbose);
+    
+    delete mySBM;
+    PutRNGstate();
+  }
   
+  
+
   //  Function to be called by R
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,

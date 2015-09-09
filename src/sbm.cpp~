@@ -140,7 +140,7 @@ sbm_t::~sbm_t (){
   delete[] PP;
   delete[] PPint;
   delete[] eta;
-  Rprintf("Freeing Allocated Memory for SBM Object\n");
+  //  Rprintf("Freeing Allocated Memory for SBM Object\n");
 }
 
 

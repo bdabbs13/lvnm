@@ -19,6 +19,7 @@ class sbm_t {
  public:
   int nn, dd;
   sbm_t (int, int, int*, double*, double*, int);
+  ~sbm_t();
   void loadTable (int, double*);
   void step ();
   void drawBB();
@@ -32,7 +33,7 @@ class sbm_t {
 };
 
 //  Function for performing the MCMC algorithm
-void sbmMCMC(sbm_t mySBM, int start, int total, int burnIn, int thin,
+void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
 	     double *flatTable, double *logLik, int verbose);
 

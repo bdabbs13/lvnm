@@ -209,7 +209,7 @@ get.random.params <- function(ee){
 }
 
 
-sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
+sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
                    debug=FALSE,start=c("spectral","random","multi"),
                    b.min=0.001,ee=0.1,n.starts=100,calc.marginal.ll=FALSE){
   start <- match.arg(start)
@@ -237,8 +237,9 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
     if(start == "spectral"){
       spec.fit <- sbm.spectral(YY.na,kk=kk)
       BB <- spec.fit$BB
-      PI <- array(ee/(kk-1),c(nn,kk))
-      PI[cbind(1:nn,spec.fit$mmb)] <- 1 - ee
+      PI <- spec.fit$PI
+      PI[PI==0] <- ee /(kk-1)
+      PI[PI==1] <- 1 - ee
     }else if(start =="random"){
       obj <- get.random.params(ee)
       BB <- obj$BB
@@ -247,13 +248,54 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=FALSE,
 
 
     BB[BB==0] <- b.min
-    em.out <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
-                           iter.max=iter.max,thresh=thresh,verbose=verbose,
-                           debug=debug,calc.marginal.ll=calc.marginal.ll)
+###    em.out <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
+###                           iter.max=iter.max,thresh=thresh,verbose=verbose,
+###                           debug=debug,calc.marginal.ll=calc.marginal.ll)
+
+    em.out <- sbmEM.C(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
+                      iter.max=iter.max,thresh=thresh,verbose=verbose,
+                      debug=debug,calc.marginal.ll=calc.marginal.ll)
     em.out$pmat <- predict.sbm(em.out)
     return(em.out)
   }
 }
+
+sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
+                    verbose=0,debug=FALSE,calc.marginal.ll=FALSE){
+  nn <- ncol(YY)
+  kk <- ncol(BB)
+  YY.clean <- YY;
+  diag(YY.clean) <- -1; YY.clean[is.na(YY.clean)] <- -1;
+
+  flatTable <- sbm.load.init.vals(list(BB=BB,PI=PI),nn=nn,kk=kk)
+  flatVec <- as.double(t(flatTable))
+  ll.init <- sbm.log.like.YY(YY.clean,BB,PI)
+
+  out <- .C("sbmEMout",as.integer(iter.max),as.integer(nn),as.integer(kk),
+            as.integer(t(YY.clean)),as.double(pi.prior),
+            flatVec, as.double(thresh), as.double(ll.init),as.integer(verbose))
+
+  if(debug) browser()
+
+  full.mat <- out[[6]]
+  BB.flat <- full.mat[1:kk^2]
+  PI.flat <- full.mat[-(1:kk^2)]
+
+  BB <- matrix(BB.flat,nrow=kk,byrow=TRUE)
+  PI <- matrix(PI.flat,nrow=nn,byrow=TRUE)
+  logLik <- out[[8]]
+  if(calc.marginal.ll){
+    logLik.marginal <- sbm.marginal.log.like.YY(YY,BB,pi.prior)
+  }else{
+    logLik.marginal <- NULL
+  }
+  pi.prior <- out[[5]]
+
+  return(list(BB=BB,PI=PI,pi.prior=pi.prior,
+              logLik=logLik,logLik.marginal=logLik.marginal))
+
+}
+
 sbm.em.climb <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
                          verbose=FALSE,debug=FALSE,calc.marginal.ll){
 
@@ -532,7 +574,7 @@ sbm.marginal.log.like.YY <- function(YY,BB,theta=rep(1/ncol(BB),ncol(BB)),
 
 
 
-sbm.load.init.vals <- function(init.vals){
+sbm.load.init.vals <- function(init.vals,nn,kk){
 
   if(is.null(init.vals$BB) | is.null(init.vals$PI)){
     stop("init.vals must be a list containing BB and PI")

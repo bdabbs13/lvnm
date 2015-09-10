@@ -18,6 +18,7 @@ class sbm_t {
   double betaPrior[2];
   double *eta;
   bool multiImpute;
+  bool is_BB_logged;
  public:
   int nn, dd;
   sbm_t (int, int, int*, double*, double*, int);
@@ -38,6 +39,8 @@ class sbm_t {
   void getBB(double *BB_out);
   void geteta(double *eta_out);
   double BBdiff(double *BB_old);
+  void logBB();
+  void expBB();
 };
 
 //  Function for performing the MCMC algorithm

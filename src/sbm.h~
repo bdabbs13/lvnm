@@ -11,7 +11,9 @@ class sbm_t {
   int *YY;
   int *yyComplete;
   double *BB;
+  double *BB_inv;
   double *PP;
+  double *HH;
   int *PPint;
   double betaPrior[2];
   double *eta;
@@ -28,8 +30,14 @@ class sbm_t {
   void imputeMissingValues();
   double LL();
   double nodeLL(int);
+  double nodeLL_long(int);
+  void getMultinomPosterior();
+  void iterEM();
   void updateFlatTable(int, double*);
   void print (bool);
+  void getBB(double *BB_out);
+  void geteta(double *eta_out);
+  double BBdiff(double *BB_old);
 };
 
 //  Function for performing the MCMC algorithm
@@ -37,6 +45,9 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
 	     double *flatTable, double *logLik, int verbose);
 
+void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
+	   double *flatTable, double *logLik, double *eta,
+	   int verbose);
 
   
 

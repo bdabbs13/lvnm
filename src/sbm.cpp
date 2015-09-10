@@ -73,39 +73,34 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 }
 
 
-//  This function updates PP to be the posterior mean given BB and YY
-void sbm_t::getMultinomPosterior(){
-  
-  int ii,jj;
-  double total, pMax;
+void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
+	   double *flatTable, double *logLik, double *eta, int verbose){
+  int dd = mySBM->dd;
+  int iter = 0;
+  double *BB_old = new double[dd*dd];
+  double delta = threshold + 1.0;
+  while((iter < iter_max) & (delta >= threshold)){
+    iter = iter + 1;
+    mySBM->getBB(BB_old);
+    mySBM->logBB();
+    //    mySBM->print(1 == 0);
 
-  for(ii = 0 ; ii < nn ; ii++){
-    for(jj = 0 ; jj < dd ; jj++){
-      PPint[ii] = jj;
+    mySBM->iterEM();
 
-      // Calculating Log Posterior Probability
-      HH[ii*dd + jj] = nodeLL_long(ii) + log(eta[jj]);
-      if(jj == 0){
-	pMax = HH[ii*dd + jj];
-      }else{
-	if(HH[ii*dd + jj] > pMax){
-	  pMax = HH[ii*dd + jj];
-	}
-      }
-    }
+    delta = mySBM->BBdiff(BB_old);
     
-    // Exponentiating Probabilities
-    total = 0.0;
-    for(jj = 0 ; jj < dd ; jj++){
-      HH[ii*dd + jj] = exp(HH[ii*dd + jj] - pMax);
-      total = total + HH[jj];
-    }
-    
-    // Normalizing Probabilities
-    for(jj = 0 ; jj < dd ; jj++){
-     HH[ii*dd + jj] = HH[ii*dd + jj] / total;
+    if(verbose > 1){
+      Rprintf("iter - %d delta - %.6f\n",iter,delta);
     }
   }
+  if(verbose == 1){
+    Rprintf("iter - %d delta - %.6f\n",iter,delta);
+  }
+  //mySBM->print(1 == 0);
+  mySBM->updateFlatTable(0,flatTable);
+  mySBM->geteta(eta);
+  logLik[0] = mySBM->LL();
+  delete[] BB_old;
 }
 
 
@@ -144,7 +139,47 @@ void sbm_t::iterEM (){
       BB_inv[bbind] = 1.0 - BB[bbind];
     }
   }
+  is_BB_logged = false;
 }
+
+
+
+//  This function updates PP to be the posterior mean given BB and YY
+void sbm_t::getMultinomPosterior(){
+  
+  int ii,jj;
+  double total, pMax;
+
+  for(ii = 0 ; ii < nn ; ii++){
+    for(jj = 0 ; jj < dd ; jj++){
+      PPint[ii] = jj;
+
+      // Calculating Log Posterior Probability
+      HH[ii*dd + jj] = nodeLL_long(ii) + log(eta[jj]);
+      if(jj == 0){
+	pMax = HH[ii*dd + jj];
+      }else{
+	if(HH[ii*dd + jj] > pMax){
+	  pMax = HH[ii*dd + jj];
+	}
+      }
+    }
+    
+    // Exponentiating Probabilities
+    total = 0.0;
+    for(jj = 0 ; jj < dd ; jj++){
+      HH[ii*dd + jj] = exp(HH[ii*dd + jj] - pMax);
+      total = total + HH[jj];
+    }
+    
+    // Normalizing Probabilities
+    for(jj = 0 ; jj < dd ; jj++){
+     HH[ii*dd + jj] = HH[ii*dd + jj] / total;
+    }
+  }
+}
+
+
 
 void sbm_t::getBB(double *BB_out){
   std::copy(BB,BB + dd*dd,BB_out);
@@ -163,35 +198,27 @@ double sbm_t::BBdiff(double *BB_old){
   return(delta);
 }
 
-void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
-	   double *flatTable, double *logLik, double *eta, int verbose){
-  int dd = mySBM->dd;
-  int iter = 0;
-  double *BB_old = new double[dd*dd];
-  double delta = threshold + 1.0;
-  while((iter < iter_max) & (delta >= threshold)){
-    iter = iter + 1;
-    mySBM->getBB(BB_old);
-    //    mySBM->print(1 == 0);
-
-    mySBM->iterEM();
-
-    delta = mySBM->BBdiff(BB_old);
-    
-    if(verbose > 1){
-      Rprintf("iter - %d delta - %.6f\n",iter,delta);
+void sbm_t::logBB(){
+  int ii;
+  if(!is_BB_logged){
+    for(ii = 0 ; ii < dd*dd ; ii++){
+      BB[ii] = log(BB[ii]);
+      BB_inv[ii] = log(BB_inv[ii]);
     }
+    is_BB_logged = true;
   }
-  if(verbose == 1){
-    Rprintf("iter - %d delta - %.6f\n",iter,delta);
-  }
-  //mySBM->print(1 == 0);
-  mySBM->updateFlatTable(0,flatTable);
-  mySBM->geteta(eta);
-  logLik[0] = mySBM->LL();
-  delete[] BB_old;
 }
 
+void sbm_t::expBB(){
+  int ii;
+  if(is_BB_logged){
+    for(ii = 0 ; ii < dd*dd ; ii++){
+      BB[ii] = exp(BB[ii]);
+      BB_inv[ii] = exp(BB_inv[ii]);
+    }
+    is_BB_logged = false;
+  }
+}
 
 
 //  Constructor Function for SBM object
@@ -230,7 +257,8 @@ sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
     BB[ii] = holder[0];
     BB_inv[ii] = 1.0 - BB[ii];
   }
-  
+  is_BB_logged = false;
+
   PP = new double[nn*dd];
   PPint = new int[nn];
   HH = new double[nn*dd]();
@@ -349,12 +377,15 @@ void sbm_t::drawBB(){
     BB[ii] = holder[0];
     BB_inv[ii] = 1.0 - BB[ii];
   }
+  is_BB_logged = false;
 }
 
 void sbm_t::drawPP(){
   int ii,jj,kk;
   double pp[dd], total, pMax;
   int ind[dd];
+
+  logBB();
   for(ii = 0 ; ii < nn ; ii++){
     total = 0.0;
     for(jj = 0 ; jj < dd ; jj++){
@@ -396,7 +427,7 @@ void sbm_t::drawPP(){
       }
     }
   }
-
+  expBB();
 }
 
 void sbm_t::rotate(){
@@ -509,31 +540,21 @@ void sbm_t::imputeMissingValues(){
 }
 
 double sbm_t::LL(){
-  int ii;
-  
-  // Reading in BB Matrix Values
-  double pMat[nn*nn];
   int rr, cc, index;
+  logBB();
   
-  // Creating matrix of tie probabilities
+  double total = 0.0;
   for(rr = 0 ; rr < nn ; rr++){
     for(cc = 0 ; cc < nn ; cc++){
       index = PPint[rr] * dd + PPint[cc];
-      pMat[rr * nn + cc] = BB[index];
+      if(YY[rr*nn + cc] == 1){
+	total = total + BB[index];
+      }else if(YY[rr * nn + cc] == 0){
+	total = total + BB_inv[index];
+      }
     }
   }
-  
-  // Summing over all tie probabilities, ignoring diagonal
-  double total = 0.0;
-  for(ii = 0 ; ii < nn*nn ; ii++){
-    //      if((ii / nn) != (ii % nn)){
-    if(YY[ii] == 1){
-      total = total + log(pMat[ii]);
-    }else if(YY[ii] == 0){
-      total = total + log(1 - pMat[ii]);
-    }
-  }
-  //    }
+  expBB();
   return(total);
   
 }
@@ -543,7 +564,7 @@ double sbm_t::nodeLL(int ii){
   int PPii = PPint[ii];
   int index;
   double total = 0.0;
-  
+    
   //  sums the (i,j)th and (j,i)th probabilities for all j
   for(jj = 0 ; jj < nn ; jj++){
     if(jj != ii){
@@ -551,17 +572,17 @@ double sbm_t::nodeLL(int ii){
       //  (i,j)th term
       index = PPii * dd + PPint[jj];
       if(YY[ii*nn + jj] == 1){
-	total = total + log(BB[index]);
+	total = total + (BB[index]);
       }else if(YY[ii*nn + jj] == 1){
-	total = total + log(BB_inv[index]);
+	total = total + (BB_inv[index]);
       }
       
       //  (j,i)th term
       index = PPint[jj] * dd + PPii;
       if(YY[jj*nn + ii] == 1){
-	total = total + log(BB[index]);
+	total = total + (BB[index]);
       }else if(YY[jj*nn + ii] == 0){
-	total = total + log(BB_inv[index]);
+	total = total + (BB_inv[index]);
       }
     }
   }
@@ -585,12 +606,12 @@ double sbm_t::nodeLL_long(int ii){
       if(YY[ii * nn + jj] == 1){
 	for(kk = 0 ; kk < dd ; kk++){
 	  index = PPii * dd + kk;
-	  total = total + PP[jj*dd + kk] * log(BB[index]);
+	  total = total + PP[jj*dd + kk] * (BB[index]);
 	}
       }else if(YY[ii * nn + jj] == 0){
 	for(kk = 0 ; kk < dd ; kk++){
 	  index = PPii * dd + kk;
-	  total = total + PP[jj*dd + kk] * log(BB_inv[index]);
+	  total = total + PP[jj*dd + kk] * (BB_inv[index]);
 	}
       }
 	
@@ -598,12 +619,12 @@ double sbm_t::nodeLL_long(int ii){
       if(YY[jj * nn + ii] == 1){
 	for(kk = 0 ; kk < dd ; kk++){
 	  index = kk * dd + PPii;
-	  total = total + PP[jj*dd + kk] * log(BB[index]);
+	  total = total + PP[jj*dd + kk] * (BB[index]);
 	}
       }else if(YY[jj * nn + ii] == 0){
 	for(kk = 0 ; kk < dd ; kk++){
 	  index = kk * dd + PPii;
-	  total = total + PP[jj*dd + kk] * log(BB_inv[index]);
+	  total = total + PP[jj*dd + kk] * (BB_inv[index]);
 	}
       }
     }

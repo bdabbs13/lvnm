@@ -86,7 +86,9 @@ void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
     //    mySBM->print(1 == 0);
 
     mySBM->iterEM();
-
+    if(verbose > 2){
+      mySBM->print(false);
+    }
     delta = mySBM->BBdiff(BB_old);
     
     if(verbose > 1){
@@ -135,7 +137,11 @@ void sbm_t::iterEM (){
 	  }
 	}
       }
-      BB[bbind] = BB[bbind] / total;
+      if(total < MIN_TOTAL){
+	BB[bbind] = MIN_TOTAL;
+      }else{
+	BB[bbind] = BB[bbind] / total;
+      }
       BB_inv[bbind] = 1.0 - BB[bbind];
     }
   }

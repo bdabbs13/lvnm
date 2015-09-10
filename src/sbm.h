@@ -4,7 +4,7 @@
 
 #ifndef SBM_R
 #define SBM_R
-
+#define MIN_TOTAL 0.00000001
 
 //  Definition for SBM class
 class sbm_t {

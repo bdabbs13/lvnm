@@ -78,13 +78,18 @@ void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
   int dd = mySBM->dd;
   int iter = 0;
   double *BB_old = new double[dd*dd];
+  //  double *BB_log = new double[dd*dd];
   double delta = threshold + 1.0;
   while((iter < iter_max) & (delta >= threshold)){
     iter = iter + 1;
     mySBM->getBB(BB_old);
     mySBM->logBB();
+    //    mySBM->getBB(BB_log);
+    
+    //    Rprintf("BB_log:\n");
+    //    RprintDoubleMat(dd,dd,BB_log);
     //    mySBM->print(1 == 0);
-
+    
     mySBM->iterEM();
     if(verbose > 2){
       mySBM->print(false);
@@ -103,6 +108,7 @@ void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
   mySBM->geteta(eta);
   logLik[0] = mySBM->LL();
   delete[] BB_old;
+  //  delete[] BB_log;
 }
 
 
@@ -111,13 +117,28 @@ void sbm_t::iterEM (){
   int rowd, rown,bbind;
   double total, pipi;
   // E Step
+  /*  Rprintf("eta.cur:\n");
+  for( ii = 0 ; ii < dd ; ii++){
+    Rprintf("%f, ",eta[ii]);
+  }
+  Rprintf("\n");
+  for( ii = 0 ; ii < dd ; ii++){
+    Rprintf("%f, ",log(eta[ii]));
+  }
+  */
   getMultinomPosterior();  //  Update Posterior Mean HH
   std::copy(HH,HH+(nn*dd),PP);  //  Copy into PP
   
+  //  Rprintf("HH:\n");
+  //  RprintDoubleMat(nn,dd,HH);
+
   // M Step
   colSums(PP,nn,dd,eta);
   for(ii = 0 ; ii < dd ; ii++){
     eta[ii] = eta[ii] / nn;
+    if(eta[ii] < MIN_LOG){
+      eta[ii] = MIN_LOG;
+    }
   }
   
   // Updating BB with the MLE conditional on PP and YY
@@ -137,10 +158,15 @@ void sbm_t::iterEM (){
 	  }
 	}
       }
-      if(total < MIN_TOTAL){
-	BB[bbind] = MIN_TOTAL;
+      if(total < MIN_LOG){
+	BB[bbind] = MIN_LOG;
       }else{
 	BB[bbind] = BB[bbind] / total;
+	if(BB[bbind] > MAX_LOG){
+	  BB[bbind] = MAX_LOG;
+	}else if(BB[bbind] < MIN_LOG){
+	  BB[bbind] = MIN_LOG;
+	}
       }
       BB_inv[bbind] = 1.0 - BB[bbind];
     }
@@ -157,11 +183,13 @@ void sbm_t::getMultinomPosterior(){
   double total, pMax;
 
   for(ii = 0 ; ii < nn ; ii++){
+    //    Rprintf("\nHH[%d,] = ",ii);
     for(jj = 0 ; jj < dd ; jj++){
       PPint[ii] = jj;
 
       // Calculating Log Posterior Probability
       HH[ii*dd + jj] = nodeLL_long(ii) + log(eta[jj]);
+      //      Rprintf("%f, ",HH[ii*dd + jj]);
       if(jj == 0){
 	pMax = HH[ii*dd + jj];
       }else{

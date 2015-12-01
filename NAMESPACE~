@@ -12,6 +12,8 @@ export(data.gen.sbm)
 export(sbm.metric)
 export(sbm.spectral,sbm.em)
 
+export(sbm.marginal.log.like.YY,sbm.log.like.YY)
+export(mmsbm.log.like.YY)
 export(lsm)
 #export(summary.lsm)
 export(predict.lsm)

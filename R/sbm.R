@@ -101,37 +101,10 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   PI <- array(PI.flat,c(nn,kk,short.total))
 
   pmat.mat <- NULL  ## I might want to compute this later...
-
-
-  ##  Formatting data for output
-#  BB <- array(NA,c(kk,kk,short.total))
-#  PI <- array(NA,c(nn,kk,short.total))
-##  pmat.mat <- array(NA,c(nn,nn,short.total))
-
-
-
-###  ll.vec.old <- rep(NA,short.total)
   diag(YY.clean) <- -1
 
-#  for(ii in 1:short.total){
-#
-#    ##  3D PI Matrix
-#    for(jj in 1:nn){
-#      PI[jj,,ii] <- PI.flat[ii,((jj-1)*kk + 1):(jj*kk)]
-#    }
-#    ##  3D BB Matrix
-#    for(jj in 1:kk){
-#      BB[jj,,ii] <- BB.flat[ii,((jj-1)*kk + 1):(jj*kk)]
-#    }
-#
-#    ##  Log-Likelihood Vector
-#
-####    ll.vec.old[ii] <- sbm.log.like.YY(YY.clean,BB[,,ii],PI[,,ii])
-#    pmat.mat[,,ii] <- predict.sbm(list(PI=PI[,,ii],BB=BB[,,ii]))
-#  }
-
-  sbm.out <- structure(list(BB=BB,PI=PI,YY=YY,logLik=ll.vec,
-###logLik.old=ll.vec.old,
+  sbm.out <- structure(list(BB=BB,PI=PI,
+                            YY=YY,logLik=ll.vec,
                             flat.mat=full.mat,
                             burn.in=burn.in,thin=thin,
                             pmat=pmat.mat),class="sbm")
@@ -142,6 +115,7 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   sbm.summ$logLik <- with(sbm.summ,sbm.log.like.YY(YY,BB,PI))
   sbm.summ$DIC <- 2*sbm.summ$logLik - 4 * mean(ll.vec)
   sbm.summ$burn.in <- burn.in; sbm.summ$thin <- thin
+  sbm.summ$block.vec <- apply(PI,1,which.max)
   if(clean.out){
     sbm.summ$chain <- list(logLik=sbm.out$logLik)
     sbm.summ$clean <- TRUE
@@ -154,8 +128,46 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   return(sbm.summ)
 }
 
+PI.to.mmb <- function(PI){
+  return(apply(PI,1,which.max))
+}
 
-sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
+mmb.to.PI <- function(mmb,kk=max(mmb)){
+  nn <- length(mmb)
+  PI <- array(0,c(nn,kk))
+  PI[cbind(1:nn,mmb)] <- 1
+  return(PI)
+}
+
+
+get.BB.mle <- function(mmb,PI,net,cols=1:ncol(net)){
+  if(missing(mmb) & missing(PI))
+    stop("At least one of mmb and PI must be passed")
+  if(missing(PI)){
+    nn <- length(mmb);  kk <- max(mmb)
+    PI <- array(0,c(nn,kk))
+    PI[cbind(1:nn,mmb)] <- 1
+  }else{
+    nn <- nrow(PI); kk <- ncol(PI)
+  }
+
+  BB <- BB.tot <- array(0,c(kk,kk))
+
+  for(ll in 1:kk){
+    for(rr in 1:kk){
+      mmb.2 <- PI[,ll,drop=FALSE] %*% t(PI[,rr,drop=FALSE])
+      diag(mmb.2) <- NA
+      mmb.2 <- mmb.2[,cols]
+      BB.tot[ll,rr] <- max(sum(mmb.2,na.rm=TRUE),1)
+      BB[ll,rr] <- sum(mmb.2*net,na.rm=TRUE)
+    }
+  }
+  BB <- BB / BB.tot
+  return(BB)
+
+}
+
+sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short",fixed=FALSE){
   if(any(is.na(diag(YY)))){
     diag(YY) <- 0
   }
@@ -164,23 +176,17 @@ sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
   eig <- svd(YY,kk,kk)
   mmb <- kmeans(eig$u,kk,iter.max=100,nstart=10)$cluster
 
-  BB <- BB.tot <- array(0,c(kk,kk))
+  if(fixed){
+    mmb <- sample(c(1:kk,sample(1:kk,size=nn-kk,replace=TRUE)))
+  }
 
   if(mode == "short"){
-    PI <- array(0,c(nn,kk))
-    PI[cbind(1:nn,mmb)] <- 1
-    for(ll in 1:kk){
-      for(rr in 1:kk){
-        mmb.2 <- PI[,ll,drop=FALSE] %*% t(PI[,rr,drop=FALSE])
-        diag(mmb.2) <- NA
-        mmb.2 <- mmb.2[,cols]
-        BB.tot[ll,rr] <- max(sum(mmb.2,na.rm=TRUE),1)
-        BB[ll,rr] <- sum(mmb.2*YY,na.rm=TRUE)
-      }
-    }
+    BB <- get.BB.mle(mmb=mmb,net=YY)
   }
 
   if(mode == "long"){
+    BB <- BB.tot <- array(0,c(kk,kk))
+
     for(ii in 1:nrow(YY)){
       for(jj in 1:ncol(YY)){
         if(ii != jj){
@@ -189,9 +195,9 @@ sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
         }
       }
     }
+    BB <- BB / BB.tot
   }
 
-  BB <- BB / BB.tot
   PI <- array(0,c(nn,kk))
   PI[cbind(1:nn,mmb)] <- 1
   logLik <- sbm.log.like.YY(YY,BB,PI)
@@ -262,6 +268,7 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
 
 sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
                     verbose=0,debug=FALSE,calc.marginal.ll=FALSE){
+##  browser()
   nn <- ncol(YY)
   kk <- ncol(BB)
   YY.clean <- YY;
@@ -281,8 +288,12 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
   BB.flat <- full.mat[1:kk^2]
   PI.flat <- full.mat[-(1:kk^2)]
 
-  BB <- matrix(BB.flat,nrow=kk,byrow=TRUE)
+  BB.old <- matrix(BB.flat,nrow=kk,byrow=TRUE)
   PI <- matrix(PI.flat,nrow=nn,byrow=TRUE)
+  PI <- mmb.to.PI(PI.to.mmb(PI),kk)  ##  Converting to only zeroes and ones
+
+  BB <- get.BB.mle(PI=PI,net=YY)
+
   logLik <- out[[8]]
   if(calc.marginal.ll){
     logLik.marginal <- sbm.marginal.log.like.YY(YY,BB,pi.prior)
@@ -291,10 +302,13 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
   }
   pi.prior <- out[[5]]
 
-  return(list(BB=BB,PI=PI,pi.prior=pi.prior,
+  return(list(BB=BB,PI=PI,pi.prior=pi.prior,BB.old=BB.old,
               logLik=logLik,logLik.marginal=logLik.marginal))
 
 }
+
+
+
 
 sbm.em.climb <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
                          verbose=FALSE,debug=FALSE,calc.marginal.ll){
@@ -374,7 +388,7 @@ predict.sbm <- function(object,...){
 }
 
 
-sbm.metric <- function(graph,kk=2,mode=c("mcmc","em"),total=1500,
+sbm.metric <- function(graph,kk=2,mode=c("mcmc","em","spectral"),total=1500,
                        thin=1,burn.in=500,verbose=0,...){
 
   mode <- match.arg(mode)
@@ -383,6 +397,8 @@ sbm.metric <- function(graph,kk=2,mode=c("mcmc","em"),total=1500,
                    thin=thin,burn.in=burn.in)
   }else if(mode == "em"){
     sbm.fit <- sbm.em(YY=graph,kk=kk,...)
+  }else if(mode == "spectral"){
+    sbm.fit <- sbm.spectral(YY=graph,kk=kk,...)
   }
   return(sbm.fit$pmat)
 }

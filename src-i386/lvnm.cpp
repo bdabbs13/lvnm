@@ -30,7 +30,8 @@ extern "C" {
 	   double *betaPrior, double *eta,
 	   double *flatTable, int *burn_t, int *thin_t,
 	   int *start_t, int *multi_t,double *logLik,
-	   int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t)
+	   int *extend_max_t, int *shift_t, double *qq_t,
+	   double *postMat, int *verbose_t)
   {
     
     GetRNGstate();
@@ -52,7 +53,8 @@ extern "C" {
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,
-	    shift_size, extend_max, qq, flatTable, logLik, verbose);
+	    shift_size, extend_max, qq, flatTable, logLik, postMat,
+	    verbose);
 
     delete mySBM;
     PutRNGstate();

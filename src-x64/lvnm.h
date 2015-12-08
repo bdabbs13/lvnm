@@ -13,7 +13,8 @@ extern "C" {
 	   double *betaPrior, double *eta,
 	   double *flatTable, int *burn_t, int *thin_t,
 	   int *start_t, int *multi_t,double *logLik,
-	   int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t);
+	   int *extend_max_t, int *shift_t, double *qq_t,
+	   double *postMat, int *verbose_t);
 
   //  Performs EM algorithm and returns final PI and BB
   void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,

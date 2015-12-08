@@ -167,7 +167,7 @@ get.BB.mle <- function(mmb,PI,net,cols=1:ncol(net)){
 
 }
 
-sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
+sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short",fixed=FALSE){
   if(any(is.na(diag(YY)))){
     diag(YY) <- 0
   }
@@ -176,21 +176,12 @@ sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short"){
   eig <- svd(YY,kk,kk)
   mmb <- kmeans(eig$u,kk,iter.max=100,nstart=10)$cluster
 
+  if(fixed){
+    mmb <- sample(c(1:kk,sample(1:kk,size=nn-kk,replace=TRUE)))
+  }
 
   if(mode == "short"){
     BB <- get.BB.mle(mmb=mmb,net=YY)
-
-###    PI <- array(0,c(nn,kk))
-###    PI[cbind(1:nn,mmb)] <- 1
-###    for(ll in 1:kk){
-##      for(rr in 1:kk){
-###        mmb.2 <- PI[,ll,drop=FALSE] %*% t(PI[,rr,drop=FALSE])
-###        diag(mmb.2) <- NA
-###        mmb.2 <- mmb.2[,cols]
-###        BB.tot[ll,rr] <- max(sum(mmb.2,na.rm=TRUE),1)
-###        BB[ll,rr] <- sum(mmb.2*YY,na.rm=TRUE)
-###      }
-###    }
   }
 
   if(mode == "long"){
@@ -277,6 +268,7 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
 
 sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
                     verbose=0,debug=FALSE,calc.marginal.ll=FALSE){
+##  browser()
   nn <- ncol(YY)
   kk <- ncol(BB)
   YY.clean <- YY;
@@ -296,9 +288,11 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
   BB.flat <- full.mat[1:kk^2]
   PI.flat <- full.mat[-(1:kk^2)]
 
-  BB <- matrix(BB.flat,nrow=kk,byrow=TRUE)
+  BB.old <- matrix(BB.flat,nrow=kk,byrow=TRUE)
   PI <- matrix(PI.flat,nrow=nn,byrow=TRUE)
   PI <- mmb.to.PI(PI.to.mmb(PI),kk)  ##  Converting to only zeroes and ones
+
+  BB <- get.BB.mle(PI=PI,net=YY)
 
   logLik <- out[[8]]
   if(calc.marginal.ll){
@@ -308,7 +302,7 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
   }
   pi.prior <- out[[5]]
 
-  return(list(BB=BB,PI=PI,pi.prior=pi.prior,
+  return(list(BB=BB,PI=PI,pi.prior=pi.prior,BB.old=BB.old,
               logLik=logLik,logLik.marginal=logLik.marginal))
 
 }
@@ -394,7 +388,7 @@ predict.sbm <- function(object,...){
 }
 
 
-sbm.metric <- function(graph,kk=2,mode=c("mcmc","em"),total=1500,
+sbm.metric <- function(graph,kk=2,mode=c("mcmc","em","spectral"),total=1500,
                        thin=1,burn.in=500,verbose=0,...){
 
   mode <- match.arg(mode)
@@ -403,6 +397,8 @@ sbm.metric <- function(graph,kk=2,mode=c("mcmc","em"),total=1500,
                    thin=thin,burn.in=burn.in)
   }else if(mode == "em"){
     sbm.fit <- sbm.em(YY=graph,kk=kk,...)
+  }else if(mode == "spectral"){
+    sbm.fit <- sbm.spectral(YY=graph,kk=kk,...)
   }
   return(sbm.fit$pmat)
 }

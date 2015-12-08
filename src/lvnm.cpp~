@@ -75,12 +75,10 @@ extern "C" {
     
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
-    Rprintf("Initializing SBM Object\n");
+
     sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, multi);
-    Rprintf("Loading Table\n");
     mySBM->loadTable(1, flatTable);
     
-    Rprintf("Loaded Table\n");
     sbmEM(mySBM, iter_max, threshold, flatTable, logLik, eta, verbose);
     
     delete mySBM;

@@ -25,7 +25,7 @@ using std::ifstream;
 
 void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
-	     double *flatTable, double *logLik, int verbose){
+	     double *flatTable, double *logLik, double *postMat, int verbose){
   
   int ii;
   int flatLength = mySBM->dd * (mySBM->nn + mySBM->dd);
@@ -42,6 +42,7 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
       if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
 	logLik[(ii - burnIn)/thin] = mySBM->LL();
 	mySBM->updateFlatTable((ii - burnIn)/thin,flatTable);
+	mySBM->updatePosteriorMat((ii - burnIn)/thin,postMat);
       }
     }
     
@@ -55,6 +56,7 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
       extend_count = extend_count + 1;
       if(extend_count <= extend_max){
 	shiftFlatTable(shift_size,flatLength,flatTotal,flatTable);
+	shiftFlatTable(shift_size,mySBM->dd * mySBM->nn,flatTotal,postMat);
 	std::copy(logLik + shift_size, logLik + flatTotal,logLik);
 	start = total - (shift_size*thin);
       }
@@ -376,7 +378,7 @@ void sbm_t::loadTable(int start, double *flatTable){
 void sbm_t::step(){
   drawBB();
   drawPP();
-  rotate();
+  //rotate();
   if(multiImpute){
     imputeMissingValues();
   }
@@ -421,7 +423,7 @@ void sbm_t::drawBB(){
 
 void sbm_t::drawPP(){
   int ii,jj,kk;
-  double pp[dd], total, pMax;
+  double total, pMax;
   int ind[dd];
 
   logBB();
@@ -431,29 +433,30 @@ void sbm_t::drawPP(){
       PPint[ii] = jj;
 	
       // Calculating Log Posterior Probability
-      pp[jj] = nodeLL(ii) + log(eta[jj]);
+      HH[ii*dd + jj] = nodeLL(ii) + log(eta[jj]);
+      //pp[jj] = nodeLL(ii) + log(eta[jj]);
       if(jj == 0){
-	pMax = pp[jj];
+	pMax = HH[ii*dd + jj];
       }else{
-	if(pp[jj] > pMax){
-	  pMax = pp[jj];
+	if(HH[ii*dd + jj] > pMax){
+	  pMax = HH[ii*dd + jj];
 	}
       }
     }
       
     // Exponentiating Probabilities
     for(jj = 0 ; jj < dd ; jj++){
-      pp[jj] = exp(pp[jj] - pMax);
-      total = total + pp[jj];
+      HH[ii*dd + jj] = exp(HH[ii*dd + jj] - pMax);
+      total = total + HH[ii*dd + jj];
     }
 
     // Normalizing Probabilities
     for(jj = 0 ; jj < dd ; jj++){
-      pp[jj] = pp[jj] / total;
+      HH[ii*dd + jj] = HH[ii*dd + jj] / total;
     }
       
     // Drawing from Multinomial
-    rmultinom(1,pp,dd,ind);
+    rmultinom(1,HH + ii*dd,dd,ind);
       
     // Setting PP[ii,] Value
     for(kk = 0 ; kk < dd ; kk++){
@@ -682,7 +685,18 @@ void sbm_t::updateFlatTable(int iter, double *flatTable){
   for(ii = 0 ; ii < nn*dd ; ii++){
     flatTable[offset + ii] = PP[ii];
   }
+  
 }
+
+void sbm_t::updatePosteriorMat(int iter, double *postMat){
+  std::copy(HH,HH +(nn*dd),postMat + (iter*dd*nn));
+  /*  int ii, offset = iter * dd * nn;
+  for(ii = 0 ; ii < nn*dd ; ii++){
+    postMat[offset + ii] = HH[ii];
+  }
+  */
+}
+
 
 
 void sbm_t::print(bool printNetwork){

@@ -444,7 +444,6 @@ void sbm_t::drawPP(){
     // Exponentiating Probabilities
     for(jj = 0 ; jj < dd ; jj++){
       pp[jj] = exp(pp[jj] - pMax);
-
       total = total + pp[jj];
     }
 

@@ -40,9 +40,9 @@ data.gen.sbm <- function(nn=50,
 ###  Wrapper for C Implementation of SBM
 sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
-                burn.in=0,thin=1,
+                burn.in=0,thin=1,max.runs=200,
                 autoconverge=list(alpha=0.001,extend.max=20,shift.size=100),
-                flatTable=NULL,ll.init=NULL,multiImpute=TRUE){
+                flatTable=NULL,ll.init=NULL,HH.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
   multi.int <- as.integer(ifelse(multiImpute,1,0))
@@ -55,10 +55,12 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   total <- short.total*thin + burn.in
   flatVec = double(short.total*(kk*(kk+nn)))
   ll.vec <- double(short.total)
+  HH.vec <- double(short.total*kk*nn)
 
   if(!is.null(init.vals)){
     flatTable <- sbm.load.init.vals(init.vals)
     ll.init <- sbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
+    if(!is.null(init.vals$HH)) HH.init <- init.vals$HH
   }
 
   start = 0
@@ -68,6 +70,7 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
     total.start = start*(kk*(kk+nn))
     flatVec[1:total.start] = as.double(t(flatTable))
     ll.vec[1:start] <- ll.init
+    HH.vec <- as.double(t(HH.init))
   }
 
   if(is.null(autoconverge)){
@@ -85,20 +88,24 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
             as.double(priors$eta), flatVec,
             as.integer(burn.in), as.integer(thin),
             as.integer(start),multi.int,ll.vec,
-            extend.max,shift.size,qq,as.integer(verbose))
+            extend.max,shift.size,qq,HH.vec,
+            as.integer(verbose))
 
   ##  Pulling the flat matrices from the C output
   full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
-
   BB.flat <- t(as.matrix(full.mat[,1:kk^2]))
   PI.flat <- t(as.matrix(full.mat[,-(1:kk^2)]))
   ll.vec <- as.vector(out[[12]])
+  HH.flat <- t(matrix(out[[16]],ncol=kk*nn,byrow=TRUE))
 
   BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
   BB <- array(BB.flat,c(kk,kk,short.total))
 
   PI.flat <- apply(PI.flat,2,transpose.vector,nrow=nn)
   PI <- array(PI.flat,c(nn,kk,short.total))
+
+  HH.flat <- apply(HH.flat,2,transpose.vector,nrow=nn)
+  HH <- array(HH.flat,c(nn,kk,short.total))
 
   pmat.mat <- NULL  ## I might want to compute this later...
   diag(YY.clean) <- -1
@@ -107,7 +114,8 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
                             YY=YY,logLik=ll.vec,
                             flat.mat=full.mat,
                             burn.in=burn.in,thin=thin,
-                            pmat=pmat.mat),class="sbm")
+                            pmat=pmat.mat,HH=HH),class="sbm")
+  sbm.out <- switch.labels(sbm.out,max.runs=max.runs,verbose=verbose)
   sbm.summ <- summary(sbm.out,burn.in=0,thin=1)
   sbm.summ$pmat <- predict(sbm.summ)
   sbm.summ$YY <- sbm.out$YY
@@ -116,6 +124,8 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   sbm.summ$DIC <- 2*sbm.summ$logLik - 4 * mean(ll.vec)
   sbm.summ$burn.in <- burn.in; sbm.summ$thin <- thin
   sbm.summ$block.vec <- apply(PI,1,which.max)
+  sbm.summ$mmb <- PI.to.mmb(sbm.summ$PI)
+
   if(clean.out){
     sbm.summ$chain <- list(logLik=sbm.out$logLik)
     sbm.summ$clean <- TRUE
@@ -617,6 +627,81 @@ sbm.load.init.vals <- function(init.vals,nn,kk){
 
 transpose.vector <- function(vec,nrow){
   return(as.vector(matrix(vec,nrow=nrow,byrow=TRUE)))
+}
+
+
+get.rotation.mat <- function(HH,max.runs=100,verbose=1){
+  total <- dim(HH)[3]
+  nn <- dim(HH)[1]
+  kk <- dim(HH)[2]
+
+  ##  Step 1
+  QQ <- apply(HH,c(1,2),mean)
+  QQ.old <- array(0,c(nn,kk))
+  count <- 0
+
+  rot.mat <- array(rep(diag(kk),total),c(kk,kk,total))
+  CC <- array(NA,c(kk,kk))
+  diff.vec <- rep(NA,max.runs)
+  while(sum(abs(QQ.old - QQ)) > 1e-10){  #diff.vec[count] > 1e-10)!identical(QQ,QQ.old)){
+    count <- count + 1
+    if(count > max.runs) break
+
+    ##  Step 2
+    CC.mat <- get.cost.mat(HH,log(QQ))
+
+    for(iter in 1:total){
+      ##Get cost matrix
+                                        #      for(jj in 1:kk){
+                                        #        for(ll in 1:kk){
+                                        #          CC[jj,ll] <- sum(HH[,ll,iter] * log((HH[,ll,iter] / QQ[,jj])))
+                                        #        }
+                                        #      }
+      lp.out <- lp.assign(CC.mat[,,iter])
+      rot.mat[,,iter] <- rot.mat[,,iter] %*% t(lp.out$solution)
+      HH[,,iter] <- HH[,,iter] %*% t(lp.out$solution)
+    }
+
+    QQ.old <- QQ
+    QQ <- apply(HH,c(1,2),mean)
+
+    diff.vec[count] <- sum(abs(QQ.old - QQ))
+  }
+  if(verbose > 0){
+    if(count-1 == max.runs){
+      message("Warning:  Label-switching failed to converge after ",max.runs," iterations")
+    }else{
+      if(verbose > 1){
+        message("Label-switching converged after ",count," iterations")
+      }
+    }
+  }
+
+  return(list(rot.mat=rot.mat,HH=HH))
+}
+
+mat.mult.left <- function(mat.1,mat.2) return(mat.2 %*% mat.1)
+get.cost.mat <- function(HH,QQ.log){
+  kk <- dim(HH)[2]
+  total <- dim(HH)[3]
+  bar <- array(apply(HH,3,mat.mult.left,mat.2=t(QQ.log)),c(kk,kk,total))
+  foo <- array(rep(apply(HH[,,]*log(HH[,,]),c(2,3),sum),each=kk),c(kk,kk,total))
+  return(foo - bar)
+}
+
+
+switch.labels <- function(sbm.obj,max.runs=100,verbose=1){
+
+  rot.out <- get.rotation.mat(sbm.obj$HH,max.runs=max.runs,verbose=verbose)
+  sbm.obj$HH <- rot.out$HH
+
+  total = dim(sbm.obj$HH)[3]
+  for(ii in 1:total){
+    sbm.obj$BB[,,ii] <- sbm.obj$BB[,,ii] %*% rot.out$rot.mat[,,ii]
+    sbm.obj$PI[,,ii] <- sbm.obj$PI[,,ii] %*% rot.out$rot.mat[,,ii]
+  }
+
+  return(sbm.obj)
 }
 
 

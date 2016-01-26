@@ -128,10 +128,12 @@ void sbm_t::iterEM (){
     Rprintf("%f, ",log(eta[ii]));
   }
   */
+  //  Rprintf("PI:\n");
+  //  RprintIntMat(1,nn,PPint);
   getMultinomPosterior();  //  Update Posterior Mean HH
   std::copy(HH,HH+(nn*dd),PP);  //  Copy into PP
   
-  //  Rprintf("HH:\n");
+  //  Rprintf("\nHH:\n");
   //  RprintDoubleMat(nn,dd,HH);
 
   // M Step
@@ -310,8 +312,19 @@ sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
   
   int ind[dd];
   for(ii = 0 ; ii < nn ; ii++){
-    rmultinom(1,eta,dd,ind);
-    
+    double *etaInit = new double[dd];
+    double etaTotal = 0.0;
+    for(kk = 0 ; kk < dd ; kk++){
+      etaTotal += eta[kk];
+    }
+    for(kk = 0 ; kk < dd ; kk++){
+      etaInit[kk] = eta[kk] / etaTotal;
+    }
+    //    RprintDoubleMat(1,dd,etaInit);
+    rmultinom(1,etaInit,dd,ind);
+    //    RprintIntMat(1,dd,ind);
+      
+    delete[] etaInit;
     // Setting PP[ii,] Value
     for(kk = 0 ; kk < dd ; kk++){
       if(ind[kk] == 1){
@@ -349,7 +362,13 @@ void sbm_t::loadTable(int start, double *flatTable){
   
   //  Loading BB
   for(ii = 0 ; ii < dd*dd ; ii++){
-    BB[ii] = flatTable[offset + ii];
+    if(flatTable[offset + ii] > MAX_LOG){
+      BB[ii] = MAX_LOG;
+    }else if(flatTable[offset + ii] < MIN_LOG){
+      BB[ii] = MIN_LOG;
+    }else{
+      BB[ii] = flatTable[offset + ii];
+    }
     BB_inv[ii] = 1.0 - BB[ii];
   }
   
@@ -376,9 +395,9 @@ void sbm_t::loadTable(int start, double *flatTable){
 
 
 void sbm_t::step(){
-  drawBB();
   drawPP();
-  //rotate();
+  drawBB();
+  rotate();
   if(multiImpute){
     imputeMissingValues();
   }
@@ -450,11 +469,17 @@ void sbm_t::drawPP(){
       total = total + HH[ii*dd + jj];
     }
 
+    //    int hhOne = -1;
     // Normalizing Probabilities
     for(jj = 0 ; jj < dd ; jj++){
       HH[ii*dd + jj] = HH[ii*dd + jj] / total;
+      /*      if(HH[ii*dd + jj] == 1.0){
+	hhOne = jj;
+	}*/
     }
-      
+
+    logZeroFix(HH + ii*dd,dd);
+    
     // Drawing from Multinomial
     rmultinom(1,HH + ii*dd,dd,ind);
       
@@ -614,7 +639,7 @@ double sbm_t::nodeLL(int ii){
       index = PPii * dd + PPint[jj];
       if(YY[ii*nn + jj] == 1){
 	total = total + (BB[index]);
-      }else if(YY[ii*nn + jj] == 1){
+      }else if(YY[ii*nn + jj] == 0){
 	total = total + (BB_inv[index]);
       }
       

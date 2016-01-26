@@ -4,6 +4,9 @@
 
 #ifndef LVNM_HELPER_R
 #define LVNM_HELPER_R
+#define MIN_LOG 0.0000000001
+#define MAX_LOG 1.0 - MIN_LOG//0.999999
+
 
 
 void shiftFlatTable(int shift_size, int flatLength, int total, 
@@ -24,6 +27,7 @@ void colSums(double *mat, int rows, int cols, double *totals);
 
 void rowSums(double *mat, int rows, int cols, double *totals);
 
+void logZeroFix(double *vec, int ll);
 
   
 

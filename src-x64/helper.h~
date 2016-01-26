@@ -20,6 +20,9 @@ void getMeanVar(double *vec, int lower, int upper,
 
 int convergenceCheck(double *logLik, int total, double qq);
 
+void colSums(double *mat, int rows, int cols, double *totals);
+
+void rowSums(double *mat, int rows, int cols, double *totals);
 
 
   

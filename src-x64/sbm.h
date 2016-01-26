@@ -4,8 +4,6 @@
 
 #ifndef SBM_R
 #define SBM_R
-#define MIN_LOG 0.00000001
-#define MAX_LOG 1.0 - MIN_LOG//0.999999
 
 //  Definition for SBM class
 class sbm_t {

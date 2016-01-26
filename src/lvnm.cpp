@@ -50,6 +50,11 @@ extern "C" {
     sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
     if(start > 0){
       mySBM->loadTable(start, flatTable);
+      
+      if(start == 1){
+	mySBM->drawPP();
+	mySBM->updatePosteriorMat(0,postMat);
+      }
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,

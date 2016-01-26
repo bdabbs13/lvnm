@@ -9,7 +9,7 @@
 //#include <gsl/gsl_randist.h>
 #include <R.h>
 #include <Rmath.h>
-#include "mmsbm.h"
+#include "helper.h"
 //using namespace std;
 using std::ifstream;
 //using std::ofstream;
@@ -163,8 +163,52 @@ void rowSums(double *mat, int rows, int cols, double *totals){
   }
 }
 
+void logZeroFix(double *vec, int ll){
+  int ii;
+  int fixInd = 0;
+  double total = 0.0;
+  for(ii = 0 ; ii < ll ; ii++){
+    if(vec[ii] <= MIN_LOG){
+      vec[ii] = MIN_LOG;
+      fixInd = 1;
+      //      zeroCount = zeroCount + 1.0;
+      //      fixVal  = fixVal + (MIN_LOG - vec[ii]);
+    }
+    total = total + vec[ii];
+  }
+  if(fixInd == 1){
+    // Renormalize
+    for(ii = 0 ; ii < ll ; ii++){
+      vec[ii] = vec[ii] / total;
+    }
+  }
+}
 
 
+/*  OLD VERSION
+void logZeroFix(double *vec, int ll){
+  int ii;
+  double fixVal = 0.0;
+  double zeroCount = 0.0;
+  for(ii = 0 ; ii < ll ; ii++){
+    if(vec[ii] <= MIN_LOG){
+      zeroCount = zeroCount + 1.0;
+      fixVal  = fixVal + (MIN_LOG - vec[ii]);
+    }
+  }
+  if(fixVal > 0.0){
+    fixVal = fixVal / (ll - zeroCount);
+    for(ii = 0 ; ii < ll ; ii++){
+      if(vec[ii] <= MIN_LOG){
+	vec[ii] = MIN_LOG;
+      }else{
+	vec[ii] = vec[ii] - fixVal;
+      }
+    }
+  }
+}
+
+*/
 
 /*
 void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, 

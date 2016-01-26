@@ -9,7 +9,7 @@
 //#include <gsl/gsl_randist.h>
 #include <R.h>
 #include <Rmath.h>
-#include "mmsbm.h"
+#include "helper.h"
 //using namespace std;
 using std::ifstream;
 //using std::ofstream;
@@ -140,7 +140,10 @@ int convergenceCheck(double *logLik, int total, double qq){
 
 void colSums(double *mat, int rows, int cols, double *totals){
   int ii, jj, rr;
-  std::memset(totals,0.0,cols);
+  for(ii = 0; ii < cols ; ii++){
+    totals[ii] = 0.0;
+  }
+
   for(ii = 0 ; ii < rows ; ii++){
     rr = ii * cols;
     for(jj = 0 ; jj < cols; jj++){
@@ -160,6 +163,27 @@ void rowSums(double *mat, int rows, int cols, double *totals){
   }
 }
 
+void logZeroFix(double *vec, int ll){
+  int ii;
+  double fixVal = 0.0;
+  double zeroCount = 0.0;
+  for(ii = 0 ; ii < ll ; ii++){
+    if(vec[ii] <= MIN_LOG){
+      zeroCount = zeroCount + 1.0;
+      fixVal  = fixVal + (MIN_LOG - vec[ii]);
+    }
+  }
+  if(fixVal > 0.0){
+    fixVal = fixVal / (ll - zeroCount);
+    for(ii = 0 ; ii < ll ; ii++){
+      if(vec[ii] <= MIN_LOG){
+	vec[ii] = MIN_LOG;
+      }else{
+	vec[ii] = vec[ii] - fixVal;
+      }
+    }
+  }
+}
 
 
 

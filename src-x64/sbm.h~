@@ -36,6 +36,7 @@ class sbm_t {
   void getMultinomPosterior();
   void iterEM();
   void updateFlatTable(int, double*);
+  void updatePosteriorMat(int, double*);
   void print (bool);
   void getBB(double *BB_out);
   void geteta(double *eta_out);
@@ -47,7 +48,7 @@ class sbm_t {
 //  Function for performing the MCMC algorithm
 void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,
-	     double *flatTable, double *logLik, int verbose);
+	     double *flatTable, double *logLik, double *postMat, int verbose);
 
 void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
 	   double *flatTable, double *logLik, double *eta,

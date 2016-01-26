@@ -17,15 +17,24 @@ rdirichlet <- function(n,alpha){
 #####  Function to generate data from SBM model
 data.gen.sbm <- function(nn=50,
                          BB=array(c(.25,0.05,0.05,.25),c(2,2)),
-                         pp=c(.5,.5)){
+                         pp=c(.5,.5),
+                         mmb=NULL,PI=NULL){
 
   kk <- length(pp)
   ll <- round(pp*nn)
 
-  block.vec <- sort(sample(kk,nn,replace=TRUE,prob=pp))
-  PI <- array(0,c(nn,kk))
-  for(ii in 1:nn){
-    PI[ii,block.vec[ii]] <- 1
+  if(is.null(PI)){
+    if(is.null(mmb)){
+      block.vec <- sort(sample(kk,nn,replace=TRUE,prob=pp))
+    }else{
+      if(length(mmb) != nn)
+        stop("mmb must have length n")
+      block.vec <- mmb
+    }
+    PI <- mmb.to.PI(block.vec)
+  }else{
+    if(ncol(PI) != ncol(BB) | nrow(PI) != nn)
+      stop("PI must have dim ",nn," by ",ncol(BB))
   }
 
   p.mat <- PI %*% BB %*% t(PI)
@@ -40,11 +49,13 @@ data.gen.sbm <- function(nn=50,
 ###  Wrapper for C Implementation of SBM
 sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
                 priors=list(aa=1,bb=1,eta=rep(1/kk,kk)),clean.out=TRUE,
-                burn.in=0,thin=1,max.runs=200,
+                burn.in=0,thin=1,max.runs=200,spectral.start=FALSE,
+                label.switch.mode = c("kl-loss","adhoc"),
                 autoconverge=list(alpha=0.001,extend.max=20,shift.size=100),
                 flatTable=NULL,ll.init=NULL,HH.init=NULL,multiImpute=TRUE){
 
   ##  Formatting Adjacency Matrix for C
+  label.switch.mode <- match.arg(label.switch.mode)
   multi.int <- as.integer(ifelse(multiImpute,1,0))
   YY.clean <- YY
   diag(YY.clean) <- -1
@@ -57,10 +68,20 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   ll.vec <- double(short.total)
   HH.vec <- double(short.total*kk*nn)
 
+  if(is.null(init.vals) & spectral.start){
+    if(verbose > 0) message("Initializing with Spectral Clustering...")
+    init.vals <- sbm.spectral(YY=YY,kk=kk)
+    if(verbose > 0) message("Initialization Complete.")
+
+  }
   if(!is.null(init.vals)){
-    flatTable <- sbm.load.init.vals(init.vals)
+    flatTable <- sbm.load.init.vals(init.vals,nn=nn,kk=kk)
     ll.init <- sbm.log.like.YY(YY.clean,init.vals$BB,init.vals$PI)
-    if(!is.null(init.vals$HH)) HH.init <- init.vals$HH
+    if(!is.null(init.vals$HH)){
+      HH.init <- init.vals$HH
+    }else{
+      HH.init <- init.vals$PI
+    }
   }
 
   start = 0
@@ -70,7 +91,7 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
     total.start = start*(kk*(kk+nn))
     flatVec[1:total.start] = as.double(t(flatTable))
     ll.vec[1:start] <- ll.init
-    HH.vec <- as.double(t(HH.init))
+    HH.vec[1:(start *kk*nn)] <- as.double(t(HH.init))
   }
 
   if(is.null(autoconverge)){
@@ -110,12 +131,19 @@ sbm <- function(total=1000,YY,kk=3,verbose=0,init.vals=NULL,start=0,
   pmat.mat <- NULL  ## I might want to compute this later...
   diag(YY.clean) <- -1
 
+
   sbm.out <- structure(list(BB=BB,PI=PI,
                             YY=YY,logLik=ll.vec,
                             flat.mat=full.mat,
                             burn.in=burn.in,thin=thin,
                             pmat=pmat.mat,HH=HH),class="sbm")
-  sbm.out <- switch.labels(sbm.out,max.runs=max.runs,verbose=verbose)
+
+  if(label.switch.mode == "kl-loss"){
+    sbm.out <- switch.labels(sbm.out,max.runs=max.runs,verbose=verbose)
+  }else{
+    ##  Do nothing
+  }
+
   sbm.summ <- summary(sbm.out,burn.in=0,thin=1)
   sbm.summ$pmat <- predict(sbm.summ)
   sbm.summ$YY <- sbm.out$YY
@@ -213,6 +241,8 @@ sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short",fixed=FALSE){
   logLik <- sbm.log.like.YY(YY,BB,PI)
   spec.out <- list(PI=PI,BB=BB,logLik=logLik)
   spec.out$pmat <- predict.sbm(spec.out)
+  spec.out$mmb <- PI.to.mmb(spec.out$PI)
+  spec.out$YY <- YY
   return(spec.out)
 }
 
@@ -247,8 +277,6 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
         em.out <- em.tmp
       }
     }
-
-    return(em.out)
   }else{
     if(start == "spectral"){
       spec.fit <- sbm.spectral(YY.na,kk=kk)
@@ -271,9 +299,12 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
     em.out <- sbmEM.C(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
                       iter.max=iter.max,thresh=thresh,verbose=verbose,
                       debug=debug,calc.marginal.ll=calc.marginal.ll)
-    em.out$pmat <- predict.sbm(em.out)
-    return(em.out)
   }
+  em.out$pmat <- predict.sbm(em.out)
+  em.out$mmb <- PI.to.mmb(em.out$PI)
+  em.out$YY <- YY
+  return(em.out)
+
 }
 
 sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
@@ -510,33 +541,32 @@ rotate <- function (){
 ##########################################################
 ############  Useful Functions for MMSBMs ################
 ##########################################################
-fake.data.check <- function(trials=10,draws=100,burn.in=1000,thin=50,
-                            FUN=function(bb) abs(bb[1,1] - bb[2,2])){
+fake.data.check.sbm <- function(trials=100,draws=250,burn.in=1000,thin=10,kk=2,
+                            nn=100,aa=1,bb=1,eta=rep(1/kk,kk),
+                            verbose=0,FUN=function(BB){return(norm(BB,"F"))}){
 
-  truth.vec <- rep(NA,trials)
-  est.mat <- array(NA,c(draws,trials))
-  BB <- array(NA,c(2,2))
+  priors <- list(aa=aa,bb=bb,eta=eta)
+  truth.mat <- array(NA,c(kk,kk,trials))#rep(NA,trials)
+  est.mat <- array(NA,c(kk,kk,trials))
+  qq.vec <- rep(NA,trials)
   for(trial in 1:trials){
+    if(verbose > 0) message("Trial ",trial)
     ##  Generate parameters from prior
-    for(ii in 1:2){
-      for(jj in 1:2){
-        BB[ii,jj] <- rbeta(1,1,4)
-      }
-    }
-
-
+    BB <- array(rbeta(kk^2,priors$aa,priors$bb),c(kk,kk))
+    truth.mat[,,trial] <- BB
     ##  Generate Data
-    data.sample <- data.gen.mmsbm(nn=100,BB=BB)
-    total = burn.in + thin*draws
-    data.fit <- mmsbm(total=total,YY=data.sample$YY,kk=2)
-
-    truth.vec[trial] <- FUN(BB)
-    my.seq <- seq(burn.in + thin , total, by = thin)
-    est.mat[,trial] <- apply(data.fit$BB[,,my.seq],3,FUN)
-
+    data.sample <- data.gen.sbm(nn=nn,BB=BB,pp=priors$eta)
+    data.fit <- sbm(total=draws,YY=data.sample$YY,kk=kk,
+                    burn.in=burn.in,thin=thin,clean.out=FALSE,
+                    priors=priors)
+    est.mat[,,trial] <- data.fit$BB
+    fun.vec <- apply(data.fit$chain$BB,3,FUN)
+    qq.vec[trial] <- mean(FUN(BB) < fun.vec)
   }
 
-  return(list(truth=truth.vec,est=est.mat))
+  ks.out <- ks.test(qq.vec,"punif")
+  return(list(p.value=ks.out$p.value,truth.mat=truth.mat,est.mat=est.mat,
+              qq.vec=qq.vec,ks.out=ks.out))
 
 }
 
@@ -631,12 +661,23 @@ transpose.vector <- function(vec,nrow){
 
 
 get.rotation.mat <- function(HH,max.runs=100,verbose=1){
+#  browser()
   total <- dim(HH)[3]
   nn <- dim(HH)[1]
   kk <- dim(HH)[2]
 
   ##  Step 1
   QQ <- apply(HH,c(1,2),mean)
+  if(any(QQ == 1)){
+    for(ii in 1:nrow(QQ)){
+      if(any(QQ[ii,] == 1)){
+        qq.1 <- which(QQ[ii,] == 1)
+        QQ[ii,qq.1] <- 1 - .Machine$double.eps
+        QQ[ii,-qq.1] <- .Machine$double.eps/(ncol(QQ) - 1)
+      }
+    }
+  }
+
   QQ.old <- array(0,c(nn,kk))
   count <- 0
 
@@ -691,20 +732,22 @@ get.cost.mat <- function(HH,QQ.log){
 
 
 switch.labels <- function(sbm.obj,max.runs=100,verbose=1){
-
+#  browser()
   rot.out <- get.rotation.mat(sbm.obj$HH,max.runs=max.runs,verbose=verbose)
   sbm.obj$HH <- rot.out$HH
 
   total = dim(sbm.obj$HH)[3]
   for(ii in 1:total){
-    sbm.obj$BB[,,ii] <- sbm.obj$BB[,,ii] %*% rot.out$rot.mat[,,ii]
+    sbm.obj$BB[,,ii] <- t(rot.out$rot.mat[,,ii]) %*% sbm.obj$BB[,,ii] %*% rot.out$rot.mat[,,ii]
     sbm.obj$PI[,,ii] <- sbm.obj$PI[,,ii] %*% rot.out$rot.mat[,,ii]
   }
 
   return(sbm.obj)
 }
 
+diag.plot.sbm <- function(sbm.obj){
 
+}
 
 
 

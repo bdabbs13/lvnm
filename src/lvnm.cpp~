@@ -50,6 +50,11 @@ extern "C" {
     sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
     if(start > 0){
       mySBM->loadTable(start, flatTable);
+      
+      if(start == 1){
+	mySBM->drawPP();
+	mySBM->updatePosteriorMat(0,postMat);
+      }
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,
@@ -119,6 +124,22 @@ extern "C" {
     delete myMMSBM;
     PutRNGstate();
   }
+
+  void lvnmTest(int *nn_t, int *kk_t, int *YY, double *BB){
+
+    double betaPrior[2] = {1,1};
+    double eta = new double[*kk_t];
+    std::fill(eta,eta + *kk_t, 1.0);
+    
+    /*****  INITIALIZATION  *****/
+    //  Initializing SBM object
+    sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+    mySBM->computBBmle();
+    mySBM->getBB(BB);
+    delete mySBM;
+  }
+
+  
 }
 
 

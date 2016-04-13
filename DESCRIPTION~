@@ -1,8 +1,9 @@
-Package: mmsbm
+Package: lvnm
 Version: 0.2
-Date: 2013-07-25
-Title: Mixed Membership Stochastic Block Models
+Date: 2015-07-24
+Title: Latent Variable Network Models
 Author: Beau Dabbs <bdabbs@andrew.cmu.edu>
 Maintainer: Beau Dabbs <bdabbs@andrew.cmu.edu>
-Description: mmsbm fits both MMSBM and SBM models.
+Description: lvnm fits various latent variable network models.
 License: GPL (>= 2.0)
+Imports: svd

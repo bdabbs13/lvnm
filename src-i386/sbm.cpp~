@@ -128,10 +128,12 @@ void sbm_t::iterEM (){
     Rprintf("%f, ",log(eta[ii]));
   }
   */
+  //  Rprintf("PI:\n");
+  //  RprintIntMat(1,nn,PPint);
   getMultinomPosterior();  //  Update Posterior Mean HH
   std::copy(HH,HH+(nn*dd),PP);  //  Copy into PP
   
-  //  Rprintf("HH:\n");
+  //  Rprintf("\nHH:\n");
   //  RprintDoubleMat(nn,dd,HH);
 
   // M Step
@@ -298,6 +300,9 @@ sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
     BB[ii] = holder[0];
     BB_inv[ii] = 1.0 - BB[ii];
   }
+  hit = new double[dd*dd];
+  miss = new double[dd*dd];
+
   is_BB_logged = false;
 
   PP = new double[nn*dd];
@@ -360,7 +365,13 @@ void sbm_t::loadTable(int start, double *flatTable){
   
   //  Loading BB
   for(ii = 0 ; ii < dd*dd ; ii++){
-    BB[ii] = flatTable[offset + ii];
+    if(flatTable[offset + ii] > MAX_LOG){
+      BB[ii] = MAX_LOG;
+    }else if(flatTable[offset + ii] < MIN_LOG){
+      BB[ii] = MIN_LOG;
+    }else{
+      BB[ii] = flatTable[offset + ii];
+    }
     BB_inv[ii] = 1.0 - BB[ii];
   }
   
@@ -394,6 +405,50 @@ void sbm_t::step(){
     imputeMissingValues();
   }
 }
+
+void sbm_t::computeHitMiss(){
+  int dd2 = dd*dd; 
+  int rr, cc, index;
+
+  //  Setting values to zero
+  std::fill(hit, hit+dd2, 0);
+  std::fill(miss,miss+dd2,0);
+
+  //  Counting hits and misses
+  for(rr = 0 ; rr < nn ; rr++){
+    for(cc = 0 ; cc < nn ; cc++){
+      index = PPint[rr] * dd + PPint[cc];
+      if(YY[rr * nn + cc] == 1){
+	hit[index] = hit[index] + 1;
+      }else if(YY[rr * nn + cc] == 0){
+	miss[index] = miss[index] + 1;
+      }
+    }
+  }
+  Rprintf("Hits:\n");
+  RprintDoubleMat(dd,dd,hit);
+  Rprintf("\nMisses:\n");
+  RprintDoubleMat(dd,dd,miss);
+  
+}
+
+
+
+void sbm_t::computeBBmle(){
+  computeHitMiss();
+
+  int ii,dd2 = dd*dd;
+  for(ii = 0 ; ii < dd2 ; ii++){
+    BB[ii] = hit[ii] / (hit[ii] + miss[ii]);
+    if(BB[ii] < MIN_LOG){
+      BB[ii] = MIN_LOG;
+    }else if(BB[ii] > MAX_LOG){
+      BB[ii] = MAX_LOG;
+    }
+    BB_inv[ii] = 1.0 - BB[ii];
+  }
+}
+
 
 void sbm_t::drawBB(){
   int dd2 = dd*dd;

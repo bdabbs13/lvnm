@@ -300,6 +300,9 @@ sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
     BB[ii] = holder[0];
     BB_inv[ii] = 1.0 - BB[ii];
   }
+  hit = new double[dd*dd];
+  miss = new double[dd*dd];
+
   is_BB_logged = false;
 
   PP = new double[nn*dd];
@@ -393,6 +396,15 @@ void sbm_t::loadTable(int start, double *flatTable){
   imputeMissingValues();
 }
 
+void sbm_t::loadPPint(int *PPintLoad){
+  int ii;
+  //  Rprintf("mmb:\n");
+  //  RprintIntMat(1,nn,PPintLoad);
+  for(ii = 0 ; ii < nn ; ii++){
+    PPint[ii] = PPintLoad[ii] - 1;
+  }
+}
+
 
 void sbm_t::step(){
   drawPP();
@@ -402,6 +414,60 @@ void sbm_t::step(){
     imputeMissingValues();
   }
 }
+
+void sbm_t::computeHitMiss(){
+  int dd2 = dd*dd; 
+  int rr, cc, index;
+
+  /*  Rprintf("YY:\n");
+  RprintIntMat(nn,nn,YY);
+  Rprintf("PPint:\n");
+  RprintIntMat(1,nn,PPint);*/
+
+  //  Setting values to zero
+  std::fill(hit, hit+dd2, 0.0);
+  std::fill(miss,miss+dd2,0.0);
+
+  //  Counting hits and misses
+  for(rr = 0 ; rr < nn ; rr++){
+    for(cc = 0 ; cc < nn ; cc++){
+      index = PPint[rr] * dd + PPint[cc];
+      if(YY[rr * nn + cc] == 1){
+	hit[index] = hit[index] + 1;
+      }else if(YY[rr * nn + cc] == 0){
+	miss[index] = miss[index] + 1;
+      }
+    }
+  }
+
+  /*Rprintf("Hits:\n");
+  RprintDoubleMat(dd,dd,hit);
+  Rprintf("\nMisses:\n");
+  RprintDoubleMat(dd,dd,miss);*/
+  
+}
+
+
+
+void sbm_t::computeBBmle(){
+  computeHitMiss();
+
+  int ii,dd2 = dd*dd;
+  for(ii = 0 ; ii < dd2 ; ii++){
+    if(hit[ii] == 0.0){
+      BB[ii] = 0.0;
+    }else{
+      BB[ii] = hit[ii] / (hit[ii] + miss[ii]);
+    }
+    /*if(BB[ii] < MIN_LOG){
+      BB[ii] = MIN_LOG;
+    }else if(BB[ii] > MAX_LOG){
+      BB[ii] = MAX_LOG;
+    }
+    BB_inv[ii] = 1.0 - BB[ii];*/
+  }
+}
+
 
 void sbm_t::drawBB(){
   int dd2 = dd*dd;

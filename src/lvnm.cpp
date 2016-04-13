@@ -124,6 +124,22 @@ extern "C" {
     delete myMMSBM;
     PutRNGstate();
   }
+
+  void lvnmTest(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb){
+
+    double betaPrior[2] = {1,1};
+    double *eta = new double[*kk_t];
+    int multi = 1;
+    std::fill(eta,eta + *kk_t, 1.0);
+    
+    /*****  INITIALIZATION  *****/
+    //  Initializing SBM object
+    sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+    mySBM->loadPPint(mmb);
+    mySBM->computeBBmle();
+    mySBM->getBB(BB);
+    delete mySBM;
+  }
 }
 
 

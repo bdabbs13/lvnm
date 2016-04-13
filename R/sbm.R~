@@ -5,7 +5,7 @@
 #####    mmsbm - Fits MMSBM choosing intelligent starting values
 #####
 ##############################################################
-
+#library(svd)
 
 rdirichlet <- function(n,alpha){
   l <- length(alpha)
@@ -13,6 +13,7 @@ rdirichlet <- function(n,alpha){
   sm <- x %*% rep(1, l)
   x/as.vector(sm)
 }
+
 
 #####  Function to generate data from SBM model
 data.gen.sbm <- function(nn=50,
@@ -177,18 +178,23 @@ mmb.to.PI <- function(mmb,kk=max(mmb)){
   return(PI)
 }
 
-
-get.BB.mle <- function(mmb,PI,net,cols=1:ncol(net)){
-  if(missing(mmb) & missing(PI))
-    stop("At least one of mmb and PI must be passed")
-  if(missing(PI)){
-    nn <- length(mmb);  kk <- max(mmb)
-    PI <- array(0,c(nn,kk))
-    PI[cbind(1:nn,mmb)] <- 1
-  }else{
-    nn <- nrow(PI); kk <- ncol(PI)
+fast.mle <- function(mmb,net,nn=length(mmb),kk=max(mmb)){
+  if(any(is.na(net))){
+    net[is.na(net)] <- -1
   }
+  BB <- array(0.0,c(kk,kk))
+  out <- .C("lvnmTest",as.integer(nn),as.integer(kk),
+            as.integer(as.vector(net)),as.double(as.vector(BB)),
+            as.integer(mmb))
+#  browser()
+  BB <- array(out[[4]],c(kk,kk))
+  return(BB)
+}
 
+get.BB.mle <- function(mmb,net,cols=1:ncol(net),kk=max(mmb)){
+  nn <- length(mmb);
+  PI <- array(0,c(nn,kk))
+  PI[cbind(1:nn,mmb)] <- 1
   BB <- BB.tot <- array(0,c(kk,kk))
 
   for(ll in 1:kk){
@@ -205,24 +211,38 @@ get.BB.mle <- function(mmb,PI,net,cols=1:ncol(net)){
 
 }
 
-sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short",fixed=FALSE){
+sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),fixed=FALSE,
+                         mle.mode=c("fast","R","long"),
+                         svd.mode=c("trlan","propack","default")){
+  mle.mode <- match.arg(mle.mode)
+  svd.mode <- match.arg(svd.mode)
   if(any(is.na(diag(YY)))){
     diag(YY) <- 0
   }
   nn <- ncol(YY)
   YY <- YY[,cols]
-  eig <- svd(YY,kk,kk)
+  if(svd.mode == "trlan"){
+    eig <- svd::trlan.svd(YY,kk,opts=list(maxiter=1000))
+  }else if(svd.mode == "propack"){
+    eig <- svd::propack.svd(YY,kk)
+  }else if(svd.mode == "default"){
+    eig <- svd(YY,nu=kk,nv=kk)
+  }
   mmb <- kmeans(eig$u,kk,iter.max=100,nstart=10)$cluster
 
   if(fixed){
     mmb <- sample(c(1:kk,sample(1:kk,size=nn-kk,replace=TRUE)))
   }
 
-  if(mode == "short"){
-    BB <- get.BB.mle(mmb=mmb,net=YY)
+  if(mle.mode == "fast"){
+    BB <- fast.mle(mmb=mmb,net=YY,kk=kk)
   }
 
-  if(mode == "long"){
+  if(mle.mode == "R"){
+    BB <- get.BB.mle(mmb=mmb,net=YY,kk=kk)
+  }
+
+  if(mle.mode == "long"){
     BB <- BB.tot <- array(0,c(kk,kk))
 
     for(ii in 1:nrow(YY)){
@@ -246,7 +266,7 @@ sbm.spectral <- function(YY,kk=3,cols=1:ncol(YY),mode="short",fixed=FALSE){
   return(spec.out)
 }
 
-get.random.params <- function(ee){
+get.random.params <- function(ee,kk){
   BB <- array(runif(kk*kk,0,1),c(kk,kk))
   PI <- t(rmultinom(nn,1,rep(1,kk)/kk))
   PI[PI==1] <- 1 - ee
@@ -257,8 +277,13 @@ get.random.params <- function(ee){
 
 sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
                    debug=FALSE,start=c("spectral","random","multi"),
-                   b.min=0.001,ee=0.1,n.starts=100,calc.marginal.ll=FALSE){
+                   b.min=0.001,ee=0.1,n.starts=100,calc.marginal.ll=FALSE,
+                   mle.mode=c("fast","R"),
+                   svd.mode=c("trlan","propack","default")){
+
   start <- match.arg(start)
+  mle.mode <- match.arg(mle.mode)
+  svd.mode <- match.arg(svd.mode)
   nn <- ncol(YY)
   YY.na <- YY
   YY.na[is.na(YY.na)] <- mean(YY.na,na.rm=TRUE)
@@ -267,25 +292,26 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
   if(start == "multi"){
     em.out <- list(logLik.marginal = -Inf)
     for(ii in 1:n.starts){
-      obj <- get.random.params(ee)
+      obj <- get.random.params(ee,kk)
       BB <- obj$BB
       PI <- obj$PI
-      em.tmp <- sbm.em.climb(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
-                             iter.max=iter.max,thresh=thresh,verbose=verbose,
-                             debug=debug,calc.marginal.ll=TRUE)
-      if(em.out$logLik.marginal < em.tmp$logLik.marginal){
+      em.tmp <- sbmEM.C(YY=YY,kk=kk,BB=BB,PI=PI,pi.prior=pi.prior,
+                        iter.max=iter.max,thresh=thresh,verbose=verbose,
+                        debug=debug,calc.marginal.ll=FALSE,mle.mode=mle.mode)
+      ##      if(em.out$logLik.marginal < em.tmp$logLik.marginal){
+      if(em.out$logLik < em.tmp$logLik){
         em.out <- em.tmp
       }
     }
   }else{
     if(start == "spectral"){
-      spec.fit <- sbm.spectral(YY.na,kk=kk)
+      spec.fit <- sbm.spectral(YY.na,kk=kk,mle.mode=mle.mode,svd.mode=svd.mode)
       BB <- spec.fit$BB
       PI <- spec.fit$PI
       PI[PI==0] <- ee /(kk-1)
       PI[PI==1] <- 1 - ee
     }else if(start =="random"){
-      obj <- get.random.params(ee)
+      obj <- get.random.params(ee,kk)
       BB <- obj$BB
       PI <- obj$PI
     }
@@ -308,8 +334,10 @@ sbm.em <- function(YY,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
 }
 
 sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
-                    verbose=0,debug=FALSE,calc.marginal.ll=FALSE){
-##  browser()
+                    verbose=0,debug=FALSE,calc.marginal.ll=FALSE,
+                    mle.mode=c("fast","R")){
+  ##  browser()
+  mle.mode <- match.arg(mle.mode)
   nn <- ncol(YY)
   kk <- ncol(BB)
   YY.clean <- YY;
@@ -331,11 +359,18 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
 
   BB.old <- matrix(BB.flat,nrow=kk,byrow=TRUE)
   PI <- matrix(PI.flat,nrow=nn,byrow=TRUE)
-  PI <- mmb.to.PI(PI.to.mmb(PI),kk)  ##  Converting to only zeroes and ones
+  mmb <- PI.to.mmb(PI)
+  PI <- mmb.to.PI(mmb,kk)
 
-  BB <- get.BB.mle(PI=PI,net=YY)
+  if(mle.mode == "fast"){
+    BB <- fast.mle(mmb=mmb,net=YY,kk=kk)
+  }else{
+    BB <- get.BB.mle(mmb=mmb,net=YY,kk=kk)
+  }
 
   logLik <- out[[8]]
+  logLik.sbm <- sbm.log.like.YY(YY=YY,BB=BB,PI=PI)
+
   if(calc.marginal.ll){
     logLik.marginal <- sbm.marginal.log.like.YY(YY,BB,pi.prior)
   }else{
@@ -343,8 +378,8 @@ sbmEM.C <- function(YY,kk,BB,PI,pi.prior,iter.max=1000,thresh=10e-4,
   }
   pi.prior <- out[[5]]
 
-  return(list(BB=BB,PI=PI,pi.prior=pi.prior,BB.old=BB.old,
-              logLik=logLik,logLik.marginal=logLik.marginal))
+  return(list(BB=BB,PI=PI,pi.prior=pi.prior,BB.old=BB.old,logLik.C=logLik,
+              logLik=logLik.sbm,logLik.marginal=logLik.marginal))
 
 }
 
@@ -698,7 +733,7 @@ get.rotation.mat <- function(HH,max.runs=100,verbose=1){
                                         #          CC[jj,ll] <- sum(HH[,ll,iter] * log((HH[,ll,iter] / QQ[,jj])))
                                         #        }
                                         #      }
-      lp.out <- lp.assign(CC.mat[,,iter])
+      lp.out <- lpSolve::lp.assign(CC.mat[,,iter])
       rot.mat[,,iter] <- rot.mat[,,iter] %*% t(lp.out$solution)
       HH[,,iter] <- HH[,,iter] %*% t(lp.out$solution)
     }

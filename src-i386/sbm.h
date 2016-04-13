@@ -11,6 +11,8 @@ class sbm_t {
   int *yyComplete;
   double *BB;
   double *BB_inv;
+  double *hit;
+  double *miss;
   double *PP;
   double *HH;
   int *PPint;
@@ -24,6 +26,8 @@ class sbm_t {
   ~sbm_t();
   void loadTable (int, double*);
   void step ();
+  void computeHitMiss ();
+  void computeBBmle();
   void drawBB();
   void drawPP();
   void rotate();
@@ -39,6 +43,7 @@ class sbm_t {
   void getBB(double *BB_out);
   void geteta(double *eta_out);
   double BBdiff(double *BB_old);
+  void loadPPint(int *PPintLoad);
   void logBB();
   void expBB();
 };

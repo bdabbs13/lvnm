@@ -25,16 +25,13 @@ void shiftFlatTable(int shift_size, int flatLength, int total,
   int flatStart = shift_size * flatLength;
   int flatEnd = total * flatLength;
   std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
+}
 
-  /*
-  int ii;
-  int flatTotal = total * (dd * (nn + dd));
-  int flatShift = shift_size * (dd *(nn + dd));
-  
-  for(ii = 0 ; ii < flatTotal - flatShift ; ii++){
-    flatTable[ii] = flatTable[ii + flatShift];
-  }
-  */
+void shiftFlatTable(int shift_size, int flatLength, int total, 
+		    int *flatTable){
+  int flatStart = shift_size * flatLength;
+  int flatEnd = total * flatLength;
+  std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
 }
 
 
@@ -163,20 +160,32 @@ void rowSums(double *mat, int rows, int cols, double *totals){
   }
 }
 
+void normalizeVec(double *vec, int ll){
+  int ii;
+  double total = 0.0;
+  for(ii = 0 ; ii < ll ; ii++){
+    total = total + vec[ii];
+  }
+  for(ii = 0 ; ii < ll ; ii++){
+    vec[ii] = vec[ii] / total;
+  }
+}
+
 void logZeroFix(double *vec, int ll){
   int ii;
-  int fixInd = 0;
+  //  int fixInd = 0;
   double total = 0.0;
   for(ii = 0 ; ii < ll ; ii++){
     if(vec[ii] <= MIN_LOG){
       vec[ii] = MIN_LOG;
-      fixInd = 1;
+      //      fixInd = 1;
       //      zeroCount = zeroCount + 1.0;
       //      fixVal  = fixVal + (MIN_LOG - vec[ii]);
     }
     total = total + vec[ii];
   }
-  if(fixInd == 1){
+  //  if(fixInd == 1){
+  if(total > 1.0){
     // Renormalize
     for(ii = 0 ; ii < ll ; ii++){
       vec[ii] = vec[ii] / total;
@@ -184,6 +193,15 @@ void logZeroFix(double *vec, int ll){
   }
 }
 
+double logCheck(double val){
+  if(val > MAX_LOG){
+    return(MAX_LOG);
+  }else if(val < MIN_LOG){
+    return(MIN_LOG);
+  }else{
+    return(val);
+  }
+}
 
 /*  OLD VERSION
 void logZeroFix(double *vec, int ll){

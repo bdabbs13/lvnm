@@ -28,28 +28,34 @@ extern "C" {
   // Function to be called by R
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	   double *betaPrior, double *eta,
-	   double *flatTable, int *burn_t, int *thin_t,
+	   //double *flatTable,
+	   double *BBout, int *MMBout,
+	   int *burn_t, int *thin_t,
 	   int *start_t, int *multi_t,double *logLik,
 	   int *extend_max_t, int *shift_t, double *qq_t,
 	   double *postMat, int *verbose_t)
   {
     
     GetRNGstate();
-
+    
     int start = *start_t, verbose = *verbose_t;
+    //  MCMC Control Parameters
     int total = *iters, burnIn = *burn_t, thin = *thin_t;
-
-    //    int verbose = 0;
+    
+    //  Convergence Checking Criteria
     double qq = *qq_t;
     int shift_size = *shift_t;
     int extend_max = *extend_max_t;
-
-
+    
+    
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
     sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+    
+    //  Loading Previous Chain
     if(start > 0){
-      mySBM->loadTable(start, flatTable);
+      // 1234
+      //mySBM->loadTable(start, flatTable);
       
       if(start == 1){
 	mySBM->drawPP();
@@ -58,9 +64,10 @@ extern "C" {
     }
     
     sbmMCMC(mySBM, start, total, burnIn, thin,
-	    shift_size, extend_max, qq, flatTable, logLik, postMat,
-	    verbose);
-
+	    shift_size, extend_max, qq, //flatTable,
+	    BBout, MMBout,
+	    logLik, postMat, verbose);
+    
     delete mySBM;
     PutRNGstate();
   }
@@ -68,7 +75,8 @@ extern "C" {
   
   void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,
 		double *eta,
-		double *flatTable, double *threshold_t,
+		double *HHout, double *BBout, int *MMBout,
+		double *threshold_t,
 		double *logLik,int *verbose_t)
   {
     
@@ -84,9 +92,14 @@ extern "C" {
     //  Initializing SBM object
 
     sbm_t *mySBM = new sbm_t(*nn_t, *kk_t, YY, betaPrior, eta, multi);
-    mySBM->loadTable(1, flatTable);
+    //mySBM->loadTable(1, flatTable);
+    mySBM->loadHH(HHout);
+    mySBM->loadPPint(MMBout);
+    mySBM->loadBB(BBout);
+    mySBM->initPPem(0.1);
     
-    sbmEM(mySBM, iter_max, threshold, flatTable, logLik, eta, verbose);
+    sbmEM(mySBM, iter_max, threshold, HHout, BBout, MMBout,
+	  logLik, eta, verbose);
     
     delete mySBM;
     PutRNGstate();
@@ -131,6 +144,13 @@ extern "C" {
     double *eta = new double[*kk_t];
     int multi = 1;
     std::fill(eta,eta + *kk_t, 1.0);
+
+    /*    
+    double test1 = DBL_EPSILON;
+    double test2 = log(test1/2);
+    double test3 = log(MIN_LOG/2);
+    Rprintf("eps: %f \n log(eps): %f \n log(min): %f",test1,test2,test3);
+    */
     
     /*****  INITIALIZATION  *****/
     //  Initializing SBM object
@@ -141,6 +161,7 @@ extern "C" {
     delete mySBM;
   }
 }
+
 
 
 

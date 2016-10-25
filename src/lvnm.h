@@ -10,8 +10,9 @@ extern "C" {
   
   //  Fits a stochastic block model
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
-	   double *betaPrior, double *eta,
-	   double *flatTable, int *burn_t, int *thin_t,
+	   double *betaPrior, double *eta, //double *flatTable,
+	   double *BBout, int *MMBout,
+	   int *burn_t, int *thin_t,
 	   int *start_t, int *multi_t,double *logLik,
 	   int *extend_max_t, int *shift_t, double *qq_t,
 	   double *postMat, int *verbose_t);
@@ -19,7 +20,8 @@ extern "C" {
   //  Performs EM algorithm and returns final PI and BB
   void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,
 		double *eta,
-		double *flatTable, double *threshold_t,
+		double *HHout, double *BBout, int *MMBout,
+		double *threshold_t,
 		double *logLik,int *verbose_t);
 
   //  Fits a mixed membership stochastic block model
@@ -29,7 +31,7 @@ extern "C" {
 	     int *start_t,int *multi_t, double *logLik,
 	     int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t);
 
-  void lvnmTest(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb);
+  void getBBmle(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb);
   
 }
 #endif

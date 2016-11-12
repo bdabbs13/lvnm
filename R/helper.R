@@ -6,6 +6,24 @@
 #####
 ##############################################################
 
+get.weighted.adj <- function(ig){
+  elm <- igraph::get.edgelist(ig)
+  elm <- cbind(elm,igraph::E(ig)$count)
+  aa <- as.matrix(igraph::get.adjacency(ig))
+  for(ii in 1:nrow(elm)){
+    aa[elm[ii,1],elm[ii,2]] <- elm[ii,3]
+  }
+  return(aa)
+}
+
+import.weighted.gml <- function(fn){
+    if(!grepl(".gml",fn)){
+        stop("Filename does not have extension .gml")
+    }
+    ig <- igraph::read_graph(fn,format="gml")
+    return(get.weighted.adj(ig))
+}
+
 max.acf <- function(flatTable,kk.max=100,make.plot=TRUE){
   cols <- ncol(flatTable)
   rows <- nrow(flatTable)

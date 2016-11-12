@@ -1,17 +1,34 @@
-OBJECTS = mmsbm.o lsm.o
-INCLUDES = -I/usr/share/R/include
-FLAGS = -DNDEBUG -fpic -O2 -g
-LIBS = -L/usr/lib/R/lib -lR
-all: mmsbm.so
+CXX=g++
+CXXFLAGS= -DNDEBUG -fpic -O2 -g
+OBJECTS = lvnm.o sbm.o mmsbm.o lsm.o helper.o
+LVNMINC = ../include
+INCLUDES = -I/Library/Frameworks/R.framework/Resources/include -I$(LVNMINC)
+LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR
+VPATH = $(LVNMINC)
 
-mmsbm.so: $(OBJECTS)
-	g++ -shared -o mmsbm.so $(OBJECTS) $(LIBS)
+all: lvnm.so
 
-mmsbm.o: mmsbm.cpp mmsbm.h
-	g++ $(INCLUDES) $(FLAGS) -c mmsbm.cpp -o mmsbm.o
+lvnm.so: $(OBJECTS)
+	$(CXX) -shared -o lvnm.so $(OBJECTS) $(LIBS)
+
+lvnm.o: lvnm.cpp lvnm.h 
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c lvnm.cpp -o lvnm.o
+
+sbm.o: sbm.cpp sbm.h
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c sbm.cpp -o sbm.o
+
+mmsbm.o: mmsbm.cpp mmsbm.h helper.o
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c mmsbm.cpp -o mmsbm.o
 
 lsm.o: lsm.cpp lsm.h
-	g++ $(INCLUDES) $(FLAGS) -c lsm.cpp -o lsm.o
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c lsm.cpp -o lsm.o
+
+helper.o: helper.cpp helper.h
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c helper.cpp -o helper.o
+
+
 
 clean:
-	-rm $(OBJECTS) mmsbm.so
+	-rm $(OBJECTS) lvnm.so
+	-rm *~
+	-rm *#

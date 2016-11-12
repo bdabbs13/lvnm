@@ -6,4 +6,4 @@ Author: Beau Dabbs <bdabbs@andrew.cmu.edu>
 Maintainer: Beau Dabbs <bdabbs@andrew.cmu.edu>
 Description: lvnm fits various latent variable network models.
 License: GPL (>= 2.0)
-Imports: svd, lpSolve
+Imports: svd, lpSolve, igraph

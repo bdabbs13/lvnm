@@ -4,72 +4,86 @@
 
 #ifndef SBM_R
 #define SBM_R
+#include <vector>
 
 //  Definition for SBM class
 class sbm_t {
-  int *YY;
-  int *yyComplete;
-  double *BB;
-  double *BB_inv;
-  double *BB_old;
-  double *hit;
-  double *miss;
-  double *PP;
-  double *HH;
-  int *PPint;
-  double betaPrior[2];
-  double *eta;
-  bool multiImpute;
-  bool is_BB_logged;
+   std::vector<std::vector<int> > AA;
+   std::vector<std::vector<int> > AApartial;
+   //   int *YY;
+   //   int *yyComplete;
+   //double *BB;
+   //double *BB_inv;
+   //double *BB_old;
+   std::vector<std::vector<double> > BB;
+   std::vector<std::vector<double> > BB_inv;
+   std::vector<std::vector<double> > BB_old;
+
+   std::vector<std::vector<double> > hit;
+   std::vector<std::vector<double> > miss;
+   //   double *hit;
+   //   double *miss;
+
+   double *PP;
+   double *HH;
+   int *PPint;
+   double betaPrior[2];
+   double *eta;
+   //   std::vector<double> eta;
+   bool multiImpute;
+   bool imputeFlag;
+   bool is_BB_logged;
  public:
-  int nn, dd;
-  sbm_t (int, int, int*, double*, double*, int);
-  ~sbm_t();
+   int nn, dd;
+   sbm_t (int, int, int*, double*, double*, int);
+   ~sbm_t();
 
-  // I/O Functions
-  void loadTable (int, double*);
-  void loadSBM(double*,int*);
-  void loadBB(double *);
-  void loadHH(double *);
-  void loadPPint(int *);
-  void initPPem(double);
-  void updateFlatTable(int, double*);
-  void updateBB(int, double*);
-  void updateMMB(int, int*);
-  void updateEta(double *eta_out);
-  void updatePosteriorMat(int, double*);
-  
-  //  MCMC Functions
-  void step ();
-  void drawBB();
-  void drawPP();
-  void rotate();
-  void imputeMissingValues();
-  
-  // EM Functions
-  void iterEM();
-  void getMultinomPosterior();
-  
-  // Helper Functions
-  void computeHitMiss ();
-  void computeBBmle();
-  
-  // Log-Likelihood Functions
-  double LL();
-  double nodeLL(int);
-  double tieLL(int, int, int);
-  double nodeLL_long(int);
-  double tieLL_sender(int, int, int);
-  double tieLL_receiver(int, int, int);
+   // I/O Functions
+   void loadTable (int, double*);
+   void loadSBM(double*,int*);
+   void loadBB(double *);
+   void loadHH(double *);
+   void loadPPint(int *);
+   void initPPem(double);
+   void updateFlatTable(int, double*);
+   void updateBB(int, double*);
+   void updateMMB(int, int*);
+   void updateEta(double *eta_out);
+   void updatePosteriorMat(int, double*);
 
-  // BB management
-  void getBB(double *BB_out);
-  void saveBB_old();
-  double BBdiff();
-  void logBB();
-  void expBB();
-  
-  void print (bool);
+   //  MCMC Functions
+   void step ();
+   void drawBB();
+   void drawPP();
+   void rotate();
+   void imputeMissingValues();
+
+   // EM Functions
+   void iterEM();
+   void getMultinomPosterior();
+
+   // Helper Functions
+   void computeHitMiss ();
+   void computeBBmle();
+
+   // Log-Likelihood Functions
+   double LL();
+   double nodeLL(int);
+   double tieLL(int, int, int);
+   double nodeLL_long(int);
+   double tieLL_sender(int, int, int);
+   double tieLL_receiver(int, int, int);
+
+   // BB management
+   void getBB(double *BB_out);
+   void saveBB_old();
+   double BBdiff();
+   void logBB();
+   void expBB();
+
+   void print (bool);
+   void printAdjacencyMatrix();
+   void printBB();
 };
 
 //  Function for performing the MCMC algorithm
@@ -83,7 +97,7 @@ void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
 	   double *logLik, double *eta,
 	   int verbose);
 
-  
+void printAdjacencyMatrix();
 
 #endif
 

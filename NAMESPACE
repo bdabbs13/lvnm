@@ -1,4 +1,5 @@
 useDynLib(lvnm)
+export(sbm.testing)
 export(mmsbm)
 #export(summary.mmsbm)
 export(predict.mmsbm)

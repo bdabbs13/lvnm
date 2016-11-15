@@ -7,6 +7,11 @@
 ##############################################################
                                         #library(svd)
 
+sbm.testing <- function(mat,kk=3){
+    nn <- ncol(mat)
+    out <- .C("sbmTesting",as.integer(nn),as.integer(kk),as.integer(mat))
+}
+
 rdirichlet <- function(n,alpha){
     l <- length(alpha)
     x <- matrix(rgamma(l * n, alpha), ncol = l, byrow = TRUE)
@@ -258,7 +263,7 @@ sbm.spectral <- function(net,kk=3,cols=1:ncol(net),fixed=FALSE,is.weighted=NULL,
     net <- net[,cols]
     nn <- ncol(net)
     if(is.null(is.weighted)){
-        is.weighted <- any(net[!is.na(net)] != 0 & net[!is.na(net)] != 1)
+        is.weighted <- any(net[!is.na(net)] < 0 | net[!is.na(net)] > 1)
         if(is.weighted){
             message("Network has values outside of 0 and 1.")
             message("Assuming network is weighted.")
@@ -372,7 +377,7 @@ sbm.em <- function(net,kk=3,iter.max=1000,thresh=10e-4,verbose=0,
         }
     }else{
         if(start == "spectral"){
-            spec.fit <- sbm.spectral(net.mean,kk=kk,mle.mode=mle.mode,svd.mode=svd.mode)
+            spec.fit <- sbm.spectral(net.mean,kk=kk,svd.mode=svd.mode)
             BB <- spec.fit$BB
             mmb <- spec.fit$mmb
             ##PI <- spec.fit$PI

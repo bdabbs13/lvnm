@@ -4,15 +4,19 @@
 
 #ifndef LVNM_HELPER_R
 #define LVNM_HELPER_R
+#include<vector>
 //#define MIN_LOG 0.0000000001
 #define MIN_LOG DBL_EPSILON
 #define MAX_LOG 1.0 - MIN_LOG
 
 
-void shiftFlatTable(int shift_size, int flatLength, int total, 
+//  Function for determining missingness.  Currently < 0 indicates missingness
+bool isMissing(int ii);
+
+void shiftFlatTable(int shift_size, int flatLength, int total,
 		    double *flatTable);
 
-void shiftFlatTable(int shift_size, int flatLength, int total, 
+void shiftFlatTable(int shift_size, int flatLength, int total,
 		    int *flatTable);
 
 void RprintDoubleMat(int rows, int cols, double *mat);
@@ -26,6 +30,8 @@ void getMeanVar(double *vec, int lower, int upper,
 
 int convergenceCheck(double *logLik, int total, double qq);
 
+void colSums(double *mat, int rows, int cols, std::vector<double> totals);
+
 void colSums(double *mat, int rows, int cols, double *totals);
 
 void rowSums(double *mat, int rows, int cols, double *totals);
@@ -36,7 +42,7 @@ void logZeroFix(double *vec, int ll);
 
 double logCheck(double val);
 
-  
+
 
 #endif
 

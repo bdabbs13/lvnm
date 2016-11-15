@@ -19,15 +19,19 @@ using std::ifstream;
 
 
 
+bool isMissing(int ii){
+   return (ii < 0);
+}
+
 /******************************************/
-void shiftFlatTable(int shift_size, int flatLength, int total, 
+void shiftFlatTable(int shift_size, int flatLength, int total,
 		    double *flatTable){
   int flatStart = shift_size * flatLength;
   int flatEnd = total * flatLength;
   std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
 }
 
-void shiftFlatTable(int shift_size, int flatLength, int total, 
+void shiftFlatTable(int shift_size, int flatLength, int total,
 		    int *flatTable){
   int flatStart = shift_size * flatLength;
   int flatEnd = total * flatLength;
@@ -42,7 +46,7 @@ void shiftFlatTable(int shift_size, int flatLength, int total,
  **********  Output Functions  **************
  *******************************************/
 
-/*  These functions allow easy printing of 
+/*  These functions allow easy printing of
  *  matrix-like objects, given the number of
  *  rows and columns.
  */
@@ -56,7 +60,7 @@ void RprintDoubleMat(int rows, int cols, double *mat){
     Rprintf("\n");
   }
 }
-  
+
 void RprintIntMat(int rows, int cols, int *mat){
   int ii, jj;
   for(ii = 0 ; ii < rows ; ii++){
@@ -66,29 +70,29 @@ void RprintIntMat(int rows, int cols, int *mat){
     Rprintf("\n");
   }
 }
-  
+
 //  Saves the current MMSBM state to the flatTable
 void rdirichlet(int k, double *alpha, double *x){
   int ii;
   double draw[k];
   double total = 0.0;
-    
+
   for(ii=0 ; ii < k ; ii++){
     draw[ii] = rgamma(alpha[ii],1);
     //draw[ii] = gsl_ran_gamma(rng,alpha[ii],1);
     total = total + draw[ii];
   }
-    
+
   for(ii = 0; ii < k; ii++){
     x[ii] = draw[ii] / total;
   }
 }
-  
+
 
 void getMeanVar(double *vec, int lower, int upper,
 		double *Mean_t, double *Var_t, double * Len_t){
 
-    
+
   double Var;
   double Mean = 0.0;
   double Len = upper - lower;
@@ -103,26 +107,26 @@ void getMeanVar(double *vec, int lower, int upper,
   *Mean_t = Mean;
   *Var_t = Var;
   *Len_t = Len;
-    
+
 }
-  
+
 int convergenceCheck(double *logLik, int total, double qq){
-    
+
   double llMean1, llVar1, llLen1;
   double llMean2, llVar2, llLen2;
   double sdTot;
-  
+
   //Rprintf("lower1 = %d, upper1 = %d\n",0,total/10);
   getMeanVar(logLik,0,total/10,
 	     &llMean1, &llVar1, & llLen1);
-  //Rprintf("lower2 = %d, upper2 = %d\n",total/2,total);    
+  //Rprintf("lower2 = %d, upper2 = %d\n",total/2,total);
   getMeanVar(logLik,total/2,total,
 	     &llMean2, &llVar2, & llLen2);
   sdTot = sqrt((llVar1/llLen1) + (llVar2/llLen2));
-    
+
   //Rprintf("Mean 1 = %f \t Mean 2 = %f \t sd.est = %f\n",
   //llMean1,llMean2,sdTot);
-    
+
 
   if((llMean2 - llMean1) <= (qq * sdTot)){
     if((llMean1 - llMean2) <= (qq * sdTot)){
@@ -130,12 +134,26 @@ int convergenceCheck(double *logLik, int total, double qq){
     }
   }
   return(0);
-      
+
 }
 
 
 
 void colSums(double *mat, int rows, int cols, double *totals){
+  int ii, jj, rr;
+  for(ii = 0; ii < cols ; ii++){
+    totals[ii] = 0.0;
+  }
+
+  for(ii = 0 ; ii < rows ; ii++){
+    rr = ii * cols;
+    for(jj = 0 ; jj < cols; jj++){
+      totals[jj] = totals[jj] + mat[rr + jj];
+    }
+  }
+}
+
+void colSums(double *mat, int rows, int cols, std::vector<double> totals){
   int ii, jj, rr;
   for(ii = 0; ii < cols ; ii++){
     totals[ii] = 0.0;
@@ -229,7 +247,7 @@ void logZeroFix(double *vec, int ll){
 */
 
 /*
-void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP, 
+void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP,
 		     double *flatTable){
   int ii, offset;
   offset = iter * (dd * (nn + dd));
@@ -240,7 +258,7 @@ void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP,
   for(ii = 0 ; ii < nn*dd ; ii++){
     flatTable[offset + ii] = PP[ii];
   }
-    
+
 }
 
 */
@@ -250,19 +268,19 @@ void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP,
 //  Prints all of the matrices involved in an MMSBM step
 void printMMSBM(int nn, int dd, double *BB, double *PP,
 int *sendMat, int *recMat){
-    
+
 printf("\nBlock Matrix\n");
 printDoubleMat(dd,dd,BB);
-    
+
 printf("\nPP Matrix\n");
 printDoubleMat(nn,dd,PP);
-    
+
 printf("\nSender Matrix:\n");
 printIntMat(nn,nn,sendMat);
-    
+
 printf("Receiver Matrix:\n");
 printIntMat(nn,nn,recMat);
-    
+
 }
 */
 /*

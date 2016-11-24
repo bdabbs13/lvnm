@@ -138,6 +138,29 @@ int convergenceCheck(double *logLik, int total, double qq){
 }
 
 
+void colSums(std::vector<std::vector<double> > const &mat, double *totals){
+   int ii, kk;
+
+   int nrow = mat.size();
+   if(nrow < 1){
+      std::cout << "Matrix has no rows" << std::endl;
+      return;
+   }
+   int ncol = mat[0].size();
+   if(ncol < 1){
+      std::cout << "Matrix has no columns" << std::endl;
+      return;
+   }
+
+   for(kk = 0 ; kk < ncol ; kk++){
+      totals[kk] = 0.0;
+      for(ii = 0 ; ii < nrow ; ii++){
+	 totals[kk] += mat[ii][kk];
+      }
+   }
+   return;
+}
+
 
 void colSums(double *mat, int rows, int cols, double *totals){
   int ii, jj, rr;
@@ -189,26 +212,55 @@ void normalizeVec(double *vec, int ll){
   }
 }
 
+void normalizeVec(std::vector<double> &vec){
+   std::vector<double>::iterator it;
+   double vec_total = 0.0;
+   for(it = vec.begin(); it != vec.end() ; it++){
+      vec_total += *it;
+   }
+   for(it = vec.begin(); it != vec.end() ; it++){
+      *it /= vec_total;
+   }
+
+}
+
 void logZeroFix(double *vec, int ll){
   int ii;
-  //  int fixInd = 0;
   double total = 0.0;
+
   for(ii = 0 ; ii < ll ; ii++){
     if(vec[ii] <= MIN_LOG){
       vec[ii] = MIN_LOG;
-      //      fixInd = 1;
-      //      zeroCount = zeroCount + 1.0;
-      //      fixVal  = fixVal + (MIN_LOG - vec[ii]);
     }
     total = total + vec[ii];
   }
-  //  if(fixInd == 1){
+
   if(total > 1.0){
     // Renormalize
     for(ii = 0 ; ii < ll ; ii++){
       vec[ii] = vec[ii] / total;
     }
   }
+}
+
+void logZeroFix(std::vector<double> &vec){
+   std::vector<double>::iterator it;
+   double vec_total = 0.0;
+
+   for(it = vec.begin() ; it != vec.end() ; it++){
+      if(*it <= MIN_LOG){
+	 *it = MIN_LOG;
+      }
+      vec_total += *it;
+   }
+
+   if(vec_total > 1.0){
+      // Renormalize
+      for(it = vec.begin() ; it != vec.end() ; it++){
+	 *it /= vec_total;
+      }
+   }
+
 }
 
 double logCheck(double val){

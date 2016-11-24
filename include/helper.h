@@ -30,14 +30,18 @@ void getMeanVar(double *vec, int lower, int upper,
 
 int convergenceCheck(double *logLik, int total, double qq);
 
+
+
+void colSums(std::vector<std::vector<double> > const &mat, double *totals);
 void colSums(double *mat, int rows, int cols, std::vector<double> totals);
-
 void colSums(double *mat, int rows, int cols, double *totals);
-
 void rowSums(double *mat, int rows, int cols, double *totals);
 
+
+void normalizeVec(std::vector<double> &vec);
 void normalizeVec(double *vec, int ll);
 
+void logZeroFix(std::vector<double> &vec);
 void logZeroFix(double *vec, int ll);
 
 double logCheck(double val);

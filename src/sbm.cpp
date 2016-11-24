@@ -19,137 +19,154 @@ using std::ifstream;
 //ofstream myfile;
 
 
-/****************************************************************
+/*****************************************************************
  *********  FUNCTION DEFINITIONS FOR SBM OBJECT CLASS  ***********
- ****************************************************************/
+ *****************************************************************/
 
 
 /***********  SBM CLASS CONSTRUCTOR AND DESTRUCTOR  **********/
 
 //  Constructor Function for SBM object
 
-sbm_t::sbm_t (int nodes, int blocks, int *adjMat,
+CSBM::CSBM (int rNodes, int rBlocks, int *adjMat,
 	      double *betaP, double * etaP, int mImpute){
    int ii, jj, kk;
    // Loading Constants
-   nn = nodes; dd = blocks;
+   aNodes = rNodes; aBlocks = rBlocks;
 
    // Loading Adjacency Matrix
    // Static Version
    imputeFlag = false;
-   AA.resize(nodes);
-   for(ii = 0; ii < nn ; ii++){
-      AA[ii].resize(nodes);
-      for(jj = 0; jj < nn; jj++){
+   aAdjMat.resize(aNodes);
+   for(ii = 0; ii < aNodes ; ii++){
+      aAdjMat[ii].resize(aNodes);
+      for(jj = 0; jj < aNodes; jj++){
 	 if(isMissing(adjMat[ii])){
-	    AA[ii][jj] = 0;
+	    aAdjMat[ii][jj] = -1;
 	    imputeFlag=true;
 	 }else{
-	    AA[ii][jj] = adjMat[ii + jj*nn];
+	    aAdjMat[ii][jj] = adjMat[ii + jj*aNodes];
 	 }
       }
    }
 
    if(imputeFlag){
-      AApartial.resize(nodes);
-      for(ii = 0; ii < nn; ii++){
-	 AApartial[ii].resize(nodes);
-	 for(jj = 0; jj < nn; jj++){
-	    AApartial[ii][jj] = adjMat[ii + jj*nn];
+      aAdjPartial.resize(aNodes);
+      for(ii = 0; ii < aNodes; ii++){
+	 aAdjPartial[ii].resize(aNodes);
+	 for(jj = 0; jj < aNodes; jj++){
+	    aAdjPartial[ii][jj] = adjMat[ii + jj*aNodes];
 	 }
       }
    }
    multiImpute = mImpute == 1;
 
-   //  Initializing BB Matrix
+   //  Initializing aBlockMat Matrix
    double holder[2];
    std::copy(betaP,betaP+2,betaPrior);
-   BB.resize(dd);
-   BB_inv.resize(dd);
-   BB_old.resize(dd);
-   for(ii = 0; ii < dd ; ii++){
-      BB[ii].resize(dd);
-      BB_inv[ii].resize(dd);
-      BB_old[ii].resize(dd,0.0);
-      for(jj = 0 ; jj < dd ; jj++){
+   aBlockMat.resize(aBlocks);
+   aBlockMatInv.resize(aBlocks);
+   aBlockMatOld.resize(aBlocks);
+   for(ii = 0; ii < aBlocks ; ii++){
+      aBlockMat[ii].resize(aBlocks);
+      aBlockMatInv[ii].resize(aBlocks);
+      aBlockMatOld[ii].resize(aBlocks,0.0);
+      for(jj = 0 ; jj < aBlocks ; jj++){
 	 rdirichlet(2,betaPrior,holder);
-	 BB[ii][jj] = holder[0];
-	 BB_inv[ii][jj] = 1 - holder[0];
+	 aBlockMat[ii][jj] = holder[0];
+	 aBlockMatInv[ii][jj] = 1 - holder[0];
       }
    }
    /*
-   BB = new double[dd*dd];
-   BB_inv = new double[dd*dd];
-   BB_old = new double[dd*dd];
-   for(ii = 0 ; ii < dd*dd ; ii++){
-      rdirichlet(2,betaPrior,holder);
-      BB[ii] = holder[0];
-      BB_inv[ii] = 1.0 - BB[ii];
-   }
+     aBlockMat = new double[aBlocks*aBlocks];
+     aBlockMatInv = new double[aBlocks*aBlocks];
+     aBlockMatOld = new double[aBlocks*aBlocks];
+     for(ii = 0 ; ii < aBlocks*aBlocks ; ii++){
+     rdirichlet(2,betaPrior,holder);
+     aBlockMat[ii] = holder[0];
+     aBlockMatInv[ii] = 1.0 - aBlockMat[ii];
+     }
    */
-   is_BB_logged = false;
+   is_BlockMat_logged = false;
 
-   hit.resize(dd);
-   miss.resize(dd);
-   for(ii = 0 ; ii < dd ; ii++){
-      hit[ii].resize(dd,0.0);
-      miss[ii].resize(dd,0.0);
+   aHitMat.resize(aBlocks);
+   aMissMat.resize(aBlocks);
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      aHitMat[ii].resize(aBlocks,0.0);
+      aMissMat[ii].resize(aBlocks,0.0);
    }
-   //   hit = new double[dd*dd];
-   //   miss = new double[dd*dd];
+   //   aHitMat = new double[aBlocks*aBlocks];
+   //   aMissMat = new double[aBlocks*aBlocks];
 
 
-   PP = new double[nn*dd];
-   PPint = new int[nn];
-   HH = new double[nn*dd]();
+   //aPosteriorMemb = new double[aNodes*aBlocks];
+   //aPosteriorMembOld = new double[aNodes*aBlocks]();
+   aPosteriorMemb.resize(aNodes);
+   aPosteriorMembOld.resize(aNodes);
 
-   // Initializing PP Matrix
-   eta = new double[dd];
-   std::copy(etaP,etaP+dd,eta);
-   //   eta.insert(eta.end(),&etaP[0],&etaP[dd]);
-   //   eta.resize(dd);
-   //   for(ii = 0 ; ii < dd ; ii++){
+   //aBlockMemb = new int[aNodes];
+   aBlockMemb.resize(aNodes,0);
+   for(ii = 0 ; ii < aNodes ; ii++){
+      aPosteriorMemb[ii].resize(aBlocks);
+      aPosteriorMembOld[ii].resize(aBlocks);
+   }
+
+   // Initializing aPosteriorMemb Matrix
+   eta = new double[aBlocks];
+   std::copy(etaP,etaP+aBlocks,eta);
+   //   eta.insert(eta.end(),&etaP[0],&etaP[aBlocks]);
+   //   eta.resize(aBlocks);
+   //   for(ii = 0 ; ii < aBlocks ; ii++){
    //      eta[ii] = etaP[ii];
    //   }
 
-   int ind[dd];
-   for(ii = 0 ; ii < nn ; ii++){
-      double *etaInit = new double[dd];
-      double etaTotal = 0.0;
-      for(kk = 0 ; kk < dd ; kk++){
-	 etaTotal += eta[kk];
-      }
-      for(kk = 0 ; kk < dd ; kk++){
-	 etaInit[kk] = eta[kk] / etaTotal;
-      }
-      //    RprintDoubleMat(1,dd,etaInit);
-      rmultinom(1,etaInit,dd,ind);
-      //    RprintIntMat(1,dd,ind);
+   double *etaInit = new double[aBlocks];
+   double etaTotal = 0.0;
+   for(kk = 0 ; kk < aBlocks ; kk++){
+      etaTotal += eta[kk];
+   }
+   for(kk = 0 ; kk < aBlocks ; kk++){
+      etaInit[kk] = eta[kk] / etaTotal;
+   }
 
-      delete[] etaInit;
-      // Setting PP[ii,] Value
-      for(kk = 0 ; kk < dd ; kk++){
+   int *ind = new int[aBlocks];
+
+   for(ii = 0 ; ii < aNodes ; ii++){
+      /*
+	Rprintf("ii = %d\n",ii);
+	RprintDoubleMat(1,aBlocks,etaInit);
+	RprintIntMat(1,aBlocks,ind);
+      */
+      rmultinom(1,etaInit,aBlocks,ind);
+
+      // Setting aPosteriorMemb[ii,] Value
+
+      for(kk = 0 ; kk < aBlocks ; kk++){
 	 if(ind[kk] == 1){
-	    PP[ii*dd + kk] = 1.0;
-	    PPint[ii] = kk;
+	    aPosteriorMemb[ii][kk] = 1.0;
+	    aBlockMemb[ii] = kk;
 	 }else{
-	    PP[ii*dd + kk] = 0.0;
+	    //	    aPosteriorMemb[ii*aBlocks + kk] = 0.0;
+	    aPosteriorMemb[ii][kk] = 0.0;
 	 }
       }
    }
+
+   delete[] etaInit;
+   delete[] ind;
 }
 
 
 
-sbm_t::~sbm_t (){
+CSBM::~CSBM (){
    //   delete[] YY;
    //   delete[] yyComplete;
-   //   delete[] BB;
-   //   delete[] BB_inv;
-   //   delete[] BB_old;
-   delete[] PP;
-   delete[] HH;
-   delete[] PPint;
+   //   delete[] aBlockMat;
+   //   delete[] aBlockMatInv;
+   //   delete[] aBlockMatOld;
+   //   delete[] aPosteriorMembOld;
+   //   delete[] aPosteriorMemb;
+   //   delete[] aBlockMemb;
    delete[] eta;
    //  Rprintf("Freeing Allocated Memory for SBM Object\n");
 }
@@ -158,84 +175,91 @@ sbm_t::~sbm_t (){
 
 /***********  INPUT FUNCTION  ************/
 /******  OBSOLETE
-void sbm_t::loadTable(int start, double *flatTable){
-   //  int ii, jj;
-   //  sbmLoadTable(start,nn,dd,BB,PP,flatTable);
+	 void CSBM::loadTable(int start, double *flatTable){
+	 //  int ii, jj;
+	 //  sbmLoadTable(start,aNodes,aBlocks,aBlockMat,aPosteriorMembOld,flatTable);
 
-   int ii, jj, offset;
-   double pMax;
-   //  skip first (start - 1) sets of draws
-   offset = (start - 1) * (dd * (nn + dd));
+	 int ii, jj, offset;
+	 double pMax;
+	 //  skip first (start - 1) sets of draws
+	 offset = (start - 1) * (aBlocks * (aNodes + aBlocks));
 
-   //  Loading BB
-   for(ii = 0 ; ii < dd*dd ; ii++){
-      BB[ii] = logCheck(flatTable[offset + ii]);
-      BB_inv[ii] = 1.0 - BB[ii];
-   }
-
-   //  Loading PP
-   offset = offset + dd*dd;
-   for(ii = 0 ; ii < nn*dd ; ii++){
-      PP[ii] = flatTable[offset + ii];
-   }
-   //  Loading PPint
-   for(ii = 0 ; ii < nn ; ii++){
-      for(jj = 0 ; jj < dd; jj++){
-	 if(jj == 0){
-	    PPint[ii] = jj;
-	    pMax = PP[ii*dd + jj];
-	 }else if(PP[ii*dd + jj] > pMax){
-	    pMax = PP[ii*dd + jj];
-	    PPint[ii] = jj;
+	 //  Loading BlockMat
+	 for(ii = 0 ; ii < aBlocks*aBlocks ; ii++){
+	 aBlockMat[ii] = logCheck(flatTable[offset + ii]);
+	 aBlockMatInv[ii] = 1.0 - aBlockMat[ii];
 	 }
-      }
-   }
 
-   imputeMissingValues();
-}
+	 //  Loading aPosteriorMembOld
+	 offset = offset + aBlocks*aBlocks;
+	 for(ii = 0 ; ii < aNodes*aBlocks ; ii++){
+	 aPosteriorMembOld[ii] = flatTable[offset + ii];
+	 }
+	 //  Loading aBlockMemb
+	 for(ii = 0 ; ii < aNodes ; ii++){
+	 for(jj = 0 ; jj < aBlocks; jj++){
+	 if(jj == 0){
+	 aBlockMemb[ii] = jj;
+	 pMax = aPosteriorMembOld[ii*aBlocks + jj];
+	 }else if(aPosteriorMembOld[ii*aBlocks + jj] > pMax){
+	 pMax = aPosteriorMembOld[ii*aBlocks + jj];
+	 aBlockMemb[ii] = jj;
+	 }
+	 }
+	 }
+
+	 imputeMissingValues();
+	 }
 */
-void sbm_t::loadSBM(double *BBout, int *MMBout){
-   loadBB(BBout);
-   loadPPint(MMBout);
+void CSBM::RLoadSBM(double *rBlockMat, int *rBlockMemb){
+   RLoadBlockMat(rBlockMat);
+   RLoadBlockMemb(rBlockMemb);
 }
 
-void sbm_t::loadBB(double *BBout){
+void CSBM::RLoadBlockMat(double *rBlockMat){
    int ii,jj;
    int loadIter = 0;
-   //   std::copy(BBout,BBout + (dd*dd), BB);
-   for(jj = 0 ; jj < dd ; jj++){
-      for(ii = 0; ii < dd ; ii++){
-	 //	 BB[ii][jj] = BBout[ii + jj*dd];
-	 BB[ii][jj] = BBout[loadIter++];
-	 BB_inv[ii][jj] = 1.0 - BB[ii][jj];
+   //   std::copy(rBlockMat,rBlockMat + (aBlocks*aBlocks), BB;
+   for(jj = 0 ; jj < aBlocks ; jj++){
+      for(ii = 0; ii < aBlocks ; ii++){
+	 //	 BB[ii][jj] = rBlockMat[ii + jj*aBlocks];
+	 aBlockMat[ii][jj] = rBlockMat[loadIter++];
+	 aBlockMatInv[ii][jj] = 1.0 - aBlockMat[ii][jj];
       }
    }
    /*
-   for(ii = 0; ii < dd*dd ; ii++){
-      BB_inv[ii] = 1.0 - BB[ii];
-   }
+     for(ii = 0; ii < aBlocks*aBlocks ; ii++){
+     aBlockMatInv[ii] = 1.0 - aBlockMat[ii];
+     }
    */
 }
 
-void sbm_t::loadHH(double *HHout){
-   std::copy(HHout,HHout+nn*dd,PP);
-}
-
-void sbm_t::loadPPint(int *MMBout){
+void CSBM::RLoadBlockMemb(int *rBlockMemb){
    int ii;
-   for(ii = 0 ; ii < nn ; ii++){
-      PPint[ii] = MMBout[ii] - 1;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      aBlockMemb[ii] = rBlockMemb[ii] - 1;
    }
 }
 
-void sbm_t::initPPem(double minVal){
-   int ii, jj;
-   for(ii = 0 ; ii < nn ; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 if(PPint[ii] == jj){
-	    PP[ii*dd + jj] = 1.0 - minVal;
+void CSBM::RLoadPosteriorMemb(double *rPosteriorMemb){
+   int ii, kk;
+   int loadIter = 0;
+   for(kk = 0 ; kk < aBlocks; kk++){
+      for(ii = 0 ; ii < aNodes ; ii++){
+	 aPosteriorMemb[ii][kk] = rPosteriorMemb[loadIter++];
+      }
+   }
+   //   std::copy(rPosteriorMemb,rPosteriorMemb+aNodes*aBlocks,aPosteriorMemb);
+}
+
+void CSBM::initPPem(double minVal){
+   int ii, kk;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 if(aBlockMemb[ii] == kk){
+	    aPosteriorMemb[ii][kk] = 1.0 - minVal;
 	 }else{
-	    PP[ii*dd + jj] = minVal / (dd-1);
+	    aPosteriorMemb[ii][kk] = minVal / (aBlocks-1);
 	 }
       }
    }
@@ -244,56 +268,86 @@ void sbm_t::initPPem(double minVal){
 
 /******  OUTPUT FUNCTIONS  *******/
 /**** OBSOLETE
-void sbm_t::updateFlatTable(int iter, double *flatTable){
-   expBB();
-   int ii, offset;
+      void CSBM::updateFlatTable(int iter, double *flatTable){
+      expBlockMat();
+      int ii, offset;
 
-   // Saving BB
-   offset = iter * (dd * (nn + dd));
-   for(ii = 0 ; ii < dd*dd ; ii++){
-      flatTable[offset + ii] = BB[ii];
-   }
+      // Saving BlockMat
+      offset = iter * (aBlocks * (aNodes + aBlocks));
+      for(ii = 0 ; ii < aBlocks*aBlocks ; ii++){
+      flatTable[offset + ii] = aBlockMat[ii];
+      }
 
-   // Saving PP
-   offset = offset + dd*dd;
-   for(ii = 0 ; ii < nn*dd ; ii++){
-      flatTable[offset + ii] = PP[ii];
-   }
-}
+      // Saving aPosteriorMembOld
+      offset = offset + aBlocks*aBlocks;
+      for(ii = 0 ; ii < aNodes*aBlocks ; ii++){
+      flatTable[offset + ii] = aPosteriorMembOld[ii];
+      }
+      }
 *****/
+void CSBM::updateSBM(int iter, int *rBlockMemb, double *rBlockMat,
+		     double *rPosteriorMemb){
+   updateBlockMat(iter, rBlockMat);
+   updateBlockMemb(iter, rBlockMemb);
+   updatePosteriorMemb(iter, rPosteriorMemb);
+}
 
-void sbm_t::updateBB(int iter, double *BBout){
-   expBB();
-   //   std::copy(BB,BB+(dd*dd),BBout + (iter * dd*dd));
+void CSBM::updateSBM(int iter, int *rBlockMemb, double *rBlockMat,
+		     double *rPosteriorMemb, double *rEta){
+   updateBlockMat(iter, rBlockMat);
+   updateBlockMemb(iter, rBlockMemb);
+   updatePosteriorMemb(iter, rPosteriorMemb);
+   updateEta(rEta);
+}
+
+void CSBM::updateBlockMat(int iter, double *rBlockMat){
+   expBlockMat();
+   //   std::copy(aBlockMat,aBlockMat+(aBlocks*aBlocks),rBlockMat + (iter * aBlocks*aBlocks));
    int ii, jj;
-   int saveIter = iter * dd * dd;
-   for(jj = 0 ; jj < dd ; jj++){
-      for(ii = 0 ; ii < dd ; ii++){
-	 BBout[saveIter++] = BB[ii][jj];
+   int saveIter = iter * aBlocks * aBlocks;
+   for(jj = 0 ; jj < aBlocks ; jj++){
+      for(ii = 0 ; ii < aBlocks ; ii++){
+	 rBlockMat[saveIter++] = aBlockMat[ii][jj];
       }
    }
 
    /*
-     int offset = iter * dd * dd;
-     for(jj = 0 ; jj < dd ; jj++){
-     for(ii = 0 ; ii < dd ; ii++){
-     BBout[ii + jj*dd + offset] = BB[ii][jj];
+     int offset = iter * aBlocks * aBlocks;
+     for(jj = 0 ; jj < aBlocks ; jj++){
+     for(ii = 0 ; ii < aBlocks ; ii++){
+     rBlockMat[ii + jj*aBlocks + offset] = aBlockMat[ii][jj];
      }
      }*/
 
 }
 
-void sbm_t::updateMMB(int iter, int *MMBout){
-   std::copy(PPint,PPint + nn, MMBout + (iter * nn));
+void CSBM::updateBlockMemb(int iter, int *rBlockMemb){
+   int ii;
+   int saveIter = iter * aNodes;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      rBlockMemb[saveIter++] = aBlockMemb[ii] + 1;
+   }
+   //   std::copy(aBlockMemb.begin(),aBlockMemb.data() + aNodes,
+   //	     rBlockMemb + (iter * aNodes));
 }
 
-void sbm_t::updateEta(double *eta_out){
+void CSBM::updateEta(double *rEta){
    //   std::copy(eta.begin(), eta.end(), eta_out);
-   std::copy(eta, eta + dd, eta_out);
+   std::copy(eta, eta + aBlocks, rEta);
 }
 
-void sbm_t::updatePosteriorMat(int iter, double *postMat){
-   std::copy(HH,HH +(nn*dd),postMat + (iter*dd*nn));
+void CSBM::updatePosteriorMemb(int iter, double *rPosteriorMemb){
+   int ii, kk;
+   int saveIter = iter * aBlocks * aNodes;
+   for(kk = 0 ; kk < aBlocks; kk++){
+      for(ii = 0 ; ii < aNodes ; ii++){
+	 rPosteriorMemb[saveIter++] =  aPosteriorMemb[ii][kk];
+	 //	 Rprintf("loadIter = %d, aPosteriorMemb = %.4f\n",loadIter,
+	 //aPosteriorMemb[ii][kk]);
+      }
+   }
+   //   std::copy(aPosteriorMemb,aPosteriorMemb +(aNodes*aBlocks),
+   //	     rPosteriorMemb + (iter*aBlocks*aNodes));
 }
 
 
@@ -303,13 +357,13 @@ void sbm_t::updatePosteriorMat(int iter, double *postMat){
 /************************  MCMC FUNCTIONS  **********************/
 
 
-void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
+void sbmMCMC(CSBM *mySBM, int start, int total, int burnIn, int thin,
 	     int shift_size, int extend_max, double qq,  //double *flatTable,
-	     double *BBout, int * MMBout,  double *logLik, double *postMat,
-	     int verbose){
+	     double *rBlockMat, int * rBlockMemb,  double *logLik,
+	     double *rPosteriorMemb, int verbose){
 
    int ii;
-   //int flatLength = mySBM->dd * (mySBM->nn + mySBM->dd);
+   //int flatLength = mySBM->aBlocks * (mySBM->aNodes + mySBM->aBlocks);
    int flatTotal = (total - burnIn) / thin;
 
    //  MCMC Loop
@@ -321,11 +375,12 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	 mySBM->step();
 
 	 if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	    logLik[(ii - burnIn)/thin] = mySBM->LL();
+	    logLik[(ii - burnIn)/thin] = mySBM->LogLike();
 	    //mySBM->updateFlatTable((ii - burnIn)/thin,flatTable);
-	    mySBM->updateBB((ii - burnIn)/thin,BBout);
-	    mySBM->updateMMB((ii - burnIn)/thin,MMBout);
-	    mySBM->updatePosteriorMat((ii - burnIn)/thin,postMat);
+	    mySBM->updateSBM((ii - burnIn)/thin, rBlockMemb, rBlockMat, rPosteriorMemb);
+	    //mySBM->updateBlockMat((ii - burnIn)/thin,rBlockMat);
+	    //mySBM->updateBlockMemb((ii - burnIn)/thin,rBlockMemb);
+	    //mySBM->updatePosteriorMemb((ii - burnIn)/thin,rPosteriorMemb);
 	 }
       }
 
@@ -339,9 +394,10 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 	 extend_count = extend_count + 1;
 	 if(extend_count <= extend_max){
 	    //shiftFlatTable(shift_size,flatLength,flatTotal,flatTable);
-	    shiftFlatTable(shift_size,mySBM->dd * mySBM->dd,flatTotal,BBout);
-	    shiftFlatTable(shift_size,mySBM->nn,flatTotal,MMBout);
-	    shiftFlatTable(shift_size,mySBM->dd * mySBM->nn,flatTotal,postMat);
+
+	    shiftFlatTable(shift_size,mySBM->GetBlocks() * mySBM->GetBlocks(),flatTotal,rBlockMat);
+	    shiftFlatTable(shift_size,mySBM->GetNodes(),flatTotal,rBlockMemb);
+	    shiftFlatTable(shift_size,mySBM->GetBlocks() * mySBM->GetNodes(),flatTotal,rPosteriorMemb);
 	    std::copy(logLik + shift_size, logLik + flatTotal,logLik);
 	    start = total - (shift_size*thin);
 	 }
@@ -360,125 +416,126 @@ void sbmMCMC(sbm_t *mySBM, int start, int total, int burnIn, int thin,
 
 
 
-void sbm_t::step(){
-   drawPP(); // logs then exps BB
-   drawBB(); // updates BB, but doesn't use them, then sets BB_logged to false
+void CSBM::step(){
+   drawBlockMemb(); // logs then exps BlockMat
+   drawBlockMat(); // updates BlockMat, but doesn't use them, then sets BlockMat_logged to false
    rotate();
    if(multiImpute){
-      imputeMissingValues(); // assumes exp BB
+      imputeMissingValues(); // assumes exp BlockMat
    }
 }
 
-void sbm_t::drawBB(){
-   int dd2 = dd*dd;
-   //  double hit[dd2], miss[dd2];
+void CSBM::drawBlockMat(){
+   //  int dd2 = aBlocks*aBlocks;
+   //  double aHitMat[dd2], aMissMat[dd2];
    int ii,jj;
 
-   // Setting Up Hit and Miss Counts
+   // Setting Up AHitMat and Miss Counts
    computeHitMiss();
 
    //  Drawing From Posterior Distribution
    double alpha_new[2];
    double holder[2];
-   for(ii = 0 ; ii < dd ; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 alpha_new[0] = betaPrior[0] + hit[ii][jj];
-	 alpha_new[1] = betaPrior[1] + miss[ii][jj];
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 alpha_new[0] = betaPrior[0] + aHitMat[ii][jj];
+	 alpha_new[1] = betaPrior[1] + aMissMat[ii][jj];
 	 rdirichlet(2,alpha_new,holder);
-	 BB[ii][jj] = holder[0];
-	 BB_inv[ii][jj] = 1.0 - BB[ii][jj];
+	 aBlockMat[ii][jj] = holder[0];
+	 aBlockMatInv[ii][jj] = 1.0 - aBlockMat[ii][jj];
       }
    }
    /*
-   for(ii = 0 ; ii < dd2 ; ii++){
-      alpha_new[0] = betaPrior[0] + hit[ii];
-      alpha_new[1] = betaPrior[1] + miss[ii];
-      rdirichlet(2,alpha_new,holder);
-      BB[ii] = holder[0];
-      BB_inv[ii] = 1.0 - BB[ii];
-   }
+     for(ii = 0 ; ii < dd2 ; ii++){
+     alpha_new[0] = betaPrior[0] + aHitMat[ii];
+     alpha_new[1] = betaPrior[1] + aMissMat[ii];
+     rdirichlet(2,alpha_new,holder);
+     aBlockMat[ii] = holder[0];
+     aBlockMatInv[ii] = 1.0 - aBlockMat[ii];
+     }
    */
-   is_BB_logged = false;
+   is_BlockMat_logged = false;
 }
 
-void sbm_t::drawPP(){
+void CSBM::drawBlockMemb(){
    int ii,jj,kk;
-   double pMax;//, total;
-   int ind[dd];
+   double pMax;
+   int ind[aBlocks];
 
-   //  logBB();
-   for(ii = 0 ; ii < nn ; ii++){
+   for(ii = 0 ; ii < aNodes ; ii++){
       //total = 0.0;
-      for(jj = 0 ; jj < dd ; jj++){
-	 PPint[ii] = jj;
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aBlockMemb[ii] = jj;
 
 	 // Calculating Log Posterior Probability
-	 HH[ii*dd + jj] = nodeLL(ii) + log(eta[jj]);
-	 //pp[jj] = nodeLL(ii) + log(eta[jj]);
+	 aPosteriorMemb[ii][jj] = nodeLogLike(ii) + log(eta[jj]);
+	 //pp[jj] = nodeLogLike(ii) + log(eta[jj]);
 	 if(jj == 0){
-	    pMax = HH[ii*dd + jj];
+	    pMax = aPosteriorMemb[ii][jj];
 	 }else{
-	    if(HH[ii*dd + jj] > pMax){
-	       pMax = HH[ii*dd + jj];
+	    if(aPosteriorMemb[ii][jj] > pMax){
+	       pMax = aPosteriorMemb[ii][jj];
 	    }
 	 }
       }
 
       // Exponentiating Probabilities
-      for(jj = 0 ; jj < dd ; jj++){
-	 HH[ii*dd + jj] = exp(HH[ii*dd + jj] - pMax);
-	 //      total = total + HH[ii*dd + jj];
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aPosteriorMemb[ii][jj] = exp(aPosteriorMemb[ii][jj] - pMax);
+	 //      total = total + aPosteriorMemb[ii*aBlocks + jj];
       }
 
       //    int hhOne = -1;
       // Normalizing Probabilities
       /*
-	for(jj = 0 ; jj < dd ; jj++){
-	HH[ii*dd + jj] = HH[ii*dd + jj] / total;
+	for(jj = 0 ; jj < aBlocks ; jj++){
+	aPosteriorMemb[ii*aBlocks + jj] = aPosteriorMemb[ii*aBlocks + jj] / total;
 	}
       */
-      normalizeVec(HH+ii*dd,dd);
-      logZeroFix(HH + ii*dd,dd);
+      //      normalizeVec(aPosteriorMemb+ii*aBlocks,aBlocks);
+      //      logZeroFix(aPosteriorMemb + ii*aBlocks,aBlocks);
+      normalizeVec(aPosteriorMemb[ii]);
+      logZeroFix(aPosteriorMemb[ii]);
 
       // Drawing from Multinomial
-      rmultinom(1,HH + ii*dd,dd,ind);
+      rmultinom(1,aPosteriorMemb[ii].data(),aBlocks,ind);
 
-      // Setting PP[ii,] Value
-      for(kk = 0 ; kk < dd ; kk++){
+      // Setting aPosteriorMemb[ii,] Value
+      for(kk = 0 ; kk < aBlocks ; kk++){
 	 if(ind[kk] == 1){
-	    //	PP[ii*dd + kk] = 1.0;
-	    PPint[ii] = kk;
+	    //	aPosteriorMembOld[ii*aBlocks + kk] = 1.0;
+	    aBlockMemb[ii] = kk;
 	    break;
 	 }
 	 //else{
-	 //PP[ii*dd + kk] = 0.0;
+	 //aPosteriorMembOld[ii*aBlocks + kk] = 0.0;
 	 //}
       }
    }
-   //  expBB();
+   //  expBlockMat();
 }
 
-void sbm_t::rotate(){
+void CSBM::rotate(){
    int ii, jj, kk;
-   int assigned[dd], replaced[dd];
-   for(ii = 0 ; ii < dd ; ii++){
+   int assigned[aBlocks], replaced[aBlocks];
+   for(ii = 0 ; ii < aBlocks ; ii++){
       assigned[ii] = -1;
       replaced[ii] = -1;
    }
-   int PPtmp[nn];
-   for(ii = 0 ; ii < nn ; ii++){
-      PPtmp[ii] = PPint[ii];
+   int PPtmp[aNodes];
+   for(ii = 0 ; ii < aNodes ; ii++){
+      PPtmp[ii] = aBlockMemb[ii];
    }
-   int replacements[nn];
-   for(ii = 0 ; ii < nn ; ii++){
+   int replacements[aNodes];
+   for(ii = 0 ; ii < aNodes ; ii++){
       replacements[ii] = -1;
    }
 
-   for(ii = 0 ; ii < dd ; ii++){
+   for(ii = 0 ; ii < aBlocks ; ii++){
       if(replacements[ii] == -1){
 	 assigned[PPtmp[ii]] = ii;
 	 replaced[ii] = PPtmp[ii];
-	 for(jj = 0 ; jj < nn ; jj++){
+	 for(jj = 0 ; jj < aNodes ; jj++){
 	    if(PPtmp[jj] == PPtmp[ii]){
 	       replacements[jj] = ii;
 	    }
@@ -487,7 +544,7 @@ void sbm_t::rotate(){
    }
 
    int uncount = 0;
-   for(ii = 0 ; ii < dd ; ii++){
+   for(ii = 0 ; ii < aBlocks ; ii++){
       if(assigned[ii] == -1){
 	 uncount++;
       }
@@ -496,14 +553,14 @@ void sbm_t::rotate(){
    while(uncount > 0){
 
       //  Setting Vacancy to Minimum Unassigned
-      for(ii = 0 ; ii < dd ; ii++){
+      for(ii = 0 ; ii < aBlocks ; ii++){
 	 if(assigned[ii] == -1){
 	    vacancy = ii;
 	    break;
 	 }
       }
       //  Setting newlabel to Minimum unreplaced
-      for(ii = 0 ; ii < dd ;  ii++){
+      for(ii = 0 ; ii < aBlocks ;  ii++){
 	 if(replaced[ii] == -1){
 	    newlabel = ii;
 	    break;
@@ -514,18 +571,18 @@ void sbm_t::rotate(){
 	Rprintf("vacancy: %d ",vacancy);
 	Rprintf("newlabel: %d ",newlabel);
 	Rprintf("\n");
-	RprintIntMat(1, dd, assigned);
+	RprintIntMat(1, aBlocks, assigned);
       */
 
       assigned[vacancy] = newlabel;
       replaced[newlabel] = vacancy;
-      for(jj = 0 ; jj < nn ; jj++){
+      for(jj = 0 ; jj < aNodes ; jj++){
 	 if(PPtmp[jj] == vacancy){
 	    replacements[jj] = newlabel;
 	 }
       }
       uncount = 0;
-      for(ii = 0 ; ii < dd ; ii++){
+      for(ii = 0 ; ii < aBlocks ; ii++){
 	 if(assigned[ii] == -1){
 	    uncount++;
 	 }
@@ -534,47 +591,49 @@ void sbm_t::rotate(){
    }
 
    //  Updating Membership Vectors
-   for(ii = 0 ; ii < nn ; ii++){
-      PPint[ii] = assigned[PPint[ii]];
-      for(kk = 0 ; kk < dd ; kk++){
-	 if(PPint[ii] == kk){
-	    PP[ii*dd + kk] = 1.0;
+   /*
+   for(ii = 0 ; ii < aNodes ; ii++){
+      aBlockMemb[ii] = assigned[aBlockMemb[ii]];
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 if(aBlockMemb[ii] == kk){
+	    aPosteriorMemb[ii*aBlocks + kk] = 1.0;
 	 }else{
-	    PP[ii*dd + kk] = 0.0;
+	    aPosteriorMemb[ii*aBlocks + kk] = 0.0;
 	 }
       }
    }
+   */
 
    //  Updating Block Matrix
-   saveBB_old();  //  Putting current version of BB in BB_old
-   for(ii = 0 ; ii < dd ; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 BB[ii][jj] = BB_old[assigned[ii]][assigned[jj]];
-	 BB_inv[ii][jj] = 1.0 - BB[ii][jj];
-	 //	 BB[ii*dd + jj] = BB[assigned[ii]*dd + assigned[jj]];
-	 //BB_inv[ii*dd + jj] = 1.0 - BB[ii*dd + jj];
+   saveBlockMatOld();  //  Putting current version of BlockMat in aBlockMatOld
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aBlockMat[ii][jj] = aBlockMatOld[assigned[ii]][assigned[jj]];
+	 aBlockMatInv[ii][jj] = 1.0 - aBlockMat[ii][jj];
+	 //	 aBlockMat[ii*aBlocks + jj] = aBlockMat[assigned[ii]*aBlocks + assigned[jj]];
+	 //aBlockMatInv[ii*aBlocks + jj] = 1.0 - aBlockMat[ii*aBlocks + jj];
       }
    }
 }
 
 /*
-void sbm_t::imputeMissingValues(){
-   expBB();
-   int rr, cc, index;
-   for(rr = 0 ; rr < nn ; rr++){ // row loop
-      for(cc = 0 ; cc < nn ; cc++){ // col loop
-	 if(rr != cc){ // ignore diagonal entries
-	    if(YY[rr*nn + cc] < 0){ // missing values coded -1
-	       index = PPint[rr] * dd + PPint[cc];
-	       yyComplete[rr*nn + cc] = (int) rbinom(1.0,BB[index]);
-	    }
-	 }
-      }
-   }
-}
+  void CSBM::imputeMissingValues(){
+  expBlockMat();
+  int rr, cc, index;
+  for(rr = 0 ; rr < aNodes ; rr++){ // row loop
+  for(cc = 0 ; cc < aNodes ; cc++){ // col loop
+  if(rr != cc){ // ignore diagonal entries
+  if(YY[rr*aNodes + cc] < 0){ // missing values coded -1
+  index = aBlockMemb[rr] * aBlocks + aBlockMemb[cc];
+  yyComplete[rr*aNodes + cc] = (int) rbinom(1.0,aBlockMat[index]);
+  }
+  }
+  }
+  }
+  }
 */
 //  This function is currently obsolete
-void sbm_t::imputeMissingValues(){
+void CSBM::imputeMissingValues(){
 
 }
 
@@ -584,20 +643,21 @@ void sbm_t::imputeMissingValues(){
 /************************  EM FUNCTIONS  *********************/
 
 
-void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
-	   double *HHout, double *BBout, int *MMBout,
-	   double *logLik, double *eta, int verbose){
+void sbmEM(CSBM *mySBM, int iter_max, double threshold,
+	   double *rPosteriorMemb, double *rBlockMat, int *rBlockMemb,
+	   double *logLik, double *rEta, int verbose){
    int iter = 0;
    double delta = threshold + 1.0;
+
    while((iter < iter_max) & (delta >= threshold)){
       iter = iter + 1;
-      mySBM->saveBB_old();
+      mySBM->saveBlockMatOld();
 
       if(verbose > 2){
 	 mySBM->print(false);
       }
       mySBM->iterEM();
-      delta = mySBM->BBdiff();
+      delta = mySBM->BlockMatdiff();
 
       if(verbose > 1){
 	 Rprintf("iter - %d delta - %.6f\n",iter,delta);
@@ -607,207 +667,222 @@ void sbmEM(sbm_t *mySBM, int iter_max, double threshold,
       Rprintf("iter - %d delta - %.6f\n",iter,delta);
    }
    //mySBM->print(1 == 0);
-   mySBM->updatePosteriorMat(0,HHout);
-   mySBM->updateBB(0,BBout);
-   mySBM->updateMMB(0,MMBout);
-   mySBM->updateEta(eta);
-   logLik[0] = mySBM->LL();
-   //  delete[] BB_log;
+   mySBM->updateSBM(0,rBlockMemb,rBlockMat,rPosteriorMemb,rEta);
+   /*
+     mySBM->updatePosteriorMemb(0,rPosteriorMemb);
+     mySBM->updateBlockMat(0,rBlockMat);
+     mySBM->updateBlockMemb(0,rBlockMemb);
+     mySBM->updateEta(rEta);
+   */
+   logLik[0] = mySBM->LogLike();
+   //  delete[] BlockMat_log;
 }
 
 
-void sbm_t::iterEM (){
+void CSBM::iterEM (){
    int ss, rr, ii, jj;
    int rowd, rown,bbind;
    double total, pipi;
 
 
    //  E Step
-   getMultinomPosterior();  //  Update Posterior Mean HH
-   //Rprintf("\nHH:\n");
-   //RprintDoubleMat(nn,dd,HH);
-   std::copy(HH,HH+(nn*dd),PP);  //  Copy into PP
+   //   std::copy(aPosteriorMemb,aPosteriorMemb+(aNodes*aBlocks),aPosteriorMembOld);
+   savePosteriorMembOld();
+   getMultinomPosterior();  //  Update Posterior Mean aPosteriorMemb
+   //Rprintf("\naPosteriorMemb:\n");
+   //RprintDoubleMat(aNodes,aBlocks,aPosteriorMemb);
 
 
    // M Step
-   colSums(HH,nn,dd,eta);
+   //   colSums(aPosteriorMemb,aNodes,aBlocks,eta);
+   colSums(aPosteriorMemb,eta);
    double etaTotal = 0.0;
-   for(ii = 0 ; ii < dd ; ii++){
-      eta[ii] = eta[ii] / nn;
+   //   RprintDoubleMat(1,aBlocks,eta);
+
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      eta[ii] = eta[ii] / aNodes;
       if(eta[ii] < MIN_LOG){
 	 eta[ii] = MIN_LOG;
       }
       etaTotal = etaTotal + eta[ii];
    }
-   for(ii = 0 ; ii < dd ; ii++){
+   for(ii = 0 ; ii < aBlocks ; ii++){
       eta[ii] = eta[ii] / etaTotal;
    }
+   //   RprintDoubleMat(1,aBlocks,eta);
 
-   // Updating BB with the MLE conditional on HH and YY
-   for(ss = 0 ; ss < dd ; ss++){
-      for(rr = 0 ; rr < dd ; rr++){
+   // Updating BlockMat with the MLE conditional on aPosteriorMemb and YY
+   for(ss = 0 ; ss < aBlocks ; ss++){
+      for(rr = 0 ; rr < aBlocks ; rr++){
 	 total = 0.0;
-	 bbind = ss*dd + rr;
-	 BB[ss][rr] = 0.0;
-	 //BB[bbind] = 0.0;
-	 for(ii = 0 ; ii < nn ; ii++){
-	    rowd = ii*dd;
-	    rown = ii*nn;
-	    for(jj = 0 ; jj < nn ; jj++){
-	       //	       if((ii != jj) & (YY[ii*nn + jj] >= 0)){
-	       if(!isMissing(AA[ii][jj])){
-		  pipi = HH[rowd + ss] * HH[jj*dd + rr];  // How much to contribute
-		  //BB[bbind] = BB[bbind] + pipi * YY[rown + jj];  // numerator contribution
-		  BB[ss][rr] += pipi * AA[ii][jj];  // numerator contribution
+	 bbind = ss*aBlocks + rr;
+	 aBlockMat[ss][rr] = 0.0;
+	 //aBlockMat[bbind] = 0.0;
+	 for(ii = 0 ; ii < aNodes ; ii++){
+	    rowd = ii*aBlocks;
+	    rown = ii*aNodes;
+	    for(jj = 0 ; jj < aNodes ; jj++){
+	       //	       if((ii != jj) & (YY[ii*aNodes + jj] >= 0)){
+	       if(!isMissing(aAdjMat[ii][jj])){
+		  pipi = aPosteriorMemb[ii][ss] * aPosteriorMemb[jj][rr];  // How much to contribute
+		  //aBlockMat[bbind] = aBlockMat[bbind] + pipi * YY[rown + jj];  // numerator contribution
+		  aBlockMat[ss][rr] += pipi * aAdjMat[ii][jj];  // numerator contribution
 		  total = total + pipi;  //  Denominator contribution
 	       }
 	    }
 	 }
 	 if(total < MIN_LOG){
-	    BB[ss][rr] = MIN_LOG;
+	    aBlockMat[ss][rr] = MIN_LOG;
 	 }else{
-	    BB[ss][rr] = BB[ss][rr] / total;
-	    BB[ss][rr] = logCheck(BB[ss][rr]);
+	    aBlockMat[ss][rr] = aBlockMat[ss][rr] / total;
+	    aBlockMat[ss][rr] = logCheck(aBlockMat[ss][rr]);
 	    /*
-	      if(BB[bbind] > MAX_LOG){
-	      BB[bbind] = MAX_LOG;
-	      }else if(BB[bbind] < MIN_LOG){
-	      BB[bbind] = MIN_LOG;
+	      if(aBlockMat[bbind] > MAX_LOG){
+	      aBlockMat[bbind] = MAX_LOG;
+	      }else if(aBlockMat[bbind] < MIN_LOG){
+	      aBlockMat[bbind] = MIN_LOG;
 	      }
 	    */
 	 }
-	 BB_inv[ss][rr] = 1.0 - BB[ss][rr];
+	 aBlockMatInv[ss][rr] = 1.0 - aBlockMat[ss][rr];
       }
    }
-   is_BB_logged = false;
+   is_BlockMat_logged = false;
 }
 
 
 
-//  This function updates PP to be the posterior mean given BB and YY
-void sbm_t::getMultinomPosterior(){
+//  This function updates aPosteriorMembOld to be the posterior mean given BlockMat and YY
+void CSBM::getMultinomPosterior(){
 
    int ii,jj;
    double pMax;//, total;
 
-   for(ii = 0 ; ii < nn ; ii++){
-      //    Rprintf("\nHH[%d,] = ",ii);
-      for(jj = 0 ; jj < dd ; jj++){
-	 PPint[ii] = jj;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      //    Rprintf("\naPosteriorMemb[%d,] = ",ii);
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aBlockMemb[ii] = jj;
 
 	 // Calculating Log Posterior Probability
-	 HH[ii*dd + jj] = nodeLL_long(ii) + log(eta[jj]);
-	 //      Rprintf("%f, ",HH[ii*dd + jj]);
+	 aPosteriorMemb[ii][jj] = nodeLogLike_long(ii) + log(eta[jj]);
+	 //      Rprintf("%f, ",aPosteriorMemb[ii*aBlocks + jj]);
 	 if(jj == 0){
-	    pMax = HH[ii*dd + jj];
+	    pMax = aPosteriorMemb[ii][jj];
 	 }else{
-	    if(HH[ii*dd + jj] > pMax){
-	       pMax = HH[ii*dd + jj];
+	    if(aPosteriorMemb[ii][jj] > pMax){
+	       pMax = aPosteriorMemb[ii][jj];
 	    }
 	 }
       }
 
       // Exponentiating Probabilities
       //    total = 0.0;
-      for(jj = 0 ; jj < dd ; jj++){
-	 HH[ii*dd + jj] = exp(HH[ii*dd + jj] - pMax);
-	 //      total = total + HH[ii*dd + jj];
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aPosteriorMemb[ii][jj] = exp(aPosteriorMemb[ii][jj] - pMax);
+	 //      total = total + aPosteriorMemb[ii*aBlocks + jj];
       }
 
-      // Normalizing Probabilities
-      /*
-	for(jj = 0 ; jj < dd ; jj++){
-	HH[ii*dd + jj] = HH[ii*dd + jj] / total;
-	}
+      //      normalizeVec(aPosteriorMemb + ii*aBlocks,aBlocks);
+      /*      Rprintf("ori:  ");
+      for(jj = 0 ; jj < aBlocks; jj++){
+	 Rprintf("%.2f ",aPosteriorMemb[ii][jj]);
+      }
       */
-      normalizeVec(HH + ii*dd,dd);
+      normalizeVec(aPosteriorMemb[ii]);
+      /*
+      Rprintf("  new:  ");
+      for(jj = 0 ; jj < aBlocks; jj++){
+	 Rprintf("%.2f ",aPosteriorMemb[ii][jj]);
+      }
+      Rprintf("\n");
+      */
    }
 }
 
 
 /*****************  HELPER FUNCTIONS  *****************/
-void sbm_t::computeHitMiss(){
-   int dd2 = dd*dd;
+void CSBM::computeHitMiss(){
+   //   int dd2 = aBlocks*aBlocks;
    int ii, rr, cc, index;
 
    //  Setting values to zero
-   for(ii = 0 ; ii < dd ; ii++){
-      hit[ii].assign(dd,0.0);
-      miss[ii].assign(dd,0.0);
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      aHitMat[ii].assign(aBlocks,0.0);
+      aMissMat[ii].assign(aBlocks,0.0);
    }
-   //   std::fill(hit, hit+dd2, 0.0);
-   //   std::fill(miss,miss+dd2,0.0);
+   //   std::fill(aHitMat, aHitMat+dd2, 0.0);
+   //   std::fill(aMissMat,aMissMat+dd2,0.0);
 
    //  Counting hits and misses
-   for(rr = 0 ; rr < nn ; rr++){
-      for(cc = 0 ; cc < nn ; cc++){
-	 index = PPint[rr] * dd + PPint[cc];
-	 //if(YY[rr * nn + cc] == 1){
-	 if(AA[rr][cc] == 1){
-	    hit[PPint[rr]][PPint[cc]]++;
-	    //hit[index] = hit[index] + 1;
-	    //}else if(YY[rr * nn + cc] == 0){
-	 }else if(AA[rr][cc] == 0){
-	    miss[PPint[rr]][PPint[cc]]++;
-	    //miss[index] = miss[index] + 1;
+   for(rr = 0 ; rr < aNodes ; rr++){
+      for(cc = 0 ; cc < aNodes ; cc++){
+	 //	 index = aBlockMemb[rr] * aBlocks + aBlockMemb[cc];
+	 //if(YY[rr * aNodes + cc] == 1){
+	 if(aAdjMat[rr][cc] == 1){
+	    aHitMat[aBlockMemb[rr]][aBlockMemb[cc]]++;
+	    //aHitMat[index] = aHitMat[index] + 1;
+	    //}else if(YY[rr * aNodes + cc] == 0){
+	 }else if(aAdjMat[rr][cc] == 0){
+	    aMissMat[aBlockMemb[rr]][aBlockMemb[cc]]++;
+	    //aMissMat[index] = aMissMat[index] + 1;
 	 }
       }
    }
 }
 
-void sbm_t::computeBBmle(){
+void CSBM::computeBlockMatMLE(){
    computeHitMiss();
 
-   int ii,jj;//dd2 = dd*dd;
-   for(ii = 0 ; ii < dd ; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 if(hit[ii][jj] == 0.0){
-	    BB[ii][jj] = 0.0;
+   int ii,jj;//dd2 = aBlocks*aBlocks;
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 if(aHitMat[ii][jj] == 0.0){
+	    aBlockMat[ii][jj] = 0.0;
 	 }else{
-	    BB[ii][jj] = hit[ii][jj] / (hit[ii][jj] + miss[ii][jj]);
+	    aBlockMat[ii][jj] = aHitMat[ii][jj] / (aHitMat[ii][jj] + aMissMat[ii][jj]);
 	 }
-	 BB[ii][jj] = logCheck(BB[ii][jj]);
-	 BB_inv[ii][jj] = 1.0 - BB[ii][jj];
+	 aBlockMat[ii][jj] = logCheck(aBlockMat[ii][jj]);
+	 aBlockMatInv[ii][jj] = 1.0 - aBlockMat[ii][jj];
       }
    }
 }
 
 
 /******************  Log-Likelihood Functions  *****************/
-double sbm_t::LL(){
+double CSBM::LogLike(){
    int rr, cc;//, index;
-   logBB();
+   logBlockMat();
 
    double total = 0.0;
-   for(rr = 0 ; rr < nn ; rr++){
-      for(cc = 0 ; cc < nn ; cc++){
-	 //	 total = total + tieLL(YY[rr*nn+cc],PPint[rr],PPint[cc]);
-	 total = total + tieLL(AA[rr][cc],PPint[rr],PPint[cc]);
+   for(rr = 0 ; rr < aNodes ; rr++){
+      for(cc = 0 ; cc < aNodes ; cc++){
+	 //	 total = total + tieLogLike(YY[rr*aNodes+cc],aBlockMemb[rr],aBlockMemb[cc]);
+	 total = total + tieLogLike(aAdjMat[rr][cc],aBlockMemb[rr],aBlockMemb[cc]);
       }
    }
-   expBB();
+   //   expBlockMat();  123456
    return(total);
 }
 
 
-double sbm_t::nodeLL(int ii){
-   logBB();
+double CSBM::nodeLogLike(int ii){
+   logBlockMat();
    int jj;
-   int PPii = PPint[ii];
+   int iiBlockMemb = aBlockMemb[ii];
    //  int index;
    double total = 0.0;
 
    //  sums the (i,j)th and (j,i)th probabilities for all j
-   for(jj = 0 ; jj < nn ; jj++){
+   for(jj = 0 ; jj < aNodes ; jj++){
       if(jj != ii){
 
 	 //  (i,j)th term
-	 //	 total = total + tieLL(YY[ii*nn + jj],PPii,PPint[jj]);
-	 total = total + tieLL(AA[ii][jj],PPii,PPint[jj]);
+	 //	 total = total + tieLogLike(YY[ii*aNodes + jj],iiBlockMemb,aBlockMemb[jj]);
+	 total = total + tieLogLike(aAdjMat[ii][jj],iiBlockMemb,aBlockMemb[jj]);
 
 	 //  (j,i)th term
-	 //total = total + tieLL(YY[jj*nn + ii],PPint[jj],PPii);
-	 total = total + tieLL(AA[jj][ii],PPint[jj],PPii);
+	 //total = total + tieLogLike(YY[jj*aNodes + ii],aBlockMemb[jj],iiBlockMemb);
+	 total = total + tieLogLike(aAdjMat[jj][ii],aBlockMemb[jj],iiBlockMemb);
       }
    }
 
@@ -815,12 +890,12 @@ double sbm_t::nodeLL(int ii){
 }
 
 
-double sbm_t::tieLL(int yy, int sendBlock, int recBlock){
+double CSBM::tieLogLike(int yy, int sendBlock, int recBlock){
 
    if(yy == 1){
-      return BB[sendBlock][recBlock];//sendBlock * dd + recBlock];
+      return aBlockMat[sendBlock][recBlock];//sendBlock * aBlocks + recBlock];
    }else if(yy == 0){
-      return BB_inv[sendBlock][recBlock];// * dd + recBlock];
+      return aBlockMatInv[sendBlock][recBlock];// * aBlocks + recBlock];
    }else{
       return(0.0);
    }
@@ -828,21 +903,21 @@ double sbm_t::tieLL(int yy, int sendBlock, int recBlock){
 
 
 
-double sbm_t::nodeLL_long(int ii){
-   logBB();
+double CSBM::nodeLogLike_long(int ii){
+   logBlockMat();
    int jj;
-   int PPii = PPint[ii];
+   int iiBlockMemb = aBlockMemb[ii];
    double total = 0.0;
 
    //  sums the (i,j)th and (j,i)th probabilities for all j
-   for(jj = 0 ; jj < nn ; jj++){
+   for(jj = 0 ; jj < aNodes ; jj++){
       if(jj != ii){
 	 //  (i,j)th term
-	 //total = total + tieLL_sender(YY[ii*nn + jj],PPii,jj);
-	 total = total + tieLL_sender(AA[ii][jj],PPii,jj);
+	 //total = total + tieLogLike_sender(YY[ii*aNodes + jj],iiBlockMemb,jj);
+	 total = total + tieLogLike_sender(aAdjMat[ii][jj],iiBlockMemb,jj);
 	 //  (j,i)th term
-	 //total = total + tieLL_receiver(YY[jj*nn + ii],PPii,jj);
-	 total = total + tieLL_receiver(AA[jj][ii],PPii,jj);
+	 //total = total + tieLogLike_receiver(YY[jj*aNodes + ii],iiBlockMemb,jj);
+	 total = total + tieLogLike_receiver(aAdjMat[jj][ii],iiBlockMemb,jj);
       }
    }
 
@@ -850,157 +925,191 @@ double sbm_t::nodeLL_long(int ii){
 }
 
 
-double sbm_t::tieLL_sender(int yy, int sendBlock, int receiver){
+// Log-Likelihood assuming Posterior Matrix
+double CSBM::tieLogLike_sender(int yy, int sendBlock, int receiver){
    int kk;
-   int baseBlock = sendBlock*dd;
-   int baseNode = receiver*dd;
+   //   int baseBlock = sendBlock*aBlocks;
+   //   int baseNode = receiver*aBlocks;
    double total = 0.0;
    if(yy == 1){
-      for(kk = 0 ; kk < dd ; kk++){
-	 total = total + PP[baseNode + kk] * BB[sendBlock][kk];//baseBlock + kk];
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 total += aPosteriorMembOld[receiver][kk] * aBlockMat[sendBlock][kk];
       }
    }else if(yy == 0){
-      for(kk = 0 ; kk < dd ; kk++){
-	 total = total + PP[baseNode + kk] * BB_inv[sendBlock][kk];//baseBlock + kk];
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 total += aPosteriorMembOld[receiver][kk] * aBlockMatInv[sendBlock][kk];
       }
    }
    return(total);
 }
 
-double sbm_t::tieLL_receiver(int yy, int recBlock, int sender){
+double CSBM::tieLogLike_receiver(int yy, int recBlock, int sender){
    double total = 0.0;
    int kk;
    if(yy == 1){
-      for(kk = 0 ; kk < dd ; kk++){
-	 total = total + PP[sender * dd + kk] * BB[kk][recBlock];//kk * dd + recBlock];
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 total += aPosteriorMembOld[sender][kk] * aBlockMat[kk][recBlock];
       }
    }
    if(yy == 0){
-      for(kk = 0 ; kk < dd ; kk++){
-	 total = total + PP[sender * dd + kk] * BB_inv[kk][recBlock];// * dd + recBlock];
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 total += aPosteriorMembOld[sender][kk] * aBlockMatInv[kk][recBlock];
       }
    }
    return(total);
 }
 
 
-/*******************  BB UPDATING FUNCTIONS  ******************/
+/*******************  BlockMat UPDATING FUNCTIONS  ******************/
 
-void sbm_t::getBB(double *BB_out){
-   //   std::copy(BB,BB + dd*dd,BB_out);
+void CSBM::getBlockMat(double *rBlockMat){
+   //   std::copy(aBlockMat,aBlockMat + aBlocks*aBlocks,BlockMat_out);
    int ii,jj;
    int saveIter = 0;
-   for(jj = 0 ; jj < dd ; jj++){
-      for(ii = 0 ; ii < dd ; ii++){
-	 BB_out[saveIter++] = BB[ii][jj];
-	 //BB_out[ii + jj*dd] = BB[ii][jj];
+   for(jj = 0 ; jj < aBlocks ; jj++){
+      for(ii = 0 ; ii < aBlocks ; ii++){
+	 rBlockMat[saveIter++] = aBlockMat[ii][jj];
+	 //BlockMat_out[ii + jj*aBlocks] = aBlockMat[ii][jj];
       }
    }
 }
 
-double sbm_t::BBdiff(){
-   expBB();
+double CSBM::BlockMatdiff(){
+   expBlockMat();
    int ii,jj;
    double delta = 0.0;
-   for(ii = 0 ; ii < dd; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 delta = delta + ((BB[ii][jj] - BB_old[ii][jj]) * (BB[ii][jj] - BB_old[ii][jj]));
+   for(ii = 0 ; ii < aBlocks; ii++){
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 delta = delta + ((aBlockMat[ii][jj] - aBlockMatOld[ii][jj]) * (aBlockMat[ii][jj] - aBlockMatOld[ii][jj]));
       }
    }
    return(delta);
 }
 
-void sbm_t::saveBB_old(){
-   expBB();
-   //   std::copy(BB,BB+dd*dd,BB_old);
+void CSBM::saveBlockMatOld(){
+   expBlockMat();
+   //   std::copy(BlockMat,BlockMat+aBlocks*aBlocks,aBlockMatOld);
    int ii, jj;
-   for(ii = 0 ; ii < dd ; ii++){
-      for(jj = 0 ; jj < dd ; jj++){
-	 BB_old[ii][jj] = BB[ii][jj];
+   for(ii = 0 ; ii < aBlocks ; ii++){
+      for(jj = 0 ; jj < aBlocks ; jj++){
+	 aBlockMatOld[ii][jj] = aBlockMat[ii][jj];
       }
    }
 }
 
-void sbm_t::logBB(){
+void CSBM::logBlockMat(){
    int ii,jj;
-   if(!is_BB_logged){
-      for(ii = 0 ; ii < dd ; ii++){
-	 for(jj = 0 ; jj < dd ; jj++){
-	    BB[ii][jj] = log(BB[ii][jj]);
-	    BB_inv[ii][jj] = log(BB_inv[ii][jj]);
+   if(!is_BlockMat_logged){
+      for(ii = 0 ; ii < aBlocks ; ii++){
+	 for(jj = 0 ; jj < aBlocks ; jj++){
+	    aBlockMat[ii][jj] = log(aBlockMat[ii][jj]);
+	    aBlockMatInv[ii][jj] = log(aBlockMatInv[ii][jj]);
 	 }
       }
-      is_BB_logged = true;
+      is_BlockMat_logged = true;
    }
 }
 
-void sbm_t::expBB(){
+void CSBM::expBlockMat(){
    int ii,jj;
-   if(is_BB_logged){
-      for(ii = 0 ; ii < dd ; ii++){
-	 for(jj = 0 ; jj < dd ; jj++){
-	    BB[ii][jj] = exp(BB[ii][jj]);
-	    BB_inv[ii][jj] = exp(BB_inv[ii][jj]);
+   if(is_BlockMat_logged){
+      for(ii = 0 ; ii < aBlocks ; ii++){
+	 for(jj = 0 ; jj < aBlocks ; jj++){
+	    aBlockMat[ii][jj] = exp(aBlockMat[ii][jj]);
+	    aBlockMatInv[ii][jj] = exp(aBlockMatInv[ii][jj]);
 	 }
       }
-      is_BB_logged = false;
+      is_BlockMat_logged = false;
+   }
+}
+
+void CSBM::savePosteriorMembOld(){
+   //   std::copy(BlockMat,BlockMat+aBlocks*aBlocks,aBlockMatOld);
+   int ii, kk;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 aPosteriorMembOld[ii][kk] = aPosteriorMemb[ii][kk];
+      }
    }
 }
 
 
 
-//  This function doesn't work with AA implementation
-void sbm_t::print(bool printNetwork){
-   Rprintf("dd = %d, nn = %d\n",dd,nn);
+//  This function doesn't work with aAdjMat implementation
+void CSBM::print(bool printNetwork){
+   Rprintf("aBlocks = %d, aNodes = %d\n",aBlocks,aNodes);
    Rprintf("bbPrior = (%.2f, %.2f)\n",betaPrior[0],betaPrior[1]);
    Rprintf("multiPrior = ");
-   RprintDoubleMat(1,dd,eta);
-   //   Rprintf("BB = \n"); RprintDoubleMat(dd, dd, BB);
-   printBB();
-   Rprintf("PI = \n"); RprintDoubleMat(nn,dd,PP);
+   RprintDoubleMat(1,aBlocks,eta);
+   //   Rprintf("aBlockMat = \n"); RprintDoubleMat(aBlocks, aBlocks, aBlockMat);
+   printBlockMat();
+   printPosteriorMemb();
+   //   printPosteriorMemb(aNodes,aBlocks,aPosteriorMemb);
    if(printNetwork){
-      //      Rprintf("YY = \n"); RprintIntMat(nn,nn,YY);
+      //      Rprintf("YY = \n"); RprintIntMat(aNodes,aNodes,YY);
       printAdjacencyMatrix();
    }
 
 }
 
 // Static Version
-void sbm_t::printAdjacencyMatrix(){
+void CSBM::printAdjacencyMatrix(){
 
    int ii, jj;
-   for(ii = 0 ; ii < nn; ii++){
-      for(jj = 0; jj < nn; jj++){
-	 Rprintf("%d ",AA[ii][jj]);
+   Rprintf("Adjacency Matrix:\n");
+   for(ii = 0 ; ii < aNodes; ii++){
+      for(jj = 0; jj < aNodes; jj++){
+	 Rprintf("%d ",aAdjMat[ii][jj]);
       }
       Rprintf("\n");
    }
 
 }
 
-void sbm_t::printBB(){
+void CSBM::printBlockMat(){
    int ii,jj;
-   for(ii = 0 ; ii < dd; ii++){
-      for(jj = 0; jj < dd; jj++){
-	 Rprintf("%d ",BB[ii][jj]);
+   Rprintf("Block Matrix:\n");
+   for(ii = 0 ; ii < aBlocks; ii++){
+      for(jj = 0; jj < aBlocks; jj++){
+	 Rprintf("%.2f ",aBlockMat[ii][jj]);
       }
       Rprintf("\n");
    }
+}
+
+void CSBM::printPosteriorMemb(){
+   int ii, kk;
+   Rprintf("Block Memberships:\n");
+   for(ii = 0 ; ii < aNodes ; ii++){
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 Rprintf("%.2f ",aPosteriorMemb[ii][kk]);
+      }
+      Rprintf("\n");
+   }
+}
+
+void CSBM::printBlockMemb(){
+   int ii;
+   Rprintf("Block Memberships:\n");
+   for(ii = 0; ii < aNodes; ii++){
+      Rprintf("%d ",aBlockMemb[ii]);
+   }
+   Rprintf("\n\n");
 }
 //
 /*  Pointer Version
-void sbm_t::printAdjacencyMatrix(){
+    void CSBM::printAdjacencyMatrix(){
 
-   int nodes = AA->size();
-   int ii, jj;
-   for(ii = 0 ; ii < nodes; ii++){
-      for(jj = 0; jj < nodes; jj++){
-	 Rprintf("%d ",(*AA)[ii][jj]);
-      }
-      Rprintf("\n");
-   }
+    int nodes = aAdjMat->size();
+    int ii, jj;
+    for(ii = 0 ; ii < nodes; ii++){
+    for(jj = 0; jj < nodes; jj++){
+    Rprintf("%d ",(*aAdjMat)[ii][jj]);
+    }
+    Rprintf("\n");
+    }
 
-}
+    }
 */
 
 

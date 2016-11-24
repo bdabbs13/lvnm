@@ -129,14 +129,15 @@ sbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
     BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
     BB <- array(BB.flat,c(kk,kk,short.total))
 
-    mmb <- array(out[[8]],c(nn,short.total)) + 1
+    mmb <- array(out[[8]],c(nn,short.total))
     ##PI.flat <- t(as.matrix(full.mat[,-(1:kk^2)]))
 
     ll.vec <- as.vector(out[[13]])
-    HH.flat <- t(matrix(out[[17]],ncol=kk*nn,byrow=TRUE))
-    HH.flat <- apply(HH.flat,2,transpose.vector,nrow=nn)
+##    HH.flat <- t(matrix(out[[17]],ncol=kk*nn,byrow=TRUE))
+##    HH.flat <- apply(HH.flat,2,transpose.vector,nrow=nn)
+##    HH <- array(HH.flat,c(nn,kk,short.total))
+    HH.flat <- out[[17]]
     HH <- array(HH.flat,c(nn,kk,short.total))
-
     ##BB.flat.new <- apply(BB.flat.new,2,transpose.vector,nrow=kk)
     ##BB.new <- array(BB.flat.new,c(kk,kk,short.total))
 
@@ -206,7 +207,7 @@ fast.mle <- function(mmb,net,nn=length(mmb),kk=max(mmb)){
 
     net <- clean.net(net)
     BB <- array(0.0,c(kk,kk))
-    out <- .C("getBBmle",as.integer(nn),as.integer(kk),
+    out <- .C("getBlockMatMLE",as.integer(nn),as.integer(kk),
               as.integer(as.vector(net)),as.double(as.vector(BB)),
               as.integer(mmb))
     BB <- array(out[[4]],c(kk,kk))
@@ -432,8 +433,8 @@ sbmEM.C <- function(net,kk,BB,mmb,pi.prior,iter.max=1000,thresh=10e-4,
     HH.flat <- out[[6]]
     BB.flat <- out[[7]]
 
-    BB.post <- matrix(BB.flat,nrow=kk,byrow=TRUE)
-    HH <- matrix(HH.flat,nrow=nn,byrow=TRUE)
+    BB.post <- matrix(BB.flat,nrow=kk,byrow=FALSE) ##  This output is ignored...
+    HH <- matrix(HH.flat,nrow=nn,byrow=FALSE)
     mmb <- PI.to.mmb(HH)
 
     if(mle.mode == "fast"){

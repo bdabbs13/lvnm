@@ -32,6 +32,8 @@ int convergenceCheck(double *logLik, int total, double qq);
 
 
 
+void colSums(std::vector<std::vector<double> > const &mat,
+	     std::vector<double> &totals);
 void colSums(std::vector<std::vector<double> > const &mat, double *totals);
 void colSums(double *mat, int rows, int cols, std::vector<double> totals);
 void colSums(double *mat, int rows, int cols, double *totals);

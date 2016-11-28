@@ -158,7 +158,7 @@ extern "C" {
       mySBM->RLoadSBM(rBlockMat, rBlockMemb);
 	 //      mySBM->RLoadBlockMemb(mmb);
       mySBM->computeBlockMatMLE();
-      mySBM->getBlockMat(rBlockMat);
+      mySBM->GetBlockMat(rBlockMat);
       delete mySBM;
 
       PutRNGstate();
@@ -170,7 +170,7 @@ extern "C" {
       double eta[*kk_t];
 
       CSBM *mySBM = new CSBM(*nn_t, *kk_t, adjMat, beta, eta, 1);
-      mySBM->printAdjacencyMatrix();
+      mySBM->print(true);
 
    }
 }

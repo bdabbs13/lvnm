@@ -19,9 +19,9 @@ using std::ifstream;
 
 
 
-bool isMissing(int ii){
-   return (ii < 0);
-}
+//bool isMissing(int ii){
+//   return (ii < 0);
+//}
 
 /******************************************/
 void shiftFlatTable(int shift_size, int flatLength, int total,
@@ -160,6 +160,34 @@ void colSums(std::vector<std::vector<double> > const &mat, double *totals){
    }
    return;
 }
+
+
+void colSums(std::vector<std::vector<double> > const &mat,
+	     std::vector<double> &totals){
+   int ii, kk;
+
+   int nrow = mat.size();
+   if(nrow < 1){
+      std::cout << "Matrix has no rows" << std::endl;
+      return;
+   }
+   int ncol = mat[0].size();
+   if(ncol < 1){
+      std::cout << "Matrix has no columns" << std::endl;
+      return;
+   }
+
+   for(kk = 0 ; kk < ncol ; kk++){
+      totals[kk] = 0.0;
+      for(ii = 0 ; ii < nrow ; ii++){
+	 totals[kk] += mat[ii][kk];
+      }
+   }
+   return;
+}
+
+
+
 
 
 void colSums(double *mat, int rows, int cols, double *totals){

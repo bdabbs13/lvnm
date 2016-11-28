@@ -57,7 +57,7 @@ sbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
                 burn.in=0,thin=1,max.runs=200,spectral.start=FALSE,
                 label.switch.mode = c("kl-loss","adhoc"),
                 autoconverge=list(alpha=0.001,extend.max=20,shift.size=100),
-                flatTable=NULL,ll.init=NULL,HH.init=NULL,multiImpute=TRUE){
+                flatTable=NULL,ll.init=NULL,HH.init=NULL,multiImpute=FALSE){
 
     ##  Formatting Adjacency Matrix for C
     label.switch.mode <- match.arg(label.switch.mode)

@@ -7,7 +7,7 @@
 
 
 extern "C" {
-  
+
   //  Fits a stochastic block model
   void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	   double *betaPrior, double *eta, //double *flatTable,
@@ -24,6 +24,17 @@ extern "C" {
 		double *threshold_t,
 		double *logLik,int *verbose_t);
 
+   //  Runs MCMC Algorithm for Weighted SBM
+   void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
+	     double *betaPrior, double *eta,
+	     //double *flatTable,
+	     double *rBlockMat, int *rBlockMemb,
+	     int *burn_t, int *thin_t,
+	     int *start_t, int *multi_t,double *logLik,
+	     int *extend_max_t, int *shift_t, double *qq_t,
+	     double *postMat, int *verbose_t);
+
+
   //  Fits a mixed membership stochastic block model
   void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *alpha,
@@ -32,7 +43,7 @@ extern "C" {
 	     int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t);
 
   void getBBmle(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb);
-  
+
 }
 #endif
 

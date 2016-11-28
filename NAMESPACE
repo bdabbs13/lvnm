@@ -18,6 +18,12 @@ export(sbm.modularity,get.modularity)
 export(get.BB.mle)
 export(fake.data.check.sbm)
 
+export(wsbm)
+export(summary.wsbm)
+export(predict.wsbm)
+export(wsbm.metric)
+export(data.gen.wsbm)
+
 export(sbm.marginal.log.like.net,sbm.log.like.net)
 export(mmsbm.log.like.YY)
 export(lsm)

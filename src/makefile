@@ -1,6 +1,6 @@
 CXX=g++
 CXXFLAGS= -DNDEBUG -fpic -O2 -g
-OBJECTS = lvnm.o sbm.o mmsbm.o lsm.o helper.o
+OBJECTS = lvnm.o sbm.o wsbm.o mmsbm.o lsm.o helper.o
 LVNMINC = ../include
 INCLUDES = -I/Library/Frameworks/R.framework/Resources/include -I$(LVNMINC)
 LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR
@@ -16,6 +16,9 @@ lvnm.o: lvnm.cpp lvnm.h
 
 sbm.o: sbm.cpp sbm.h
 	$(CXX) $(INCLUDES) $(CXXFLAGS) -c sbm.cpp -o sbm.o
+
+wsbm.o: wsbm.cpp wsbm.h
+	$(CXX) $(INCLUDES) $(CXXFLAGS) -c wsbm.cpp -o wsbm.o
 
 mmsbm.o: mmsbm.cpp mmsbm.h helper.o
 	$(CXX) $(INCLUDES) $(CXXFLAGS) -c mmsbm.cpp -o mmsbm.o

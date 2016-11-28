@@ -12,6 +12,7 @@
 #include "lvnm.h"
 #include "helper.h"
 #include "sbm.h"
+#include "wsbm.h"
 #include "mmsbm.h"
 
 //using namespace std;
@@ -104,6 +105,53 @@ extern "C" {
       PutRNGstate();
    }
 
+   void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
+	     double *rPriorBlockMat, double *rPriorBlockMemb,
+	     double *rBlockMat, int *rBlockMemb,
+	     int *burn_t, int *thin_t,
+	     int *start_t, int *multi_t,double *logLik,
+	     int *extend_max_t, int *shift_t, double *qq_t,
+	     double *postMat, int *verbose_t)
+   {
+
+      GetRNGstate();
+
+      int start = *start_t, verbose = *verbose_t;
+      //  MCMC Control Parameters
+      int total = *iters, burnIn = *burn_t, thin = *thin_t;
+
+      //  Convergence Checking Criteria
+      double qq = *qq_t;
+      int shift_size = *shift_t;
+      int extend_max = *extend_max_t;
+
+
+      /*****  INITIALIZATION  *****/
+      //  Initializing WSBM object
+      CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY, rPriorBlockMat,
+				rPriorBlockMemb, *multi_t);
+
+      //  Loading Previous Chain
+      if(start > 0){
+	 // 1234
+	 //myWSBM->loadTable(start, flatTable);
+
+	 /* Public should not be able to see these functions
+	 if(start == 1){
+	    myWSBM->drawPP();
+	    myWSBM->updatePosteriorMemb(0,postMat);
+	 }
+	 */
+      }
+
+      wsbmMCMC(myWSBM, start, total, burnIn, thin,
+	       shift_size, extend_max, qq,
+	       rBlockMat, rBlockMemb,
+	       logLik, postMat, verbose);
+
+      delete myWSBM;
+      PutRNGstate();
+   }
 
 
    //  Function to be called by R

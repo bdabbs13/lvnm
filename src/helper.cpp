@@ -229,6 +229,33 @@ void rowSums(double *mat, int rows, int cols, double *totals){
   }
 }
 
+void rowSums(std::vector<std::vector<double> > const &mat,
+	     std::vector<double> &totals){
+   int ii, kk;
+
+   int nrow = mat.size();
+   if(nrow < 1){
+      std::cout << "Matrix has no rows" << std::endl;
+      return;
+   }
+   int ncol = mat[0].size();
+   if(ncol < 1){
+      std::cout << "Matrix has no columns" << std::endl;
+      return;
+   }
+
+   for(kk = 0 ; kk < ncol ; kk++){
+      totals[kk] = 0.0;
+      for(ii = 0 ; ii < nrow ; ii++){
+	 totals[kk] += mat[kk][ii];
+      }
+   }
+   return;
+}
+
+
+
+
 void normalizeVec(double *vec, int ll){
   int ii;
   double total = 0.0;

@@ -29,6 +29,7 @@ extern "C" {
 	     double *betaPrior, double *eta,
 	     //double *flatTable,
 	     double *rBlockMat, int *rBlockMemb,
+	     double *rSenderEffects, double *rReceiverEffects,
 	     int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t,double *logLik,
 	     int *extend_max_t, int *shift_t, double *qq_t,

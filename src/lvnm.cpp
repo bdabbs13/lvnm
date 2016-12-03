@@ -108,6 +108,7 @@ extern "C" {
    void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *rPriorBlockMat, double *rPriorBlockMemb,
 	     double *rBlockMat, int *rBlockMemb,
+	     double *rSenderEffects, double *rReceiverEffects,
 	     int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t,double *logLik,
 	     int *extend_max_t, int *shift_t, double *qq_t,
@@ -133,22 +134,16 @@ extern "C" {
 
       //  Loading Previous Chain
       if(start > 0){
-	 // 1234
-	 //myWSBM->loadTable(start, flatTable);
-
-	 /* Public should not be able to see these functions
-	 if(start == 1){
-	    myWSBM->drawPP();
-	    myWSBM->updatePosteriorMemb(0,postMat);
-	 }
-	 */
+	 myWSBM->RLoadWSBM(rBlockMat, rBlockMemb,
+			   rSenderEffects, rReceiverEffects);
+	 if(verbose > 2) myWSBM->print(false);
       }
-
       wsbmMCMC(myWSBM, start, total, burnIn, thin,
 	       shift_size, extend_max, qq,
-	       rBlockMat, rBlockMemb,
+	       rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
 	       logLik, postMat, verbose);
 
+      //      myWSBM->print(false);
       delete myWSBM;
       PutRNGstate();
    }

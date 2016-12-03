@@ -10,6 +10,7 @@
 data.gen.wsbm <- function(nn=50,
                           BB=array(c(5,1,1,5),c(2,2)),
                           pp=c(.5,.5),
+                          SS=rep(1,nn),RR=rep(1,nn),
                           mmb=NULL,PI=NULL,
                           self.ties=TRUE){
 
@@ -30,11 +31,13 @@ data.gen.wsbm <- function(nn=50,
     }
 
     pmat <- PI %*% BB %*% t(PI)
+    sr.mat <- as.matrix(SS) %*% t(as.matrix(RR))
+    pmat <- pmat * sr.mat
     net <- array(rpois(nn*nn,pmat),c(nn,nn))
     if(!self.ties){
         diag(net) <- NA
     }
-    return(list(net=net,PI=PI,BB=BB,pmat=pmat))
+    return(list(net=net,PI=PI,BB=BB,SS=SS,RR=RR,pmat=pmat))
 }
 
 
@@ -46,7 +49,7 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
                  burn.in=0,thin=1,max.runs=200,spectral.start=FALSE,
                  label.switch.mode = c("adhoc","kl-loss"),
                  autoconverge=list(alpha=0.001,extend.max=20,shift.size=100),
-                 ll.init=NULL,HH.init=NULL,multiImpute=FALSE,self.ties=TRUE){
+                 multiImpute=FALSE,self.ties=TRUE){
 
     ##  Formatting Adjacency Matrix for C
     label.switch.mode <- match.arg(label.switch.mode)
@@ -62,6 +65,8 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
     total <- short.total*thin + burn.in
     flatBB = double(short.total * kk*kk)
     flatMMB = integer(short.total * nn)
+    flatSS = double(short.total * nn)
+    flatRR = double(short.total * nn)
     ll.vec <- double(short.total)
     HH.vec <- double(short.total*kk*nn)
 
@@ -71,27 +76,30 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
         if(verbose > 0) message("Initialization Complete.")
 
     }
+
+    start = 0
     if(!is.null(init.vals)){
-        ##  1234
-        ##flatTable <- wsbm.load.init.vals(init.vals,nn=nn,kk=kk)
-        ll.init <- wsbm.log.like.net(net.clean,init.vals$BB,PI=init.vals$PI,
-                                     self.ties=self.ties)
-        if(!is.null(init.vals$HH)){
-            HH.init <- init.vals$HH
+        if(is.null(init.vals$BB) || is.null(init.vals$mmb)){
+            warning("Invalid init.vals, no BB or mmb attributed...")
         }else{
-            HH.init <- init.vals$PI
+            if(is.null(init.vals$logLik)){
+                init.vals$logLik <- wsbm.log.like.net(net,BB=init.vals$BB,
+                                                      mmb=init.vals$mmb,
+                                                      self.ties=self.ties)
+            }
+            if(is.null(init.vals$HH)){
+                init.vals$HH <- mmb.to.PI(mmb)
+            }
+            start = 1
+            flatBB[1:(kk*kk)] <- init.vals$BB
+            flatMMB[1:nn] <- init.vals$mmb
+            flatSS[1:nn] <- init.vals$SS
+            flatRR[1:nn] <- init.vals$RR
+            ll.vec[1] <- init.vals$logLik
+            HH.vec[1:(kk*nn)] <- init.vals$HH
         }
     }
 
-    start = 0
-###    if(!is.null(flatTable)){
-###        if(is.null(ll.init)) stop("flatTables require ll.init vector")
-###        start = nrow(flatTable)
-###        total.start = start*(kk*(kk+nn))
-###        flatVec[1:total.start] = as.double(t(flatTable))
-###        ll.vec[1:start] <- ll.init
-###        HH.vec[1:(start *kk*nn)] <- as.double(t(HH.init))
-###    }
 
     if(is.null(autoconverge)){
         extend.max <- 0; shift.size <- 100
@@ -106,44 +114,36 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
     out <- .C("wsbm",as.integer(total),as.integer(nn),as.integer(kk), ##3
               as.integer(t(net.clean)),as.double(c(priors$aa,priors$bb)), ## 5
               as.double(priors$eta), ## flatVec, 6
-              flatBB, flatMMB, ## 8
-              as.integer(burn.in), as.integer(thin), ##10
-              as.integer(start),multi.int,ll.vec, ##13
-              extend.max,shift.size,qq,HH.vec, ##17
+              flatBB, flatMMB, flatSS, flatRR, ## 10
+              as.integer(burn.in), as.integer(thin), ##12
+              as.integer(start),multi.int,ll.vec, ##15
+              extend.max,shift.size,qq,HH.vec, ##19
               as.integer(verbose))
 
                                         #  browser()
     ##  Pulling the flat matrices from the C output
-    ##full.mat <- matrix(out[[7]],ncol=kk*(kk+nn),byrow=TRUE)
-    ##BB.flat <- t(as.matrix(full.mat[,1:kk^2]))
     BB.flat <- matrix(out[[7]],nrow=kk*kk)
     BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
     BB <- array(BB.flat,c(kk,kk,short.total))
 
     mmb <- array(out[[8]],c(nn,short.total))
-    ##PI.flat <- t(as.matrix(full.mat[,-(1:kk^2)]))
+    SS <- array(out[[9]],c(nn,short.total))
+    RR <- array(out[[10]],c(nn,short.total))
 
-    ll.vec <- as.vector(out[[13]])
-##    HH.flat <- t(matrix(out[[17]],ncol=kk*nn,byrow=TRUE))
-##    HH.flat <- apply(HH.flat,2,transpose.vector,nrow=nn)
-##    HH <- array(HH.flat,c(nn,kk,short.total))
-    HH.flat <- out[[17]]
+
+    ll.vec <- as.vector(out[[15]])
+    HH.flat <- out[[19]]
     HH <- array(HH.flat,c(nn,kk,short.total))
-    ##BB.flat.new <- apply(BB.flat.new,2,transpose.vector,nrow=kk)
-    ##BB.new <- array(BB.flat.new,c(kk,kk,short.total))
-
-    ##PI.flat <- apply(PI.flat,2,transpose.vector,nrow=nn)
-    ##PI <- array(PI.flat,c(nn,kk,short.total))
 
     pmat.mat <- NULL  ## I might want to compute this later...
     diag(net.clean) <- -1
 
 
-    wsbm.out <- structure(list(BB=BB,mmb=mmb,##PI=PI,
-                              net=net,logLik=ll.vec,
-                              ##flat.mat=full.mat,
-                              burn.in=burn.in,thin=thin,
-                              pmat=pmat.mat,HH=HH),class="wsbm")
+    wsbm.out <- structure(list(BB=BB,mmb=mmb,
+                               SS=SS,RR=RR,
+                               net=net,logLik=ll.vec,
+                               burn.in=burn.in,thin=thin,
+                               pmat=pmat.mat,HH=HH),class="wsbm")
 
     if(label.switch.mode == "kl-loss"){
         wsbm.out <- switch.labels(wsbm.out,max.runs=max.runs,verbose=verbose)

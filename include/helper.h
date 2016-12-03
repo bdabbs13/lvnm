@@ -37,7 +37,10 @@ void colSums(std::vector<std::vector<double> > const &mat,
 void colSums(std::vector<std::vector<double> > const &mat, double *totals);
 void colSums(double *mat, int rows, int cols, std::vector<double> totals);
 void colSums(double *mat, int rows, int cols, double *totals);
+
 void rowSums(double *mat, int rows, int cols, double *totals);
+void rowSums(std::vector<std::vector<double> > const &mat,
+	     std::vector<double> &totals);
 
 
 void normalizeVec(std::vector<double> &vec);

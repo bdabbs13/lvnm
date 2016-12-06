@@ -88,7 +88,7 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
                                                       self.ties=self.ties)
             }
             if(is.null(init.vals$HH)){
-                init.vals$HH <- mmb.to.PI(mmb)
+                init.vals$HH <- mmb.to.PI(init.vals$mmb)
             }
             start = 1
             flatBB[1:(kk*kk)] <- init.vals$BB
@@ -142,7 +142,7 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
     wsbm.out <- structure(list(BB=BB,mmb=mmb,
                                SS=SS,RR=RR,
                                net=net,logLik=ll.vec,
-                               burn.in=burn.in,thin=thin,
+                               burn.in=burn.in,thin=thin,self.ties=self.ties,
                                pmat=pmat.mat,HH=HH),class="wsbm")
 
     if(label.switch.mode == "kl-loss"){
@@ -151,14 +151,8 @@ wsbm <- function(total=1000,net,kk=3,verbose=0,init.vals=NULL,start=0,
         ##  Do nothing
     }
                                         #  browser()
-    wsbm.summ <- summary(wsbm.out,burn.in=0,thin=1)
-    wsbm.summ$pmat <- predict(wsbm.summ)
-    wsbm.summ$net <- wsbm.out$net
-    ## Calculating DIC
-    wsbm.summ$logLik <- with(wsbm.summ,wsbm.ll.pmat(net,pmat,
-                                                    self.ties=self.ties))
-    wsbm.summ$DIC <- 2*wsbm.summ$logLik - 4 * mean(ll.vec)
-    wsbm.summ$burn.in <- burn.in; wsbm.summ$thin <- thin
+    ## Summarizing MCMC Chain
+    wsbm.summ <- summary(wsbm.out)
 
     if(clean.out){
         wsbm.summ$chain <- list(logLik=wsbm.out$logLik)
@@ -229,24 +223,41 @@ weighted.mle <- function(mmb,net,kk){
 #################################################################
 
 
-summary.wsbm <- function(object,burn.in=0,thin=1,...){
-                                        #  browser()
+summary.wsbm <- function(object,...){
+###  browser()
     total <- dim(object$BB)[3]; kk <- dim(object$BB)[1]
-    my.sub <- seq(burn.in + thin, total, by = thin)
 
-    BB.hat <- apply(object$BB[,,my.sub],c(1,2),mean)
+    BB.hat <- apply(object$BB,c(1,2),mean)
     ##  PI.mean <- apply(object$PI[,,my.sub],c(1,2),mean)
     PI.mean <- t(apply(object$mmb,1,tabulate,nbins=kk) / total)
     mmb <- apply(PI.mean,1,which.max)
 
-    return(structure(list(mmb=mmb,PI.mean=PI.mean,BB=BB.hat),class="wsbm"))
+    SS.hat <- rowMeans(object$SS)
+    RR.hat <- rowMeans(object$RR)
+
+    summ.obj <- structure(list(mmb=mmb,PI.mean=PI.mean,BB=BB.hat,
+                                SS=SS.hat,RR=RR.hat),class="wsbm")
+    summ.obj$self.ties <- object$self.ties
+
+    summ.obj$pmat <- predict(summ.obj)
+    summ.obj$net <- object$net
+    ## Calculating DIC
+    summ.obj$logLik <- with(summ.obj,wsbm.ll.pmat(net,pmat,
+                                                    self.ties=self.ties))
+    summ.obj$DIC <- 2*summ.obj$logLik - 4 * mean(object$logLik)
+    summ.obj$burn.in <- object$burn.in; summ.obj$thin <- object$thin
+
+    return(summ.obj)
 
 }
 
 predict.wsbm <- function(object,...){
     PI <- mmb.to.PI(object$mmb,kk=ncol(object$BB))
     pmat <- PI %*% object$BB %*% t(PI)
-    diag(pmat) <- NA
+    if(!object$self.ties) diag(pmat) <- NA
+
+    sr.mat <- as.matrix(object$SS) %*% t(as.matrix(object$RR))
+    pmat <- pmat * sr.mat
     return(pmat)
 }
 

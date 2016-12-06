@@ -305,7 +305,7 @@ sbm.spectral <- function(net,kk=3,cols=1:ncol(net),fixed=FALSE,is.weighted=NULL,
     spec.out <- list(BB=BB,mmb=mmb)
 
     spec.out$pmat <- predict.sbm(spec.out)
-    spec.out$logLik <- sbm.ll.pmat(net,spec.out$pmat)
+    if(!is.weighted) spec.out$logLik <- sbm.ll.pmat(net,spec.out$pmat)
     spec.out$net <- net
 
     return(spec.out)

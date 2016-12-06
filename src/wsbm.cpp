@@ -381,8 +381,9 @@ void wsbmMCMC(CWSBM *myWSBM, int start, int total, int burnIn, int thin,
 
 
 void CWSBM::step(){
-   drawBlockMemb();
+
    drawBlockMat();
+   drawBlockMemb();
    drawSenderEffects();
    drawReceiverEffects();
 

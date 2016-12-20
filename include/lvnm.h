@@ -27,7 +27,7 @@ extern "C" {
    //  Runs MCMC Algorithm for Weighted SBM
    void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *eta,
-	     //double *flatTable,
+	     double *rPriorSender, double *rPriorReceiver,
 	     double *rBlockMat, int *rBlockMemb,
 	     double *rSenderEffects, double *rReceiverEffects,
 	     int *burn_t, int *thin_t,

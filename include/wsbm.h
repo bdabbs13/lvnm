@@ -9,8 +9,9 @@
 //  Definition for WSBM class
 class CWSBM {
  public:
-   CWSBM (int rNodes, int aBlocks, int *adjMat, double *rPriorBlockMat,
-	 double *rPriorBlockMemb, int mImpute);
+   CWSBM (int rNodes, int aBlocks, int *adjMat,
+	  double *rPriorSender, double *rPriorReceiver,
+	  double *rPriorBlockMat, double *rPriorBlockMemb, int mImpute);
    ~CWSBM();
 
    // Loading Functions

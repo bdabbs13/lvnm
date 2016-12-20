@@ -29,6 +29,7 @@ using std::ifstream;
 //  Constructor Function for WSBM object
 
 CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
+	      double *rPriorSender, double *rPriorReceiver,
 	      double *rPriorBlockMat, double * rPriorBlockMemb,
 	      int mImpute) : missingVal(-1){
    int ii, jj, kk;
@@ -135,11 +136,9 @@ CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
       }
    }
 
-   /*****  UPDATE THESE TO BE PASSABLE ARGUMENTS *****/
-   aPriorSender[0] = 10.0;
-   aPriorSender[1] = 10.0;
-   aPriorReceiver[0] = 10.0;
-   aPriorReceiver[1] = 10.0;
+   //  Reading in Sender and Receiver Effect Priors
+   std::copy(rPriorSender,rPriorSender+2,aPriorSender);
+   std::copy(rPriorReceiver,rPriorReceiver+2,aPriorReceiver);
 
    //  Initializing Sender and Receiver Effects
    aSenderEffects.resize(aNodes,1.0);

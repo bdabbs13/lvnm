@@ -106,6 +106,7 @@ extern "C" {
    }
 
    void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
+	     double *rPriorSender, double *rPriorReceiver,
 	     double *rPriorBlockMat, double *rPriorBlockMemb,
 	     double *rBlockMat, int *rBlockMemb,
 	     double *rSenderEffects, double *rReceiverEffects,
@@ -129,8 +130,8 @@ extern "C" {
 
       /*****  INITIALIZATION  *****/
       //  Initializing WSBM object
-      CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY, rPriorBlockMat,
-				rPriorBlockMemb, *multi_t);
+      CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY, rPriorSender, rPriorReceiver,
+				rPriorBlockMat, rPriorBlockMemb, *multi_t);
 
       //  Loading Previous Chain
       if(start > 0){

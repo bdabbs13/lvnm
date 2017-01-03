@@ -33,7 +33,7 @@ extern "C" {
 	     int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t,double *logLik,
 	     int *extend_max_t, int *shift_t, double *qq_t,
-	     double *postMat, int *verbose_t);
+	     double *postMat, double *rHours, int *verbose_t);
 
 
   //  Fits a mixed membership stochastic block model

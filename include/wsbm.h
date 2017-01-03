@@ -11,7 +11,8 @@ class CWSBM {
  public:
    CWSBM (int rNodes, int aBlocks, int *adjMat,
 	  double *rPriorSender, double *rPriorReceiver,
-	  double *rPriorBlockMat, double *rPriorBlockMemb, int mImpute);
+	  double *rPriorBlockMat, double *rPriorBlockMemb,
+	  double rHours, int mImpute);
    ~CWSBM();
 
    // Loading Functions
@@ -56,6 +57,7 @@ class CWSBM {
  private:
    int aNodes;
    int aBlocks;
+   double aHours;
    int missingVal;
 
    /***** Observed Network *****/

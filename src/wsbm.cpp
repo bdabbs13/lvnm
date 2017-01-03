@@ -31,7 +31,7 @@ using std::ifstream;
 CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
 	      double *rPriorSender, double *rPriorReceiver,
 	      double *rPriorBlockMat, double * rPriorBlockMemb,
-	      int mImpute) : missingVal(-1){
+	      double rHours, int mImpute) : missingVal(-1){
    int ii, jj, kk;
    //   missingVal = -1;
 
@@ -54,7 +54,7 @@ CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
       for(ii = 0; ii < aNodes; ii++){
 	 aAdjPartial[ii].resize(aNodes);
 	 for(jj = 0; jj < aNodes; jj++){
-	    aAdjPartial[ii][jj] = adjMat[ii + jj*aNodes];
+	    aAdjPartial[ii][jj] = adjMat[ii*aNodes + jj];
 	 }
       }
    }
@@ -156,6 +156,8 @@ CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
    aBlockSenderEffects.resize(aNodes,0.0);
    aBlockReceiverEffects.resize(aNodes,0.0);
 
+   aHours = rHours;
+
    delete[] etaInit;
    delete[] ind;
 }
@@ -221,25 +223,7 @@ void CWSBM::RLoadPosteriorMemb(double *rPosteriorMemb){
    //   std::copy(rPosteriorMemb,rPosteriorMemb+aNodes*aBlocks,aPosteriorMemb);
 }
 
-/******  OUTPUT FUNCTIONS  *******/
-/**** OBSOLETE
-      void CWSBM::updateFlatTable(int iter, double *flatTable){
-      expBlockMat();
-      int ii, offset;
-
-      // Saving BlockMat
-      offset = iter * (aBlocks * (aNodes + aBlocks));
-      for(ii = 0 ; ii < aBlocks*aBlocks ; ii++){
-      flatTable[offset + ii] = aBlockMat[ii];
-      }
-
-      // Saving aPosteriorMembOld
-      offset = offset + aBlocks*aBlocks;
-      for(ii = 0 ; ii < aNodes*aBlocks ; ii++){
-      flatTable[offset + ii] = aPosteriorMembOld[ii];
-      }
-      }
-*****/
+/**************  SAVING STEPS TO MATRIX  ***************/
 void CWSBM::updateWSBM(int iter, int *rBlockMemb, double *rBlockMat,
 		       double *rSenderEffects, double *rReceiverEffects,
 		       double *rPosteriorMemb){
@@ -269,8 +253,6 @@ void CWSBM::updateBlockMemb(int iter, int *rBlockMemb){
    for(ii = 0 ; ii < aNodes ; ii++){
       rBlockMemb[saveIter++] = aBlockMemb[ii] + 1;
    }
-   //   std::copy(aBlockMemb.begin(),aBlockMemb.data() + aNodes,
-   //	     rBlockMemb + (iter * aNodes));
 }
 
 void CWSBM::updateSenderEffects(int iter, double * rSenderEffects){
@@ -337,6 +319,7 @@ void wsbmMCMC(CWSBM *myWSBM, int start, int total, int burnIn, int thin,
 			       rBlockMemb, rBlockMat,
 			       rSenderEffects, rReceiverEffects,
 			       rPosteriorMemb);
+	    //myWSBM->print(false);
 	 }
       }
 
@@ -403,7 +386,7 @@ void CWSBM::drawSenderEffects(){
 
    for(ii = 0 ; ii < aNodes ; ii++){
       gammaPosterior[0] = aAdjMatRowSums[ii] + aPriorSender[0];
-      gammaPosterior[1] = aBlockReceiverEffects[ii] + aPriorSender[1];
+      gammaPosterior[1] = aHours * aBlockReceiverEffects[ii] + aPriorSender[1];
       aSenderEffects[ii] = rgamma(gammaPosterior[0],1/gammaPosterior[1]);
 
       //      Rprintf("i = %d, alpha = %.3f, beta = %.3f, s[i] = %.3f\n",
@@ -420,7 +403,7 @@ void CWSBM::drawReceiverEffects(){
 
    for(jj = 0 ; jj < aNodes ; jj++){
       gammaPosterior[0] = aAdjMatColSums[jj] + aPriorReceiver[0];
-      gammaPosterior[1] = aBlockSenderEffects[jj] + aPriorReceiver[1];
+      gammaPosterior[1] = aHours * aBlockSenderEffects[jj] + aPriorReceiver[1];
       aReceiverEffects[jj] = rgamma(gammaPosterior[0],1/gammaPosterior[1]);
       //      Rprintf("j = %d, alpha = %.3f, beta = %.3f, r[j] = %.3f\n",
       //	      jj,gammaPosterior[0],gammaPosterior[1],aReceiverEffects[jj]);
@@ -439,7 +422,7 @@ void CWSBM::drawBlockMat(){
    for(ll = 0 ; ll < aBlocks ; ll++){
       for(kk = 0 ; kk < aBlocks ; kk++){
 	 gammaPosterior[0] = aPriorBlockMat[0] + aBlockTieSums[ll][kk];
-	 gammaPosterior[1] = aPriorBlockMat[1] + aBlockTieCounts[ll][kk];
+	 gammaPosterior[1] = aPriorBlockMat[1] + aHours*aBlockTieCounts[ll][kk];
 
 	 aBlockMat[ll][kk] = rgamma(gammaPosterior[0],1/gammaPosterior[1]);
 	 aBlockMatLog[ll][kk] = log(aBlockMat[ll][kk]);
@@ -792,6 +775,7 @@ double CWSBM::GetTieMean(int ss, int rr){
    double mm = aBlockMat[aBlockMemb[ss]][aBlockMemb[rr]];
    mm *= aSenderEffects[ss];
    mm *= aReceiverEffects[rr];
+   mm *= aHours;
    return mm;
 }
 
@@ -831,33 +815,6 @@ void CWSBM::saveBlockMatOld(){
    }
 }
 
-/*
-  void CWSBM::logBlockMat(){
-   int ii,jj;
-   if(!is_BlockMat_logged){
-      for(ii = 0 ; ii < aBlocks ; ii++){
-	 for(jj = 0 ; jj < aBlocks ; jj++){
-	    aBlockMat[ii][jj] = log(aBlockMat[ii][jj]);
-	    aBlockMatInv[ii][jj] = log(aBlockMatInv[ii][jj]);
-	 }
-      }
-      is_BlockMat_logged = true;
-   }
-}
-
-void CWSBM::expBlockMat(){
-   int ii,jj;
-   if(is_BlockMat_logged){
-      for(ii = 0 ; ii < aBlocks ; ii++){
-	 for(jj = 0 ; jj < aBlocks ; jj++){
-	    aBlockMat[ii][jj] = exp(aBlockMat[ii][jj]);
-	    aBlockMatInv[ii][jj] = exp(aBlockMatInv[ii][jj]);
-	 }
-      }
-      is_BlockMat_logged = false;
-   }
-}
-*/
 
 void CWSBM::savePosteriorMembOld(){
    //   std::copy(BlockMat,BlockMat+aBlocks*aBlocks,aBlockMatOld);
@@ -873,20 +830,17 @@ void CWSBM::savePosteriorMembOld(){
 
 //  This function doesn't work with aAdjMat implementation
 void CWSBM::print(bool printNetwork){
-   Rprintf("aBlocks = %d, aNodes = %d\n",aBlocks,aNodes);
+
+   Rprintf("aBlocks = %d, aNodes = %d, aHours = %.2f\n",aBlocks,aNodes,aHours);
    Rprintf("bbPrior = (%.2f, %.2f)\n",aPriorBlockMat[0],aPriorBlockMat[1]);
    Rprintf("multiPrior = ");
+
    printPriorBlockMemb();
-   //   RprintDoubleMat(1,aBlocks,aPriorBlockMemb);
-   //   Rprintf("aBlockMat = \n"); RprintDoubleMat(aBlocks, aBlocks, aBlockMat);
    printBlockMat();
    printBlockMemb();
-   //   printPosteriorMemb();
-   //   printPosteriorMemb(aNodes,aBlocks,aPosteriorMemb);
    printSenderEffects();
    printReceiverEffects();
    if(printNetwork){
-      //      Rprintf("YY = \n"); RprintIntMat(aNodes,aNodes,YY);
       printAdjacencyMatrix();
    }
 

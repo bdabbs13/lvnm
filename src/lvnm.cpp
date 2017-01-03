@@ -113,7 +113,7 @@ extern "C" {
 	     int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t,double *logLik,
 	     int *extend_max_t, int *shift_t, double *qq_t,
-	     double *postMat, int *verbose_t)
+	     double *postMat, double *rHours, int *verbose_t)
    {
 
       GetRNGstate();
@@ -131,7 +131,8 @@ extern "C" {
       /*****  INITIALIZATION  *****/
       //  Initializing WSBM object
       CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY, rPriorSender, rPriorReceiver,
-				rPriorBlockMat, rPriorBlockMemb, *multi_t);
+				rPriorBlockMat, rPriorBlockMemb, *rHours,
+				*multi_t);
 
       //  Loading Previous Chain
       if(start > 0){

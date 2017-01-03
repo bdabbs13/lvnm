@@ -76,7 +76,7 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
                  clean.out=TRUE, verbose=0, max.runs=200,
                  label.switch.mode = c("adhoc","kl-loss"),
                  autoconverge=wsbm.convergence(),
-                 multiImpute=FALSE){
+                 multiImpute=FALSE,hours=1){
 
     ##  Formatting Adjacency Matrix for C
     label.switch.mode <- match.arg(label.switch.mode)
@@ -149,7 +149,7 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
 
     ##  Calling C Implementation of MCMC
     out <- .C("wsbm",as.integer(total),as.integer(nn),as.integer(kk), ##3
-              as.integer(t(net.clean)), #4
+              as.integer(net.clean), #4
               as.double(c(priors$sender.alpha,priors$sender.beta)), ## 5
               as.double(c(priors$receiver.alpha,priors$receiver.beta)), ## 6
               as.double(c(priors$block.alpha,priors$block.beta)), ## 7
@@ -158,12 +158,12 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
               as.integer(burn.in), as.integer(thin), ##14
               as.integer(start),multi.int,ll.vec, ##17
               extend.max,shift.size,qq,HH.vec, ##21
-              as.integer(verbose))
+              as.double(hours),as.integer(verbose))
 
                                         #  browser()
     ##  Pulling the flat matrices from the C output
     BB.flat <- matrix(out[[9]],nrow=kk*kk)
-    BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
+##    BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
     BB <- array(BB.flat,c(kk,kk,short.total))
 
     mmb <- array(out[[10]],c(nn,short.total))
@@ -181,7 +181,7 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
 
     wsbm.out <- structure(list(BB=BB,mmb=mmb,
                                SS=SS,RR=RR,
-                               net=net,logLik=ll.vec,
+                               net=net,logLik=ll.vec,hours=hours,
                                burn.in=burn.in,thin=thin,self.ties=self.ties,
                                pmat=pmat.mat,HH=HH),class="wsbm")
 
@@ -194,7 +194,6 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
     ## Summarizing MCMC Chain
     wsbm.summ <- summary(wsbm.out)
     wsbm.summ$priors = priors
-
 
     if(clean.out){
         wsbm.summ$chain <- list(logLik=wsbm.out$logLik)
@@ -280,12 +279,13 @@ summary.wsbm <- function(object,...){
     summ.obj <- structure(list(mmb=mmb,BB=BB.hat,
                                 SS=SS.hat,RR=RR.hat,PI.mean=PI.mean),class="wsbm")
     summ.obj$self.ties <- object$self.ties
+    summ.obj$hours <- object$hours
 
     summ.obj$pmat <- predict(summ.obj)
     summ.obj$net <- object$net
     ## Calculating DIC
     summ.obj$logLik <- with(summ.obj,wsbm.ll.pmat(net,pmat,
-                                                    self.ties=self.ties))
+                                                  self.ties=self.ties))
     summ.obj$DIC <- 2*summ.obj$logLik - 4 * mean(object$logLik)
     summ.obj$burn.in <- object$burn.in; summ.obj$thin <- object$thin
 
@@ -299,7 +299,7 @@ predict.wsbm <- function(object,...){
     if(!object$self.ties) diag(pmat) <- NA
 
     sr.mat <- as.matrix(object$SS) %*% t(as.matrix(object$RR))
-    pmat <- pmat * sr.mat
+    pmat <- pmat * sr.mat * object$hours
     return(pmat)
 }
 
@@ -341,7 +341,8 @@ plot.fit.wsbm <- function(wsbm.obj,
 
 
 wsbm.log.like.net <- function(net,BB,mmb,SS,RR,PI,kk=max(mmb),
-                              self.ties=TRUE){
+                              self.ties=TRUE,hours=1){
+    ##browser()
     if(!self.ties){
         diag(net) <- NA
     }
@@ -352,7 +353,8 @@ wsbm.log.like.net <- function(net,BB,mmb,SS,RR,PI,kk=max(mmb),
             PI <- mmb.to.PI(mmb,kk=kk)
         }
     }
-    summ.obj <- structure(list(mmb=mmb,BB=BB,SS=SS,RR=SS),class="wsbm")
+    summ.obj <- structure(list(mmb=mmb,BB=BB,SS=SS,RR=RR,hours=hours),
+                          class="wsbm")
     summ.obj$self.ties <- self.ties
 
     pmat <- predict(summ.obj)

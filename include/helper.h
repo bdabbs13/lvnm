@@ -25,6 +25,21 @@ void RprintIntMat(int rows, int cols, int *mat);
 
 void rdirichlet(int k, double *alpha, double *x);
 
+extern "C" {
+   void RGammaPrior(int *total, int *thin, int *burnin,
+	       double *alpha_init, double *beta_init,
+	       double *p, double *q, double *r, double *s,
+	       double *alpha, double *beta);
+}
+
+void rGammaPrior(int total, int thin, int burnin,
+		 double alpha_init, double beta_init,
+		 double p, double q, double r, double s,
+		 double *alpha, double *beta);
+
+double ldGammaPrior(double alpha, double beta,
+		    double p, double q, double r, double s);
+
 void getMeanVar(double *vec, int lower, int upper,
 		double *Mean_t, double *Var_t, double * Len_t);
 

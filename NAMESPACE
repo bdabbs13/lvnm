@@ -27,6 +27,10 @@ export(wsbm.priors)
 export(wsbm.convergence)
 export(wsbm.log.like.net)
 
+export(data.gen.dynsbm)
+export(rgamma.prior)
+export(dgamma.prior)
+
 export(sbm.marginal.log.like.net,sbm.log.like.net)
 export(mmsbm.log.like.YY)
 export(lsm)

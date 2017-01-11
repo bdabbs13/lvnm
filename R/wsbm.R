@@ -6,42 +6,81 @@
 #####
 ##############################################################
                                         #library(svd)
-#####  Function to generate data from WSBM model
+
+#' Generate Weighted Stochastic Block Model Networks
+#'
+#' Generates networks from the weighted stochastic block model
+#' with or without degree effects.
+#'
+#' @param nn Number of nodes in the network
+#' @param BB Block propensity matrix
+#' @param mmb.prior Prior distribution for multinomial distribution over
+#' block memberships
+#' @param mmb Block memberhsip vector
+#' @param SS Sender effect vector
+#' @param RR Receiver effect vector
+#' @param self.ties If true self ties are allowed
+#' @param hours Scaling factor so that other factors can be interpreted
+#' as hourly rate parameters.
+#'
+#' @return Returns a list containing the simulated network as the first
+#' component 'net'.  The list also contains all of the parameters used to
+#' simulate the network
+#'
+#' @examples
+#' kk <- 3
+#' nn <- kk^2 * 10
+#' mmb <-  rep(1:kk,each=nn/kk)
+#' BB <- array(1,c(kk,kk)); diag(BB) <- 5
+#' SS <- RR <- rep(c(rep(5,nn/(kk^2)),rep(1,nn*(kk-1)/(kk^2))),kk)
+#' set.seed(100)
+#' dat <- data.gen.wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR)
+#'
+#' @seealso \code{\link{wsbm}}
+#' @export
 data.gen.wsbm <- function(nn=50,
                           BB=array(c(5,1,1,5),c(2,2)),
-                          pp=c(.5,.5),
+                          mmb.prior=c(.5,.5),mmb,
                           SS=rep(1,nn),RR=rep(1,nn),
-                          mmb=NULL,PI=NULL,
-                          self.ties=TRUE){
+                          self.ties=TRUE,hours=1){
 
-    kk <- length(pp)
-    ll <- round(pp*nn)
 
-    if(is.null(PI)){
-        if(is.null(mmb)){
-            mmb <- sort(sample(kk,nn,replace=TRUE,prob=pp))
-        }else{
-            if(length(mmb) != nn)
-                stop("mmb must have length n")
-        }
-        PI <- mmb.to.PI(mmb)
+    if(missing(mmb)){
+        mmb <- sort(sample(kk,nn,replace=TRUE,prob=mmb.prior))
+        kk <- length(mmb.prior)
     }else{
-        if(ncol(PI) != ncol(BB) | nrow(PI) != nn)
-            stop("PI must have dim ",nn," by ",ncol(BB))
+        if(length(mmb) != nn) stop("mmb must have length n")
+        kk <- max(mmb)
     }
 
+    PI <- mmb.to.PI(mmb)
     pmat <- PI %*% BB %*% t(PI)
     sr.mat <- as.matrix(SS) %*% t(as.matrix(RR))
-    pmat <- pmat * sr.mat
+    pmat <- pmat * sr.mat * hours
     net <- array(rpois(nn*nn,pmat),c(nn,nn))
     if(!self.ties){
         diag(net) <- NA
     }
-    return(list(net=net,PI=PI,BB=BB,SS=SS,RR=RR,pmat=pmat))
+    return(list(net=net,mmb=mmb,BB=BB,SS=SS,RR=RR,hours=hours,pmat=pmat))
 }
 
 
-
+#' Prior Parameters for wsbm Gamma Priors
+#'
+#' Generating prior paramerters for gamma distributions over Poisson rate
+#' parameters
+#'
+#' @param block.alpha shape parameter for BB
+#' @param block.beta rate parameter for BB
+#' @param sender.alpha shape parameter for SS
+#' @param sender.beta rate parameter for SS
+#' @param receiver.alpha shape parameter for RR
+#' @param receiver.beta rate parameter for RR
+#'
+#' @return Returns a list containing the parameters with useful defaults.
+#'
+#' @seealso \code{\link{wsbm}}
+#' @export
 wsbm.priors <- function(block.alpha=1, block.beta=1,
                         sender.alpha=10, sender.beta=10,
                         receiver.alpha=10, receiver.beta=10){
@@ -59,6 +98,21 @@ wsbm.priors <- function(block.alpha=1, block.beta=1,
                 receiver.alpha=receiver.alpha,receiver.beta=receiver.beta))
 }
 
+#' Autoconvergence Parameters for wsbm
+#'
+#' Generating parameters for convergence checking of wsbm MCMC chain
+#'
+#' @param alpha Confidence level for check
+#' @param extend.max Maximum number of extensions of the chain while
+#' checking for convergence
+#' @param shift.size Number of additional thinned steps to run before checking
+#' again for convergence.
+#'
+#' @return Returns a list containing the three parameters.  Default values
+#' are assigned for all missing parameters
+#'
+#' @seealso \code{\link{wsbm}}
+#' @export
 wsbm.convergence <- function(alpha=0.001, extend.max=20,shift.size=100){
     if(alpha < 0) stop("alpha is negative")
     if(extend.max < 0) stop("extend.max is negative")
@@ -69,14 +123,54 @@ wsbm.convergence <- function(alpha=0.001, extend.max=20,shift.size=100){
 }
 
 
-###  Wrapper for C Implementation of WSBM
-wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
+#' Weighted Stochastic Block Model Estimator
+#'
+#' Estimates parameters for the weighted stochastic block model using
+#' an MCMC algorithm.
+#'
+#' @param net Adjacency matrix
+#' @param kk Number of blocks
+#' @param hours Scaling parameter
+#' @param self.ties If true assumes self ties are possible
+#' @param total Number of draws output by MCMC sampler
+#' @param burn.in Number of iterations to discard
+#' @param thin Amount of draws to thin by
+#' @param priors Priors for MCMC algorithm.  See wsbm.priors for more details
+#' @param eta Prior on block membership vector
+#' @param init.vals List containing parameters for initialization
+#' @param spectral.start If true, a spectral clustering algorithm is used to
+#' obtain initial parameter estimates
+#' @param clean.out If true, removes MCMC chain from output and only
+#' returns posterior means
+#' @param verbose Higher values correspond to more informative output as the
+#' sampler runs
+#' @param autoconverge Parameters for checking convergence of MCMC chain.
+#' See wsbm.convergence for more details.
+#' @param multistart If multistart is greater than 0, multistart random
+#' initializations are used to find an optimal starting point for the
+#' MCMC algorithm
+#' @param multistart.total Number of iterations to perform for each
+#' multistart chain
+#' @param label.switch.mode Methods for correcting label switching issues
+#' within MCMC chain.  The "kl-loss" method is more principled but very slow.
+#'
+#' @return Returns a wsbm object that has posterior means for each parameter
+#' in the weighted directed degree corrected stochastic block model.  If
+#' clean.out is FALSE, this object also contains an element 'chain' which
+#' contains the thinned and burned in draws from the MCMC sampler.  The prior
+#' parameters from the call to wsbm are also included.
+#'
+#' @seealso \code{\link{wsbm.priors}}, \code{\link{wsbm.convergence}}
+#' @export
+wsbm <- function(net, kk=3, hours=1, self.ties=TRUE,
+                 total=1000, burn.in=500, thin=10,
                  priors=wsbm.priors(), eta=rep(1/kk,kk),
                  init.vals=NULL,spectral.start=FALSE,
-                 clean.out=TRUE, verbose=0, max.runs=200,
-                 label.switch.mode = c("adhoc","kl-loss"),
+                 clean.out=FALSE, verbose=0,
                  autoconverge=wsbm.convergence(),
-                 multiImpute=FALSE,hours=1){
+                 multistart=0, multistart.total=20,
+                 label.switch.mode = c("adhoc","kl-loss"),
+                 max.runs=200,multiImpute=FALSE){
 
     ##  Formatting Adjacency Matrix for C
     label.switch.mode <- match.arg(label.switch.mode)
@@ -108,9 +202,6 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
         init.vals$BB <- array(rbeta(kk^2,priors$block.alpha,priors$block.beta),
                               c(kk,kk))
     }
-    if(is.null(init.vals$mmb)){
-        init.vals$mmb <- sample(kk,nn,replace=TRUE,prob=eta)
-    }
     if(is.null(init.vals$SS) || is.null(init.vals$RR)){
         ss.init <- rowMeans(net,na.rm=TRUE)
         rr.init <- colMeans(net,na.rm=TRUE)
@@ -123,6 +214,33 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
         init.vals$SS <- ss.init * nn / sum(ss.init)
         init.vals$RR <- rr.init * nn / sum(rr.init)
     }
+
+    if(multistart > 0){
+        ll.best <- -Inf
+        for(ii in 1:multistart){
+            fit.tmp <- wsbm(net=net,kk=kk,hours=hours,self.ties=self.ties,
+                            total=multistart.total,
+                            priors=priors,eta=eta,init.vals=init.vals,
+                            clean.out=FALSE,verbose=0,label.switch.mode="adhoc",
+                            autoconverge=wsbm.convergence(extend.max=0),
+                            multistart=0)
+            ll.tmp <- fit.tmp$chain$logLik[multistart.total]
+            if(ll.tmp > ll.best){
+                ll.best <- ll.tmp
+                fit.best <- fit.tmp
+            }
+        }
+        init.vals$mmb <- fit.best$chain$mmb[,multistart.total]
+        init.vals$SS <- fit.best$chain$SS[,multistart.total]
+        init.vals$RR <- fit.best$chain$RR[,multistart.total]
+        init.vals$BB <- fit.best$chain$BB[,,multistart.total]
+    }else{
+        if(is.null(init.vals$mmb)){
+            init.vals$mmb <- sample(kk,nn,replace=TRUE,prob=eta)
+        }
+    }
+
+
     if(is.null(init.vals$HH)){
         init.vals$HH <- mmb.to.PI(init.vals$mmb)
     }
@@ -132,6 +250,7 @@ wsbm <- function(net, total=1000, burn.in=0, thin=1, kk=3, self.ties=TRUE,
                                               SS=init.vals$SS, RR=init.vals$RR,
                                               self.ties=self.ties)
     }
+
 
     start = 1
     flatBB[1:(kk*kk)] <- init.vals$BB
@@ -277,7 +396,7 @@ summary.wsbm <- function(object,...){
     RR.hat <- rowMeans(object$RR)
 
     summ.obj <- structure(list(mmb=mmb,BB=BB.hat,
-                                SS=SS.hat,RR=RR.hat,PI.mean=PI.mean),class="wsbm")
+                               SS=SS.hat,RR=RR.hat,PI.mean=PI.mean),class="wsbm")
     summ.obj$self.ties <- object$self.ties
     summ.obj$hours <- object$hours
 

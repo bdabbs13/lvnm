@@ -26,16 +26,16 @@ using std::ifstream;
 /******************************************/
 void shiftFlatTable(int shift_size, int flatLength, int total,
 		    double *flatTable){
-  int flatStart = shift_size * flatLength;
-  int flatEnd = total * flatLength;
-  std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
+   int flatStart = shift_size * flatLength;
+   int flatEnd = total * flatLength;
+   std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
 }
 
 void shiftFlatTable(int shift_size, int flatLength, int total,
 		    int *flatTable){
-  int flatStart = shift_size * flatLength;
-  int flatEnd = total * flatLength;
-  std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
+   int flatStart = shift_size * flatLength;
+   int flatEnd = total * flatLength;
+   std::copy(flatTable + flatStart, flatTable + flatEnd, flatTable);
 }
 
 
@@ -52,40 +52,130 @@ void shiftFlatTable(int shift_size, int flatLength, int total,
  */
 
 void RprintDoubleMat(int rows, int cols, double *mat){
-  int ii, jj;
-  for(ii = 0 ; ii < rows ; ii++){
-    for(jj = 0 ; jj < cols ; jj++){
-      Rprintf("%.3f ",mat[ii*cols + jj]);
-    }
-    Rprintf("\n");
-  }
+   int ii, jj;
+   for(ii = 0 ; ii < rows ; ii++){
+      for(jj = 0 ; jj < cols ; jj++){
+	 Rprintf("%.3f ",mat[ii*cols + jj]);
+      }
+      Rprintf("\n");
+   }
 }
 
 void RprintIntMat(int rows, int cols, int *mat){
-  int ii, jj;
-  for(ii = 0 ; ii < rows ; ii++){
-    for(jj = 0 ; jj < cols ; jj++){
-      Rprintf("%d ",mat[ii*cols + jj]);
-    }
-    Rprintf("\n");
-  }
+   int ii, jj;
+   for(ii = 0 ; ii < rows ; ii++){
+      for(jj = 0 ; jj < cols ; jj++){
+	 Rprintf("%d ",mat[ii*cols + jj]);
+      }
+      Rprintf("\n");
+   }
 }
 
 //  Saves the current MMSBM state to the flatTable
 void rdirichlet(int k, double *alpha, double *x){
-  int ii;
-  double draw[k];
-  double total = 0.0;
+   int ii;
+   double draw[k];
+   double total = 0.0;
 
-  for(ii=0 ; ii < k ; ii++){
-    draw[ii] = rgamma(alpha[ii],1);
-    //draw[ii] = gsl_ran_gamma(rng,alpha[ii],1);
-    total = total + draw[ii];
-  }
+   for(ii=0 ; ii < k ; ii++){
+      draw[ii] = rgamma(alpha[ii],1);
+      //draw[ii] = gsl_ran_gamma(rng,alpha[ii],1);
+      total = total + draw[ii];
+   }
 
-  for(ii = 0; ii < k; ii++){
-    x[ii] = draw[ii] / total;
-  }
+   for(ii = 0; ii < k; ii++){
+      x[ii] = draw[ii] / total;
+   }
+}
+
+extern "C" {
+   void RGammaPrior(int *total, int *thin, int *burnin,
+		    double *alpha_init, double *beta_init,
+		    double *p, double *q, double *r, double *s,
+		    double *alpha, double *beta){
+
+      GetRNGstate();
+
+      double test = rgamma(1.0,1.0);
+      rGammaPrior(*total,*thin,*burnin,*alpha_init,*beta_init,
+		  *p,*q,*r,*s,alpha,beta);
+
+      PutRNGstate();
+
+   }
+
+}
+
+void rGammaPrior(int total, int thin, int burnin,
+		 double alpha_init, double beta_init,
+		 double p, double q, double r, double s,
+		 double *alpha, double *beta){
+
+   double alpha_cur = alpha_init;
+   double beta_cur = beta_init;
+   double alpha_prop, beta_prop, la_prob, lunif;
+   double alpha_prop_mean, beta_prop_mean,alpha_cur_mean,beta_cur_mean;
+   double ll_cur, ll_prop, lp_cur, lp_prop;
+
+   //   Rprintf("%.3f, %.3f\n\n",alpha_cur,beta_cur);
+
+   int ii, save_iter;
+   //   Rprintf("total = %d, thin = %d, burnin = %d\n",total,thin,burnin);
+   int long_total = total * thin + burnin;
+   //   Rprintf("long_total = %d\n",long_total);
+   for(ii  = 0 ; ii < long_total ; ii++){
+      //      Rprintf("%d: ",ii);
+      ll_cur = ldGammaPrior(alpha_cur,beta_cur,p,q,r,s);
+
+      //      Rprintf("ll: %.3f",ll_cur);
+      //      Rprintf("%.3f, %.3f",alpha_cur,beta_cur);
+      alpha_prop_mean = (alpha_cur > 1) ? alpha_cur : 1;
+      beta_prop_mean = (beta_cur > 1) ? beta_cur : 1;
+
+      //     Rprintf("ap_mean = %.3f, bp_mean = %.3f\n",alpha_prop_mean,beta_prop_mean);
+
+      alpha_prop = rgamma(alpha_prop_mean,1.0);
+      beta_prop = rgamma(beta_prop_mean,1.0);
+      ll_prop = ldGammaPrior(alpha_prop,beta_prop,p,q,r,s);
+      //      Rprintf("%.3f, %.3f, ll = %.5f\n",alpha_prop,beta_prop,ll_prop);
+
+      lp_prop = dgamma(alpha_prop,alpha_prop_mean,1.0,1);
+      lp_prop += dgamma(beta_prop,beta_prop_mean,1.0,1);
+
+      alpha_cur_mean = (alpha_prop > 1) ? alpha_prop : 1;
+      beta_cur_mean = (beta_prop > 1) ? beta_prop : 1;
+
+      lp_cur = dgamma(alpha_cur,alpha_cur_mean,1.0,1);
+      lp_cur += dgamma(beta_cur,beta_cur_mean,1.0,1);
+
+      la_prob = lp_cur - lp_prop + ll_prop - ll_cur;
+
+
+      lunif = log(unif_rand());
+      //      Rprintf("lunif = %.4f, la_prob = %.4f\n",lunif,la_prob);
+      if(lunif < la_prob){
+	 alpha_cur = alpha_prop;
+	 beta_cur = beta_prop;
+      }
+
+      if(ii >= burnin && (((ii - burnin) % thin) == 0)){
+	 save_iter = (ii - burnin)/thin;
+	 //	 Rprintf("Saving iter %d\n",save_iter);
+	 alpha[save_iter] = alpha_cur;
+	 beta[save_iter] = beta_cur;
+      }
+
+   }
+}
+
+
+
+double ldGammaPrior(double alpha, double beta,
+		    double p, double q, double r, double s){
+   double log_num = (alpha - 1)*log(p) - beta*q + alpha*s*log(beta);
+   double log_den = r * lgammafn(alpha);
+
+   return log_num - log_den;
 }
 
 
@@ -93,47 +183,47 @@ void getMeanVar(double *vec, int lower, int upper,
 		double *Mean_t, double *Var_t, double * Len_t){
 
 
-  double Var;
-  double Mean = 0.0;
-  double Len = upper - lower;
-  double SumSq = 0.0;
-  int ii;
-  for(ii = lower ; ii < upper ; ii++){
-    Mean = Mean + vec[ii];
-    SumSq = SumSq + vec[ii] * vec[ii];
-  }
-  Mean = Mean / Len;
-  Var = ((SumSq/Len) - (Mean * Mean))*(Len / (Len-1));
-  *Mean_t = Mean;
-  *Var_t = Var;
-  *Len_t = Len;
+   double Var;
+   double Mean = 0.0;
+   double Len = upper - lower;
+   double SumSq = 0.0;
+   int ii;
+   for(ii = lower ; ii < upper ; ii++){
+      Mean = Mean + vec[ii];
+      SumSq = SumSq + vec[ii] * vec[ii];
+   }
+   Mean = Mean / Len;
+   Var = ((SumSq/Len) - (Mean * Mean))*(Len / (Len-1));
+   *Mean_t = Mean;
+   *Var_t = Var;
+   *Len_t = Len;
 
 }
 
 int convergenceCheck(double *logLik, int total, double qq){
 
-  double llMean1, llVar1, llLen1;
-  double llMean2, llVar2, llLen2;
-  double sdTot;
+   double llMean1, llVar1, llLen1;
+   double llMean2, llVar2, llLen2;
+   double sdTot;
 
-  //Rprintf("lower1 = %d, upper1 = %d\n",0,total/10);
-  getMeanVar(logLik,0,total/10,
-	     &llMean1, &llVar1, & llLen1);
-  //Rprintf("lower2 = %d, upper2 = %d\n",total/2,total);
-  getMeanVar(logLik,total/2,total,
-	     &llMean2, &llVar2, & llLen2);
-  sdTot = sqrt((llVar1/llLen1) + (llVar2/llLen2));
+   //Rprintf("lower1 = %d, upper1 = %d\n",0,total/10);
+   getMeanVar(logLik,0,total/10,
+	      &llMean1, &llVar1, & llLen1);
+   //Rprintf("lower2 = %d, upper2 = %d\n",total/2,total);
+   getMeanVar(logLik,total/2,total,
+	      &llMean2, &llVar2, & llLen2);
+   sdTot = sqrt((llVar1/llLen1) + (llVar2/llLen2));
 
-  //Rprintf("Mean 1 = %f \t Mean 2 = %f \t sd.est = %f\n",
-  //llMean1,llMean2,sdTot);
+   //Rprintf("Mean 1 = %f \t Mean 2 = %f \t sd.est = %f\n",
+   //llMean1,llMean2,sdTot);
 
 
-  if((llMean2 - llMean1) <= (qq * sdTot)){
-    if((llMean1 - llMean2) <= (qq * sdTot)){
-      return(1);
-    }
-  }
-  return(0);
+   if((llMean2 - llMean1) <= (qq * sdTot)){
+      if((llMean1 - llMean2) <= (qq * sdTot)){
+	 return(1);
+      }
+   }
+   return(0);
 
 }
 
@@ -191,42 +281,42 @@ void colSums(std::vector<std::vector<double> > const &mat,
 
 
 void colSums(double *mat, int rows, int cols, double *totals){
-  int ii, jj, rr;
-  for(ii = 0; ii < cols ; ii++){
-    totals[ii] = 0.0;
-  }
+   int ii, jj, rr;
+   for(ii = 0; ii < cols ; ii++){
+      totals[ii] = 0.0;
+   }
 
-  for(ii = 0 ; ii < rows ; ii++){
-    rr = ii * cols;
-    for(jj = 0 ; jj < cols; jj++){
-      totals[jj] = totals[jj] + mat[rr + jj];
-    }
-  }
+   for(ii = 0 ; ii < rows ; ii++){
+      rr = ii * cols;
+      for(jj = 0 ; jj < cols; jj++){
+	 totals[jj] = totals[jj] + mat[rr + jj];
+      }
+   }
 }
 
 void colSums(double *mat, int rows, int cols, std::vector<double> totals){
-  int ii, jj, rr;
-  for(ii = 0; ii < cols ; ii++){
-    totals[ii] = 0.0;
-  }
+   int ii, jj, rr;
+   for(ii = 0; ii < cols ; ii++){
+      totals[ii] = 0.0;
+   }
 
-  for(ii = 0 ; ii < rows ; ii++){
-    rr = ii * cols;
-    for(jj = 0 ; jj < cols; jj++){
-      totals[jj] = totals[jj] + mat[rr + jj];
-    }
-  }
+   for(ii = 0 ; ii < rows ; ii++){
+      rr = ii * cols;
+      for(jj = 0 ; jj < cols; jj++){
+	 totals[jj] = totals[jj] + mat[rr + jj];
+      }
+   }
 }
 
 void rowSums(double *mat, int rows, int cols, double *totals){
-  int ii, jj, rr;
-  for(jj = 0 ; jj < rows ; jj++){
-    totals[jj] = 0.0;
-    rr = jj * cols;
-    for(ii = 0 ; ii < cols ; ii++){
-      totals[jj] = totals[jj] + mat[rr + ii];
-    }
-  }
+   int ii, jj, rr;
+   for(jj = 0 ; jj < rows ; jj++){
+      totals[jj] = 0.0;
+      rr = jj * cols;
+      for(ii = 0 ; ii < cols ; ii++){
+	 totals[jj] = totals[jj] + mat[rr + ii];
+      }
+   }
 }
 
 void rowSums(std::vector<std::vector<double> > const &mat,
@@ -257,14 +347,14 @@ void rowSums(std::vector<std::vector<double> > const &mat,
 
 
 void normalizeVec(double *vec, int ll){
-  int ii;
-  double total = 0.0;
-  for(ii = 0 ; ii < ll ; ii++){
-    total = total + vec[ii];
-  }
-  for(ii = 0 ; ii < ll ; ii++){
-    vec[ii] = vec[ii] / total;
-  }
+   int ii;
+   double total = 0.0;
+   for(ii = 0 ; ii < ll ; ii++){
+      total = total + vec[ii];
+   }
+   for(ii = 0 ; ii < ll ; ii++){
+      vec[ii] = vec[ii] / total;
+   }
 }
 
 void normalizeVec(std::vector<double> &vec){
@@ -280,22 +370,22 @@ void normalizeVec(std::vector<double> &vec){
 }
 
 void logZeroFix(double *vec, int ll){
-  int ii;
-  double total = 0.0;
+   int ii;
+   double total = 0.0;
 
-  for(ii = 0 ; ii < ll ; ii++){
-    if(vec[ii] <= MIN_LOG){
-      vec[ii] = MIN_LOG;
-    }
-    total = total + vec[ii];
-  }
+   for(ii = 0 ; ii < ll ; ii++){
+      if(vec[ii] <= MIN_LOG){
+	 vec[ii] = MIN_LOG;
+      }
+      total = total + vec[ii];
+   }
 
-  if(total > 1.0){
-    // Renormalize
-    for(ii = 0 ; ii < ll ; ii++){
-      vec[ii] = vec[ii] / total;
-    }
-  }
+   if(total > 1.0){
+      // Renormalize
+      for(ii = 0 ; ii < ll ; ii++){
+	 vec[ii] = vec[ii] / total;
+      }
+   }
 }
 
 void logZeroFix(std::vector<double> &vec){
@@ -319,54 +409,54 @@ void logZeroFix(std::vector<double> &vec){
 }
 
 double logCheck(double val){
-  if(val > MAX_LOG){
-    return(MAX_LOG);
-  }else if(val < MIN_LOG){
-    return(MIN_LOG);
-  }else{
-    return(val);
-  }
+   if(val > MAX_LOG){
+      return(MAX_LOG);
+   }else if(val < MIN_LOG){
+      return(MIN_LOG);
+   }else{
+      return(val);
+   }
 }
 
 /*  OLD VERSION
-void logZeroFix(double *vec, int ll){
-  int ii;
-  double fixVal = 0.0;
-  double zeroCount = 0.0;
-  for(ii = 0 ; ii < ll ; ii++){
+    void logZeroFix(double *vec, int ll){
+    int ii;
+    double fixVal = 0.0;
+    double zeroCount = 0.0;
+    for(ii = 0 ; ii < ll ; ii++){
     if(vec[ii] <= MIN_LOG){
-      zeroCount = zeroCount + 1.0;
-      fixVal  = fixVal + (MIN_LOG - vec[ii]);
+    zeroCount = zeroCount + 1.0;
+    fixVal  = fixVal + (MIN_LOG - vec[ii]);
     }
-  }
-  if(fixVal > 0.0){
+    }
+    if(fixVal > 0.0){
     fixVal = fixVal / (ll - zeroCount);
     for(ii = 0 ; ii < ll ; ii++){
-      if(vec[ii] <= MIN_LOG){
-	vec[ii] = MIN_LOG;
-      }else{
-	vec[ii] = vec[ii] - fixVal;
-      }
+    if(vec[ii] <= MIN_LOG){
+    vec[ii] = MIN_LOG;
+    }else{
+    vec[ii] = vec[ii] - fixVal;
     }
-  }
-}
+    }
+    }
+    }
 
 */
 
 /*
-void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP,
-		     double *flatTable){
+  void updateFlatTable(int iter, int nn, int dd, double *BB, double *PP,
+  double *flatTable){
   int ii, offset;
   offset = iter * (dd * (nn + dd));
   for(ii = 0 ; ii < dd*dd ; ii++){
-    flatTable[offset + ii] = BB[ii];
+  flatTable[offset + ii] = BB[ii];
   }
   offset = offset + dd*dd;
   for(ii = 0 ; ii < nn*dd ; ii++){
-    flatTable[offset + ii] = PP[ii];
+  flatTable[offset + ii] = PP[ii];
   }
 
-}
+  }
 
 */
 

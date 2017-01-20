@@ -27,15 +27,26 @@ void rdirichlet(int k, double *alpha, double *x);
 
 extern "C" {
    void RGammaPrior(int *total, int *thin, int *burnin,
-	       double *alpha_init, double *beta_init,
-	       double *p, double *q, double *r, double *s,
-	       double *alpha, double *beta);
+		    double *alpha_init, double *beta_init,
+		    double *p, double *q, double *r, double *s,
+		    double *prop_sd, double *alpha, double *beta);
 }
+
+
+
+void rGammaPrior(double alpha_init, double beta_init,
+		 double p, double q, double r, double s,
+		 double prop_sd, double *alpha, double *beta);
+
+void rGammaPriorStep(double *alphabeta,
+		     double p, double q, double r, double s,
+		     double prop_sd);
 
 void rGammaPrior(int total, int thin, int burnin,
 		 double alpha_init, double beta_init,
 		 double p, double q, double r, double s,
-		 double *alpha, double *beta);
+		 double prop_sd, double *alpha, double *beta);
+
 
 double ldGammaPrior(double alpha, double beta,
 		    double p, double q, double r, double s);

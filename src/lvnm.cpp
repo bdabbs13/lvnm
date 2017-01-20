@@ -13,6 +13,7 @@
 #include "helper.h"
 #include "sbm.h"
 #include "wsbm.h"
+#include "dynamic-sbm.h"
 #include "mmsbm.h"
 
 //using namespace std;
@@ -137,6 +138,91 @@ extern "C" {
       //  Loading Previous Chain
       if(start > 0){
 	 myWSBM->RLoadWSBM(rBlockMat, rBlockMemb,
+			   rSenderEffects, rReceiverEffects,
+			   postMat);
+	 if(verbose > 2) myWSBM->print(false);
+      }
+      wsbmMCMC(myWSBM, start, total, burnIn, thin,
+	       shift_size, extend_max, qq,
+	       rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
+	       logLik, postMat, verbose);
+
+      myWSBM->print(false);
+      delete myWSBM;
+      PutRNGstate();
+   }
+
+
+   void dynsbm(int *iters, int *burnin_t, int *thin_t, int *start_t,
+	       int *extend_max_t, int *shift_t, int *qq_t,
+
+	       int *nn_t, int *YY, int *kk_t, int *multi_t,
+	       int *TT_t, int *ee_t, int *rTimeMap, double *rHours,
+
+	       double *rHyperSender, double *rHyperReceiver,
+	       double *rHyperBlockMat, double *rPriorBlockMemb,
+
+	       double *rPriorSender, double *rPriorReceiver,
+	       double *rPriorBlockMat, int *rBlockMemb,
+
+	       double *rSenderEffects, double *rReceiverEffects,
+	       double *rBlockEffects,
+
+	       double *rLogLik, double *rPosteriorMemb, int *verbose_t)
+   {
+
+      GetRNGstate();
+
+      //  MCMC Control Parameters
+      int total = *iters, burnIn = *burnin_t, thin = *thin_t, start = *start_t;
+
+      //  Convergence Checking Criteria
+      double qq = *qq_t;
+      int shift_size = *shift_t, extend_max = *extend_max_t;
+
+
+      //  Initializing WSBM object
+      CDynSBM *myDynSBM = new CDynSBM(*nn_t, *kk_t, *TT_t, *ee_t,
+				      (total - burnIn) / thin,
+       				      rTimeMap, rHours, *multi_t);
+
+      //  Loading Adjacency Matrices
+      myDynSBM->LoadAdjacencyMatrices(YY);
+
+      //  Loading HyperPriors
+      myDynSBM->LoadHyperPriors(rHyperSender, rHyperReceiver, rHyperBlockMat);
+
+      //  Loading Parameters into WSBM Objects
+      myDynSBM->LoadParameters(rSenderEffects,rReceiverEffects,rBlockEffects,
+      			       rBlockMemb);
+      //      myDynSBM->printBlockMemb();
+
+
+      //  Passing pointers to priors to WSBM objects
+      myDynSBM->LoadPriors(rPriorSender,rPriorReceiver,rPriorBlockMat,
+			   rPriorBlockMemb);
+      myDynSBM->PassReferences();
+
+      int verbose = *verbose_t;
+
+
+      int ii;
+      for(ii = 0 ; ii < total ; ii++){
+	 myDynSBM->step();
+	 if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
+	    //  Save the result every thin iterations
+	    int save_iter = (ii - burnIn)/thin;
+	    rLogLik[save_iter] = myDynSBM->LogLike();
+	    myDynSBM->Update(save_iter);
+	    // myDynSBM->printAllWSBM(false);
+	 }
+      }
+
+
+      /*
+      //  Loading Previous Chain
+      if(start > 0){
+	 myWSBM->RLoadWSBM(rBlockMat, rBlockMemb,
 			   rSenderEffects, rReceiverEffects);
 	 if(verbose > 2) myWSBM->print(false);
       }
@@ -146,9 +232,11 @@ extern "C" {
 	       logLik, postMat, verbose);
 
       //      myWSBM->print(false);
-      delete myWSBM;
+      */
+      delete myDynSBM;
       PutRNGstate();
    }
+
 
 
    //  Function to be called by R

@@ -92,13 +92,12 @@ extern "C" {
    void RGammaPrior(int *total, int *thin, int *burnin,
 		    double *alpha_init, double *beta_init,
 		    double *p, double *q, double *r, double *s,
-		    double *alpha, double *beta){
+		    double *prop_sd, double *alpha, double *beta){
 
       GetRNGstate();
 
-      double test = rgamma(1.0,1.0);
       rGammaPrior(*total,*thin,*burnin,*alpha_init,*beta_init,
-		  *p,*q,*r,*s,alpha,beta);
+		  *p,*q,*r,*s,*prop_sd,alpha,beta);
 
       PutRNGstate();
 
@@ -106,10 +105,30 @@ extern "C" {
 
 }
 
+//  Function for drawing a single sample from the GammaPrior distribution
+void rGammaPrior(double alpha_init, double beta_init,
+		 double p, double q, double r, double s,
+		 double prop_sd, double *alpha, double *beta){
+
+   return rGammaPrior(1,1,0,alpha_init,beta_init,p,q,r,s,prop_sd,alpha,beta);
+
+}
+
+void rGammaPriorStep(double *alphabeta,
+		     double p, double q, double r, double s,
+		     double prop_sd){
+
+   return rGammaPrior(alphabeta[0],alphabeta[1],
+		      p,q,r,s,prop_sd,
+		      alphabeta,&(alphabeta[1]));
+
+}
+
+//  Function for drawing multiple samples from the GammaPrior distribution
 void rGammaPrior(int total, int thin, int burnin,
 		 double alpha_init, double beta_init,
 		 double p, double q, double r, double s,
-		 double *alpha, double *beta){
+		 double prop_sd, double *alpha, double *beta){
 
    double alpha_cur = alpha_init;
    double beta_cur = beta_init;
@@ -117,50 +136,44 @@ void rGammaPrior(int total, int thin, int burnin,
    double alpha_prop_mean, beta_prop_mean,alpha_cur_mean,beta_cur_mean;
    double ll_cur, ll_prop, lp_cur, lp_prop;
 
-   //   Rprintf("%.3f, %.3f\n\n",alpha_cur,beta_cur);
-
    int ii, save_iter;
-   //   Rprintf("total = %d, thin = %d, burnin = %d\n",total,thin,burnin);
    int long_total = total * thin + burnin;
-   //   Rprintf("long_total = %d\n",long_total);
+
    for(ii  = 0 ; ii < long_total ; ii++){
-      //      Rprintf("%d: ",ii);
       ll_cur = ldGammaPrior(alpha_cur,beta_cur,p,q,r,s);
 
-      //      Rprintf("ll: %.3f",ll_cur);
-      //      Rprintf("%.3f, %.3f",alpha_cur,beta_cur);
+      //  Getting Proposal Mean
       alpha_prop_mean = (alpha_cur > 1) ? alpha_cur : 1;
       beta_prop_mean = (beta_cur > 1) ? beta_cur : 1;
 
-      //     Rprintf("ap_mean = %.3f, bp_mean = %.3f\n",alpha_prop_mean,beta_prop_mean);
-
-      alpha_prop = rgamma(alpha_prop_mean,1.0);
-      beta_prop = rgamma(beta_prop_mean,1.0);
+      //  Drawing From Proposal Distribution
+      alpha_prop = rgamma(alpha_prop_mean/prop_sd,prop_sd);
+      beta_prop = rgamma(beta_prop_mean/prop_sd,prop_sd);
       ll_prop = ldGammaPrior(alpha_prop,beta_prop,p,q,r,s);
-      //      Rprintf("%.3f, %.3f, ll = %.5f\n",alpha_prop,beta_prop,ll_prop);
 
-      lp_prop = dgamma(alpha_prop,alpha_prop_mean,1.0,1);
-      lp_prop += dgamma(beta_prop,beta_prop_mean,1.0,1);
+      //  Calculating Probability of Proposal from Current
+      lp_prop = dgamma(alpha_prop,alpha_prop_mean/prop_sd,prop_sd,1);
+      lp_prop += dgamma(beta_prop,beta_prop_mean/prop_sd,prop_sd,1);
 
+      //  Calculating Probability of Current from Proposal
       alpha_cur_mean = (alpha_prop > 1) ? alpha_prop : 1;
       beta_cur_mean = (beta_prop > 1) ? beta_prop : 1;
+      lp_cur = dgamma(alpha_cur,alpha_cur_mean/prop_sd,prop_sd,1);
+      lp_cur += dgamma(beta_cur,beta_cur_mean/prop_sd,prop_sd,1);
 
-      lp_cur = dgamma(alpha_cur,alpha_cur_mean,1.0,1);
-      lp_cur += dgamma(beta_cur,beta_cur_mean,1.0,1);
-
+      //  Calculating Acceptance Probability
       la_prob = lp_cur - lp_prop + ll_prop - ll_cur;
 
-
+      //  Accepting or Rejecting
       lunif = log(unif_rand());
-      //      Rprintf("lunif = %.4f, la_prob = %.4f\n",lunif,la_prob);
       if(lunif < la_prob){
 	 alpha_cur = alpha_prop;
 	 beta_cur = beta_prop;
       }
 
+      //  Saving Thinned/Burned In Draws
       if(ii >= burnin && (((ii - burnin) % thin) == 0)){
 	 save_iter = (ii - burnin)/thin;
-	 //	 Rprintf("Saving iter %d\n",save_iter);
 	 alpha[save_iter] = alpha_cur;
 	 beta[save_iter] = beta_cur;
       }

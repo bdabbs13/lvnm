@@ -13,14 +13,27 @@ class CWSBM {
 	  double *rPriorSender, double *rPriorReceiver,
 	  double *rPriorBlockMat, double *rPriorBlockMemb,
 	  double rHours, int mImpute);
+   CWSBM (int rNodes, int rBlocks, double rHOurs, int mImpute);
    ~CWSBM();
 
    // Loading Functions
    void RLoadWSBM(double *rBlockMat,int *rBlockMemb,
+		  double *rSenderEffects, double *rReceiverEffects,
+		  double *rPosteriorMemb);
+   void RLoadWSBM(double *rBlockMat,
 		  double *rSenderEffects, double *rReceiverEffects);
+
+   void LoadReferences(std::vector<double *> *dPriorSender,
+		   std::vector<double *> *dPriorReceiver,
+		   std::vector<std::vector<double *> > *dPriorBlockMat,
+		   std::vector<int> *dBlockMemb);
+
+
+   void LoadAdjacencyMatrix(int *AdjMat);
 
    //  MCMC Functions
    void step();
+   void partialStep();
    void imputeMissingValues();  //Need to be updated
 
    // EM Functions
@@ -31,13 +44,14 @@ class CWSBM {
 
    // Log-Likleihood Function
    double LogLike();
+   double nodeLogLike(int ii);
 
 
    // I/O Functions
    // Saving Functions
-   void updateWSBM(int iter, int *rBlockMemb, double *rBlockMat,
-		   double *rSenderEffects, double *rReceiverEffects,
-		   double *rPosteriorMemb);
+   void updateWSBM(int iter);
+   void partialUpdate(int iter);
+
    //   void updateWSBM(int iter, int *rBlockMemb, double *rBlockMat,
    //		  double *rPosteriorMemb, double *rEta);
 
@@ -46,6 +60,9 @@ class CWSBM {
    int GetBlocks() const { return aBlocks;}
    void GetBlockMat(double *rBlockMat);
 
+   double GetSenderEffect(int node) const {return aSenderEffects[node];}
+   double GetReceiverEffect(int node) const {return aReceiverEffects[node];}
+   double GetBlockMatEffect(int ll, int kk) const {return aBlockMat[ll][kk];}
 
    // Helper Functions
    void computeBlockMatMLE();
@@ -77,17 +94,32 @@ class CWSBM {
    std::vector<double> aReceiverEffects; // aNodes
 
    //  Block Membership Vector
-   std::vector<int> aBlockMemb; // aNodes
+   std::vector<int> *aBlockMemb; // aNodes
+
+
+   /***** R Storage Pointers *****/
+   double *aRBlockMat;
+   int *aRBlockMemb;
+
+   double *aRSenderEffects;
+   double *aRReceiverEffects;
+   double *aRPosteriorMemb;
+
 
    //  Posterior Block Membership Probability Matrix
    std::vector<std::vector<double> > aPosteriorMemb; // aNodes x aBlocks
    std::vector<std::vector<double> > aPosteriorMembOld; // aNodes x aBlocks
 
    /***** Priors *****/
+   bool aPriorOwner;
    std::vector<double> aPriorBlockMemb;
-   double aPriorSender[2];
-   double aPriorReceiver[2];
-   double aPriorBlockMat[2];
+   std::vector<double *> *aPriorSender;
+   std::vector<double *> *aPriorReceiver;
+   std::vector<std::vector<double *> > *aPriorBlockMat;
+
+   /* double aPriorSender[2]; */
+   /* double aPriorReceiver[2]; */
+   /* double aPriorBlockMat[2]; */
 
    /*****  Simplified Calculations *****/
    std::vector<std::vector<double> > aBlockTieCounts;
@@ -117,12 +149,11 @@ class CWSBM {
    void RLoadReceiverEffects(double *rReceiverEffects);
 
    // Internal Updating Functions
-   void updateBlockMat(int iter , double *rBlockMat);
-   void updateBlockMemb(int iter, int *rBlockMemb); // updateMMB
-   void updatePriorBlockMemb(double *rPriorBlockMat);
-   void updatePosteriorMemb(int iter, double *rPosteriorMemb);
-   void updateSenderEffects(int iter, double *rSenderEffects);
-   void updateReceiverEffects(int iter, double *rReceiverEffects);
+   void updateBlockMat(int iter);
+   void updateBlockMemb(int iter);
+   void updatePosteriorMemb(int iter);
+   void updateSenderEffects(int iter);
+   void updateReceiverEffects(int iter);
 
 
    // Helper Functions
@@ -135,7 +166,6 @@ class CWSBM {
    bool isMissing(int val) { return (val == missingVal);}
 
    // Log-Likelihood Functions
-   double nodeLogLike(int ii);
    double tieLogLike(int yy, int sendBlock, int recBlock);
    double GetTieMean(int ss, int rr);
 

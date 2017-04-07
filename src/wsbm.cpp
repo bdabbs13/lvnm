@@ -68,16 +68,16 @@ CWSBM::CWSBM (int rNodes, int rBlocks, int *adjMat,
    //   std::copy(rPriorBlockMat,rPriorBlockMat+2,aPriorBlockMat);
 
    aBlockMat.resize(aBlocks);
-   aBlockMatLog.resize(aBlocks);
+   //   aBlockMatLog.resize(aBlocks);
    aBlockMatOld.resize(aBlocks);
    for(ii = 0; ii < aBlocks ; ii++){
       aBlockMat[ii].resize(aBlocks);
-      aBlockMatLog[ii].resize(aBlocks);
+      //      aBlockMatLog[ii].resize(aBlocks);
       aBlockMatOld[ii].resize(aBlocks,0.0);
       for(jj = 0 ; jj < aBlocks ; jj++){
 	 rdirichlet(2,(*aPriorBlockMat)[ii][jj],holder);
 	 aBlockMat[ii][jj] = holder[0];
-	 aBlockMatLog[ii][jj] = log(holder[0]);
+	 //	 aBlockMatLog[ii][jj] = log(holder[0]);
       }
    }
 
@@ -198,11 +198,11 @@ CWSBM::CWSBM (int rNodes, int rBlocks, double rHours,
    //  Initializing aBlockMat Matrix
 
    aBlockMat.resize(aBlocks);
-   aBlockMatLog.resize(aBlocks);
+   //   aBlockMatLog.resize(aBlocks);
    aBlockMatOld.resize(aBlocks);
    for(ii = 0; ii < aBlocks ; ii++){
       aBlockMat[ii].resize(aBlocks,0.0);
-      aBlockMatLog[ii].resize(aBlocks,0.0);
+      //      aBlockMatLog[ii].resize(aBlocks,0.0);
       aBlockMatOld[ii].resize(aBlocks,0.0);
    }
 
@@ -338,7 +338,7 @@ void CWSBM::RLoadBlockMat(double *rBlockMat){
    for(jj = 0 ; jj < aBlocks ; jj++){
       for(ii = 0; ii < aBlocks ; ii++){
 	 aBlockMat[ii][jj] = rBlockMat[loadIter++];
-	 aBlockMatLog[ii][jj] = log(aBlockMat[ii][jj]);
+	 //	 aBlockMatLog[ii][jj] = log(aBlockMat[ii][jj]);
       }
    }
 
@@ -604,7 +604,7 @@ void CWSBM::drawBlockMat(){
 	 gammaPost[1] = (*aPriorBlockMat)[ll][kk][1] + aHours*aBlockTieCounts[ll][kk];
 
 	 aBlockMat[ll][kk] = rgamma(gammaPost[0],1/gammaPost[1]);
-	 aBlockMatLog[ll][kk] = log(aBlockMat[ll][kk]);
+	 //	 aBlockMatLog[ll][kk] = log(aBlockMat[ll][kk]);
 
       }
    }
@@ -740,7 +740,7 @@ void CWSBM::rotate(){
    for(ii = 0 ; ii < aBlocks ; ii++){
       for(jj = 0 ; jj < aBlocks ; jj++){
 	 aBlockMat[ii][jj] = aBlockMatOld[assigned[ii]][assigned[jj]];
-	 aBlockMatLog[ii][jj] = log(aBlockMat[ii][jj]);
+	 //	 aBlockMatLog[ii][jj] = log(aBlockMat[ii][jj]);
       }
    }
 }
@@ -888,7 +888,7 @@ void CWSBM::computeBlockMatMLE(){
 	    aBlockMat[ll][kk] = aBlockTieSums[ll][kk]/aBlockTieCounts[ll][kk];
 	 }
 	 aBlockMat[ll][kk] = logCheck(aBlockMat[ll][kk]);
-	 aBlockMatLog[ll][kk] = log(aBlockMat[ll][kk]);
+	 //	 aBlockMatLog[ll][kk] = log(aBlockMat[ll][kk]);
       }
    }
 }
@@ -909,9 +909,8 @@ double CWSBM::LogLike(){
 
 double CWSBM::nodeLogLike(int ii){
    int jj;
-   //   int iiBlockMemb = (*aBlockMemb)[ii];
-   //  int index;
    double total = 0.0;
+
    //  sums the (i,j)th and (j,i)th probabilities for all j
    for(jj = 0 ; jj < aNodes ; jj++){
       if(jj != ii){
@@ -942,10 +941,17 @@ double CWSBM::tieLogLike(int yy, int ss, int rr){
 }
 
 double CWSBM::GetTieMean(int ss, int rr){
-   double mm = aBlockMat[(*aBlockMemb)[ss]][(*aBlockMemb)[rr]];
+
+   double mm;
+
+   mm = aBlockMat[(*aBlockMemb)[ss]][(*aBlockMemb)[rr]];
    mm *= aSenderEffects[ss];
    mm *= aReceiverEffects[rr];
    mm *= aHours;
+
+   if(mm < MIN_LOG){
+      mm = MIN_LOG;
+   }
    return mm;
 }
 

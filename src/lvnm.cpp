@@ -147,7 +147,7 @@ extern "C" {
 	       rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
 	       logLik, postMat, verbose);
 
-      myWSBM->print(false);
+      //      myWSBM->print(false);
       delete myWSBM;
       PutRNGstate();
    }
@@ -194,30 +194,37 @@ extern "C" {
 
       //  Loading Parameters into WSBM Objects
       myDynSBM->LoadParameters(rSenderEffects,rReceiverEffects,rBlockEffects,
-      			       rBlockMemb);
+      			       rBlockMemb,rPosteriorMemb);
       //      myDynSBM->printBlockMemb();
 
 
       //  Passing pointers to priors to WSBM objects
       myDynSBM->LoadPriors(rPriorSender,rPriorReceiver,rPriorBlockMat,
 			   rPriorBlockMemb);
+      myDynSBM->LoadLogLike(rLogLik);
       myDynSBM->PassReferences();
+
+      //      myDynSBM->printAllWSBM(false);
 
       int verbose = *verbose_t;
 
-
+      //      Rprintf("\nIterations begin\n");
       int ii;
       for(ii = 0 ; ii < total ; ii++){
+	 //	 Rprintf("%d ",ii);
 	 myDynSBM->step();
-	 if(ii >= burnIn && ((ii - burnIn) % thin == 0)){
-	    //  Save the result every thin iterations
-	    int save_iter = (ii - burnIn)/thin;
-	    rLogLik[save_iter] = myDynSBM->LogLike();
-	    myDynSBM->Update(save_iter);
-	    // myDynSBM->printAllWSBM(false);
+	 //	 Rprintf(" done\n");
+	 if(ii >= burnIn){
+	    myDynSBM->UpdateCovariance();
+	    if(((ii - burnIn) % thin == 0)){
+	       //  Save the result every thin iterations
+	       int save_iter = (ii - burnIn)/thin;
+	       //	    rLogLik[save_iter] = myDynSBM->LogLike();
+	       myDynSBM->Update(save_iter);
+	       // myDynSBM->printAllWSBM(false);
+	    }
 	 }
       }
-
 
       /*
       //  Loading Previous Chain

@@ -5,7 +5,6 @@
 #####    mmsbm - Fits MMSBM choosing intelligent starting values
 #####
 ##############################################################
-                                        #library(svd)
 
 #' Generate Weighted Stochastic Block Model Networks
 #'

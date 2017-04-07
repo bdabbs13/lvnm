@@ -30,6 +30,21 @@ extern "C" {
 		    double *alpha_init, double *beta_init,
 		    double *p, double *q, double *r, double *s,
 		    double *prop_sd, double *alpha, double *beta);
+
+   void RGammaPriorNorm(int *total, int *thin, int *burnin,
+			  double *alpha_init, double *beta_init,
+			  double *p, double *q, double *r, double *s,
+			  double *prop_sd, double *alpha, double *beta);
+
+   void RGammaPriorMV(int *total, int *thin, int *burnin,
+		      double *alpha_init, double *beta_init,
+		      double *p, double *q, double *r, double *s,
+		      double *prop_sd, double *alpha, double *beta);
+
+   void ldGammaPrior(double *alpha, double *beta,
+		     double *p, double *q, double *r, double *s,
+		     double *result);
+
 }
 
 
@@ -47,6 +62,31 @@ void rGammaPrior(int total, int thin, int burnin,
 		 double p, double q, double r, double s,
 		 double prop_sd, double *alpha, double *beta);
 
+void rGammaPriorNorm(int total, int thin, int burnin,
+		     double alpha_init, double beta_init,
+		     double p, double q, double r, double s,
+		     double prop_sd, double *alpha, double *beta);
+
+void rGammaPriorMV(int total, int thin, int burnin,
+		   double alpha_init, double beta_init,
+		   double p, double q, double r, double s,
+		   double prop_sd, double *alpha, double *beta);
+
+
+void GammaPriorMHDraw(double &alpha_cur, double &beta_cur,
+		      double p, double q, double r, double s,
+		      double &alpha_sd, double &beta_sd, double rho);
+
+
+double GetDrawSD(double sse, int nn, int dd, double epsilon);
+
+void GammaPriorMHDraw(double alphabeta[2], int &nn,
+		      double p, double q, double r, double s,
+		      double covInfo[5],double epislon);
+
+
+
+
 
 double ldGammaPrior(double alpha, double beta,
 		    double p, double q, double r, double s);
@@ -56,7 +96,28 @@ void getMeanVar(double *vec, int lower, int upper,
 
 int convergenceCheck(double *logLik, int total, double qq);
 
+double var(double *vec, int end);
+void getCovariance(double *v1, double *v2, int start, int end,
+		   double &sd1, double &sd2, double &cov,
+		   double &m1, double &m2);
+void updateCovariance(double *v1, double *v2, int start, int end,
+		   double &sd1, double &sd2, double &cov,
+		   double &m1, double &m2);
 
+
+void getSSE(double *v1, double *v2, int start, int end,
+	    double &sse1, double &sse2, double &csse,
+	    double &m1, double &m2);
+
+void updateSSE(double *v1, double *v2, int start, int end,
+	       double &sse1, double &sse2, double &csse,
+	       double &m1, double &m2);
+void updateSingleSSE(const double &v1, const double &v2, int &nn,
+		     double &sse1, double &sse2, double &csse,
+		     double &m1, double &m2);
+
+void updateSingleSSE(const double v[2], int &nn,
+		     double covInfo[5]);
 
 void colSums(std::vector<std::vector<double> > const &mat,
 	     std::vector<double> &totals);

@@ -86,7 +86,7 @@ class CWSBM {
    /***** Parameters *****/
    //  Block Matrix
    std::vector<std::vector<double> > aBlockMat; // aBlocks x aBlocks
-   std::vector<std::vector<double> > aBlockMatLog; // aBlocks x aBlocks
+   //   std::vector<std::vector<double> > aBlockMatLog; // aBlocks x aBlocks
    std::vector<std::vector<double> > aBlockMatOld; // aBlocks x aBlocks
 
    //  Sender and Receiver Effects

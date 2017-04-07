@@ -18,17 +18,19 @@ class CDynSBM {
 
 
    /***** Time Hash Functions *****/
-   int GetEquivalentTime(int t);
+   //   int GetEquivalentTime(int t);
 
    // Loading Functions
-   void RLoadDynSBM();
+   //   void RLoadDynSBM();
    void LoadAdjacencyMatrices(int *AdjMat);
    void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
 			double *rHyperBlockMat);
    void LoadParameters(double *rSenderEffects, double *rReceiverEffects,
-		       double *rBlockEffects, int *rBlockMemb);
+		       double *rBlockEffects, int *rBlockMemb,
+		       double *rPosteriorMemb);
    void LoadPriors(double *rPriorSender, double *rPriorReceiver,
 		   double *rPriorBlockMat, double *rPriorBlockMemb);
+   void LoadLogLike(double *rLogLik);
    void PassReferences();
 
 
@@ -47,6 +49,7 @@ class CDynSBM {
 
    // Saving Functions
    void Update(int iter);
+   void UpdateCovariance();
 
    //  Retrieval Functions
    int GetNodes() const { return aNodes;}
@@ -61,6 +64,7 @@ class CDynSBM {
    void printPriors();
    void printAllWSBM(bool printNetworks);
    void printBlockMemb();
+   void PrintCovariance(int tt, int ii);
 
 
  private:
@@ -70,6 +74,9 @@ class CDynSBM {
    int aClasses;
    int missingVal;
    int aTotal;
+   double mhEpsilon;
+   double mhSD;
+   double mhStart;
 
    /***** Observed Network *****/
    std::vector<CWSBM> aWsbmList;
@@ -88,6 +95,12 @@ class CDynSBM {
    std::vector<std::vector<double *> *> aPriorReceiver;
    std::vector< std::vector<std::vector<double *> > *> aPriorBlockMat;
 
+   //  Adaptive Sampling Characteristics
+   int covCount;
+   std::vector<std::vector<double *> *> aPriorSenderCov;
+   std::vector<std::vector<double *> *> aPriorReceiverCov;
+   std::vector< std::vector<std::vector<double *> > *> aPriorBlockMatCov;
+
    //  Hyperpriors
    double aHyperSender[4];
    double aHyperReceiver[4];
@@ -98,6 +111,8 @@ class CDynSBM {
    double *aRPriorReceiver;
    double *aRPriorBlockMat;
    int *aRBlockMemb;
+   double *aRPosteriorMemb;
+   double *aRLogLike;
 
    /***** Flags *****/
    bool aImputeFlag;
@@ -129,6 +144,9 @@ class CDynSBM {
    void UpdatePriorSender(int iter);
    void UpdatePriorReceiver(int iter);
    void UpdatePriorBlockMat(int iter);
+   void UpdateBlockMemb(int iter);
+   void UpdatePosteriorMemb(int iter);
+   void UpdateLogLike(int iter);
 
    /*
    void updateBlockMat(int iter , double *rBlockMat);

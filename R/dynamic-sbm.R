@@ -11,17 +11,32 @@
 ####  Create some good examples for data generation
 rgamma.prior <- function(n=100,p=0.99,q=1.01,r=1,s=1,
                          thin=100,burn.in=100,
-                         alpha.init = 1, beta.init = 1, prop.sd=1.0){
+                         alpha.init = 1, beta.init = 1, prop.sd=1.0,
+                         method=c("mv","alpha-beta","norm")){
 
+    method <- match.arg(method)
     ##  Allocating Memory for C++
     alpha.vec <- beta.vec <- rep(0,n)
-##    print(prop.sd)
-    out <- .C("RGammaPrior",
-              as.integer(n),as.integer(thin),as.integer(burn.in),
-              as.double(alpha.init),as.double(beta.init),
-              as.double(p),as.double(q),as.double(r),as.double(s),
-              as.double(prop.sd),as.double(alpha.vec),as.double(beta.vec))
-
+    ##    print(prop.sd)
+    if(method == "alpha-beta"){
+        out <- .C("RGammaPrior",
+                  as.integer(n),as.integer(thin),as.integer(burn.in),
+                  as.double(alpha.init),as.double(beta.init),
+                  as.double(p),as.double(q),as.double(r),as.double(s),
+                  as.double(prop.sd),as.double(alpha.vec),as.double(beta.vec))
+    }else if(method == "mv"){
+        out <- .C("RGammaPriorMV",
+                  as.integer(n),as.integer(thin),as.integer(burn.in),
+                  as.double(alpha.init),as.double(beta.init),
+                  as.double(p),as.double(q),as.double(r),as.double(s),
+                  as.double(prop.sd),as.double(alpha.vec),as.double(beta.vec))
+    }else if(method == "norm"){
+        out <- .C("RGammaPriorNorm",
+                  as.integer(n),as.integer(thin),as.integer(burn.in),
+                  as.double(alpha.init),as.double(beta.init),
+                  as.double(p),as.double(q),as.double(r),as.double(s),
+                  as.double(prop.sd),as.double(alpha.vec),as.double(beta.vec))
+    }
     return(cbind(out[[11]],out[[12]]))
 }
 
@@ -35,13 +50,22 @@ dgamma.prior <- function(alpha,beta,p=1,q=2,r=2,s=2){
     return(exp(l.num - l.den))
 }
 
+ldgamma.prior <- function(alpha,beta,p=1,q=2,r=2,s=2){
+    out <- .C("ldGammaPrior",
+              as.double(alpha),as.double(beta),
+              as.double(p),as.double(q),as.double(r),as.double(s),
+              double(1))
+
+    return(out[[7]])
+}
+
 
 
 data.gen.dynsbm <- function(nn=40,TT=4,tmap=rep(1:2,2),hours.vec=c(1,1),
                             BB.prior,SS.prior,RR.prior,
                             mmb.prior=c(.5,.5),mmb,
-                            self.ties=TRUE){
-
+                            self.ties=TRUE,debug=FALSE){
+    if(debug) browser()
 
     ## Loading and checking mmb
     if(missing(mmb)){
@@ -100,7 +124,7 @@ convert.time.table <- function(tab,cutoffs,nn,labs){
         nn <- length(labs)
     }
 
-    AA.mat <- array(NA,c(nn,nn,TT))
+    AA.mat <- array(0,c(nn,nn,TT))
     for(ii in 1:nrow(tab)){
         tt <- 0
         while(tab[ii,3] > cutoffs[tt+1]) tt <- tt + 1
@@ -113,9 +137,9 @@ convert.time.table <- function(tab,cutoffs,nn,labs){
 
 
 
-dynsbm.priors <- function(BB.hyperprior=c(.9,1.1,1,1),
-                          SS.hyperprior=c(.9,1.1,1,1),
-                          RR.hyperprior=c(.9,1.1,1,1)){
+dynsbm.priors <- function(BB.hyperprior=c(.99,1.01,1,1),
+                          SS.hyperprior=c(.99,1.01,1,1),
+                          RR.hyperprior=c(.99,1.01,1,1)){
 
     if(any(BB.hyperprior <= 0)){
         stop("Hyperprior for BB must have positive componenets")
@@ -129,8 +153,8 @@ dynsbm.priors <- function(BB.hyperprior=c(.9,1.1,1,1),
 
 
     return(list(BB=BB.hyperprior,
-                SS=BB.hyperprior,
-                RR=BB.hyperprior))
+                SS=SS.hyperprior,
+                RR=RR.hyperprior))
 }
 
 
@@ -144,7 +168,7 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
                    total=1000, burn.in=0, thin=1,
                    hyperpriors=dynsbm.priors(), eta=rep(1/kk,kk),
                    init.vals=NULL, #spectral.start=FALSE,
-                   clean.out=TRUE, verbose=0, max.runs=200,
+                   clean.out=FALSE, verbose=0, max.runs=200,
                    label.switch.mode = c("adhoc","kl-loss"),
                    autoconverge=wsbm.convergence(),
                    multiImpute=FALSE){
@@ -196,7 +220,7 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
     flatMMB = integer(short.total * nn)
 
     ##  Storage for Performance Indicators
-    ll.vec <- double(short.total)
+    ll.vec <- double(short.total*TT)
     flatHH <- double(short.total*kk*nn)
 
 
@@ -267,7 +291,7 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
 ##    browser()
     flatMMB[1:nn] <- init.vals$mmb
     flatHH[1:(kk*nn)] <- init.vals$HH
-    ll.vec[1] <- init.vals$logLik
+##    ll.vec[1] <- init.vals$logLik
 
 
     extend.max <- autoconverge$extend.max
@@ -311,58 +335,50 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
     SS.mat <- array(out[[24]],c(nn,short.total,TT))
     RR.mat <- array(out[[25]],c(nn,short.total,TT))
     BB.mat <- array(out[[26]],c(kk,kk,short.total,TT))
+    HH.mat <- array(out[[28]],c(nn,kk,short.total))
+    ll.mat <- array(out[[27]],c(TT,short.total))
+    ll.vec <- colSums(ll.mat)
 
-    return(list(init.vals=init.vals,
-                SS.prior=SS.prior,RR.prior=RR.prior,
-                BB.prior=BB.prior,MMB=MMB,logLik=out[[27]],
-                SS.mat=SS.mat,RR.mat=RR.mat,BB.mat=BB.mat))
-
-    ##                                     #  browser()
-    ## ##  Pulling the flat matrices from the C output
-    ## BB.flat <- matrix(out[[9]],nrow=kk*kk)
-    ## BB.flat <- apply(BB.flat,2,transpose.vector,nrow=kk)
-    ## BB <- array(BB.flat,c(kk,kk,short.total))
-
-    ## mmb <- array(out[[10]],c(nn,short.total))
-    ## SS <- array(out[[11]],c(nn,short.total))
-    ## RR <- array(out[[12]],c(nn,short.total))
-
-
-    ## ll.vec <- as.vector(out[[17]])
-    ## HH.flat <- out[[21]]
-    ## HH <- array(HH.flat,c(nn,kk,short.total))
-
-    ## pmat.mat <- NULL  ## I might want to compute this later...
-    ## diag(net.clean) <- -1
+    dynsbm.obj <- structure(list(BB.mat=BB.mat,mmb=MMB,HH=HH.mat,
+                                 SS.mat=SS.mat,RR.mat=RR.mat,
+                                 BB.prior=BB.prior,
+                                 SS.prior=SS.prior,RR.prior=RR.prior,
+                                 ll.mat=ll.mat,ll.vec=ll.vec,
+                                 net.mat=net.mat,self.ties=self.ties,
+                                 init.vals=init.vals,
+                                 tmap=tmap,hours.vec=hours.vec,
+                                 thin=thin,burn.in=burn.in),
+                            class="dynsbm")
+    rm(out)
 
 
-    ## dynsbm.out <- structure(list(BB=BB,mmb=mmb,
-    ##                            SS=SS,RR=RR,
-    ##                            net.mat=net.mat,logLik=ll.vec,
-    ##                            burn.in=burn.in,thin=thin,self.ties=self.ties,
-    ##                            pmat=pmat.mat,HH=HH),class="dynsbm")
+    ## return(list(init.vals=init.vals,
+    ##             SS.prior=SS.prior,RR.prior=RR.prior,
+    ##             BB.prior=BB.prior,MMB=MMB,logLik=out[[27]],
+    ##             SS.mat=SS.mat,RR.mat=RR.mat,BB.mat=BB.mat))
 
-    ## if(label.switch.mode == "kl-loss"){
-    ##     dynsbm.out <- switch.labels(dynsbm.out,max.runs=max.runs,verbose=verbose)
-    ## }else{
-    ##     ##  Do nothing
-    ## }
-    ##                                     #  browser()
+    if(label.switch.mode == "kl-loss"){
+        ##        dynsbm.out <- switch.labels(dynsbm.out,max.runs=max.runs,verbose=verbose)
+        message("kl-loss mode is currently disabled for dynsbm")
+    }else{
+        ##  Do nothing
+    }
+###  browser()
     ## ## Summarizing MCMC Chain
-    ## dynsbm.summ <- summary(dynsbm.out)
-    ## dynsbm.summ$priors = priors
+    dynsbm.summ <- summary(dynsbm.obj)
+    dynsbm.summ$hyperpriors = hyperpriors
 
 
-    ## if(clean.out){
-    ##     dynsbm.summ$chain <- list(logLik=dynsbm.out$logLik)
-    ##     dynsbm.summ$clean <- TRUE
-    ## }else{
-    ##     dynsbm.summ$chain <- dynsbm.out
-    ##     dynsbm.summ$chain$net <- NULL
-    ##     dynsbm.summ$clean <- FALSE
-    ## }
+    if(clean.out){
+        dynsbm.summ$chain <- list(logLik=dynsbm.obj$logLik)
+        dynsbm.summ$clean <- TRUE
+    }else{
+        dynsbm.summ$chain <- dynsbm.obj
+        dynsbm.summ$chain$net <- NULL
+        dynsbm.summ$clean <- FALSE
+    }
 
-    ## return(dynsbm.summ)
+    return(dynsbm.summ)
 }
 
 
@@ -373,30 +389,58 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
 
 
 summary.dynsbm <- function(object,...){
-###  browser()
-    total <- dim(object$BB)[3]; kk <- dim(object$BB)[1]
+###    browser()
+    total <- dim(object$BB.mat)[3]; kk <- dim(object$BB.mat)[1]
 
-    BB.hat <- apply(object$BB,c(1,2),mean)
+###  Summary of Parameters
+    BB.hat <- apply(object$BB.mat,c(1,2,4),mean)
+    SS.hat <- apply(object$SS.mat,c(1,3),mean)
+    RR.hat <- apply(object$RR.mat,c(1,3),mean)
     ##  PI.mean <- apply(object$PI[,,my.sub],c(1,2),mean)
     PI.mean <- t(apply(object$mmb,1,tabulate,nbins=kk) / total)
     mmb <- apply(PI.mean,1,which.max)
 
-    SS.hat <- rowMeans(object$SS)
-    RR.hat <- rowMeans(object$RR)
+###  Summary of Priors
+    BB.prior.hat <- apply(object$BB.prior,c(1,2,3,5),mean)
+    BB.prior.mean <- apply(object$BB.prior[,,1,,]/object$BB.prior[,,2,,],c(1,2,4),mean)
+    BB.prior.var <- apply(object$BB.prior[,,1,,]/(object$BB.prior[,,2,,]^2),c(1,2,4),mean)
 
-    summ.obj <- structure(list(mmb=mmb,BB=BB.hat,
-                                SS=SS.hat,RR=RR.hat,PI.mean=PI.mean),class="dynsbm")
+    SS.prior.hat <- apply(object$SS.prior,c(1,2,4),mean)
+    SS.prior.mean <- apply(object$SS.prior[,1,,]/object$SS.prior[,2,,],c(1,3),mean)
+    SS.prior.var <- apply(object$SS.prior[,1,,]/(object$SS.prior[,2,,]^2),c(1,3),mean)
+
+    RR.prior.hat <- apply(object$RR.prior,c(1,2,4),mean)
+    RR.prior.mean <- apply(object$RR.prior[,1,,]/object$RR.prior[,2,,],c(1,3),mean)
+    RR.prior.var <- apply(object$RR.prior[,1,,]/(object$RR.prior[,2,,]^2),c(1,3),mean)
+
+
+    summ.obj <- structure(list(mmb=mmb,BB=BB.hat,SS=SS.hat,RR=RR.hat,
+                               BB.prior=BB.prior.hat,
+                               BB.prior.mean=BB.prior.mean,
+                               BB.prior.var=BB.prior.var,
+                               SS.prior=SS.prior.hat,
+                               SS.prior.mean=SS.prior.mean,
+                               SS.prior.var=SS.prior.var,
+                               RR.prior=RR.prior.hat,
+                               RR.prior.mean=RR.prior.mean,
+                               RR.prior.var=RR.prior.var,
+                               PI.mean=PI.mean),
+                          class="dynsbm")
     summ.obj$self.ties <- object$self.ties
-
-    summ.obj$pmat <- predict(summ.obj)
-    summ.obj$net <- object$net
+    summ.obj$net.mat <- object$net.mat
+    summ.obj$tmap <- object$tmap
+    summ.obj$hours.vec <- object$hours.vec
     ## Calculating DIC
 
-    #######################  FUNCTION OBSOLETE
-    summ.obj$logLik <- with(summ.obj,dynsbm.ll.pmat(net,pmat,
-                                                    self.ties=self.ties))
-    #######################
-    summ.obj$DIC <- 2*summ.obj$logLik - 4 * mean(object$logLik)
+
+#######################  FUNCTION OBSOLETE
+#######################
+
+    ## summ.obj$logLik <- with(summ.obj,dynsbm.ll.pmat(net,pmat,
+    ##                                                 self.ties=self.ties))
+    ## summ.obj$pmat <- predict(summ.obj)
+    ## summ.obj$DIC <- 2*summ.obj$logLik - 4 * mean(object$logLik)
+
     summ.obj$burn.in <- object$burn.in; summ.obj$thin <- object$thin
 
     return(summ.obj)
@@ -522,3 +566,287 @@ dynsbm.load.init.vals <- function(init.vals,nn,kk){
     flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
     return(flatTable)
 }
+
+
+
+
+##################################################################
+
+BlockMat.plot <- function(object, tclass, remap, true.mat,
+                          ss.ind, rr.ind, add.mle=FALSE,...){
+
+    kk <- dim(object$BB)[1]
+    nn <- dim(object$SS)[1]
+    TT <- dim(object$net.mat)[3]
+
+    if(missing(ss.ind)){
+        ss.ind <- 1:kk
+    }
+    if(missing(rr.ind)){
+        rr.ind <- 1:kk
+    }
+
+    if(missing(remap)){
+        remap <- 1:kk
+    }else{
+        if(length(remap) != kk){
+            warning("remap has incorrect length.  Using default of 1:kk")
+            remap <- 1:kk
+        }
+    }
+
+    leg.txt=c("Prior Mean")
+    leg.col = c("blue")
+    if(add.mle){
+        mle.mat <- apply(object$net.mat, 3, weighted.mle,
+                         mmb=object$mmb, kk=kk)
+        mle.mat <- array(mle.mat,c(kk,kk,TT))/object$hours
+        leg.txt <- c(leg.txt,"Naive MLE")
+        leg.col <-  c(leg.col,"red")
+    }
+
+    if(!missing(true.mat)){
+        leg.txt <- c(leg.txt,"True Value")
+        leg.col <- c(leg.col,"green")
+    }
+
+    tt.vec <- which(object$tmap == tclass)
+    par(mfrow=c(length(ss.ind),length(rr.ind)))
+
+    for(ii in ss.ind){#1:kk){
+        for(jj in rr.ind){#1:kk){
+            boxplot(object$chain$BB.mat[remap[ii],remap[jj],,tt.vec], ...)
+
+            if(add.mle){
+                segments(x0=1:length(tt.vec) - .3,
+                         x1=1:length(tt.vec) + .3,
+                         y0=mle.mat[remap[ii],remap[jj],tt.vec],lwd=3,col="red")
+            }
+
+            if(!missing(true.mat)){
+                segments(x0=1:length(tt.vec) - .3,
+                         x1=1:length(tt.vec) + .3,
+                         y0=true.mat[ii,jj,tt.vec],col="green",lwd=3)
+
+            }
+            abline(h=object$BB.prior.mean[remap[ii],remap[jj],tclass],lwd=3,col="blue")
+        }
+    }
+
+    legend("topleft",legend=leg.txt,col=leg.col,lwd=3)
+    par(mfrow=c(1,1))
+}
+
+
+SenderMat.plot <- function(object, tclass, true.mat, horizontal=FALSE, ...){
+
+    kk <- dim(object$BB)[1]
+    nn <- dim(object$SS)[1]
+    TT <- dim(object$net.mat)[3]
+
+    tt.vec <- which(object$tmap == tclass)
+    if(horizontal){
+        par(mfrow=c(1,length(tt.vec)))
+    }else{
+        par(mfrow=c(length(tt.vec),1))
+    }
+    for(ii in 1:length(tt.vec)){
+        boxplot(t(object$chain$SS.mat[,,tt.vec[ii]]), horizontal=horizontal, ...)
+
+        if(!missing(true.mat)){
+            if(horizontal){
+                segments(y0=1:nn - .3,
+                         y1=1:nn + .3,
+                         x0=true.mat[,tt.vec[ii]],col="green",lwd=3)
+            }else{
+                segments(x0=1:nn - .3,
+                         x1=1:nn + .3,
+                         y0=true.mat[,tt.vec[ii]],col="green",lwd=3)
+            }
+        }
+        if(horizontal){
+            segments(y0=1:nn - .3,
+                     y1=1:nn + .3,
+                     x0=object$SS.prior.mean[,tclass],col="blue",lwd=3)
+        }else{
+            segments(x0=1:nn - .3,
+                     x1=1:nn + .3,
+                     y0=object$SS.prior.mean[,tclass],col="blue",lwd=3)
+        }
+    }
+}
+
+
+
+ReceiverMat.plot <- function(object, tclass, true.mat, horizontal=FALSE, ...){
+
+    kk <- dim(object$BB)[1]
+    nn <- dim(object$RR)[1]
+    TT <- dim(object$net.mat)[3]
+
+    tt.vec <- which(object$tmap == tclass)
+    if(horizontal){
+        par(mfrow=c(1,length(tt.vec)))
+    }else{
+        par(mfrow=c(length(tt.vec),1))
+    }
+    for(ii in 1:length(tt.vec)){
+        boxplot(t(object$chain$RR.mat[,,tt.vec[ii]]), horizontal=horizontal, ...)
+
+        if(!missing(true.mat)){
+            if(horizontal){
+                segments(y0=1:nn - .3,
+                         y1=1:nn + .3,
+                         x0=true.mat[,tt.vec[ii]],col="green",lwd=3)
+            }else{
+                segments(x0=1:nn - .3,
+                         x1=1:nn + .3,
+                         y0=true.mat[,tt.vec[ii]],col="green",lwd=3)
+            }
+        }
+        if(horizontal){
+            segments(y0=1:nn - .3,
+                     y1=1:nn + .3,
+                     x0=object$RR.prior.mean[,tclass],col="blue",lwd=3)
+        }else{
+            segments(x0=1:nn - .3,
+                     x1=1:nn + .3,
+                     y0=object$RR.prior.mean[,tclass],col="blue",lwd=3)
+        }
+    }
+}
+
+
+BlockPrior.plot <- function(object, remap, true.mat, ...){
+
+    kk <- dim(object$BB)[1]
+    nn <- dim(object$SS)[1]
+    ee <- dim(object$SS.prior)[3]
+
+    if(missing(remap)){
+        remap <- 1:kk
+    }else{
+        if(length(remap) != kk){
+            warning("remap has incorrect length.  Using default of 1:kk")
+            remap <- 1:kk
+        }
+    }
+
+    par(mfrow=c(kk,kk))
+    for(ii in 1:kk){
+        for(jj in 1:kk){
+            boxplot(object$chain$BB.prior[remap[ii],remap[jj],1,,] /
+                    object$chain$BB.prior[remap[ii],remap[jj],2,,] , ...)
+
+            if(!missing(true.mat)){
+                segments(x0=1:ee - .3,
+                         x1=1:ee + .3,
+                         y0=true.mat[ii,jj,1,]/true.mat[ii,jj,2,],col="green",lwd=3)
+            }
+        }
+    }
+}
+
+
+
+#####  Function for plotting posterior Gamma Distributions
+density.mat.plot <- function(mat,col="steelblue2",trans=0.3,xlim, add=FALSE, ...){
+    TT <- ncol(mat)
+    first <- !add
+    upper.d <- min(mean(mat)*10,max(mat))
+    if(missing(xlim)){
+        xlim <- c(0,upper.d)
+    }
+    for(ii in 1:TT){
+        if(first){
+            plot(density(mat[,ii],from=0,to=upper.d),col=scales::alpha(col,trans),
+                 xlim=xlim, ...)
+            first <- FALSE
+        }else{
+            lines(density(mat[,ii],from=0,to=upper.d),col=scales::alpha(col,trans))
+        }
+    }
+}
+
+#####  Function for drawing from posterior predictive Gamma Distributions
+gamma.post.pred <- function(samp,iter.draws=100){
+    total <- nrow(samp)
+    out <- rep(NA,iter.draws*total)
+    for(ii in 1:total){
+        draws <- rgamma(iter.draws,samp[ii,1],samp[ii,2])
+        out[((ii-1)*iter.draws + 1):(ii*iter.draws)] <- draws
+    }
+    return(out)
+}
+
+
+#####  Wrapper Functions to perform the above functions for specific classes
+#####  and indices within the block probability matrix.
+post.pred.block <- function(object,tclass,ss.ind,rr.ind,
+                            remap,iter.draws=100){
+
+    kk <- dim(object$BB)[1]
+    total <- dim(object$chain$BB.prior)[4]
+
+    if(missing(ss.ind)){
+        ss.ind=1:kk
+    }
+    if(missing(rr.ind)){
+        rr.ind = 1:kk
+    }
+    if(missing(remap)){
+        remap=1:kk
+    }
+
+    samp <- array(NA,c(length(ss.ind), length(rr.ind), total*iter.draws))
+    BB.prior <- object$chain$BB.prior[,,,,tclass]
+
+    for(ii in 1:length(ss.ind)){
+        ss <- ss.ind[ii]
+        for(jj in 1:length(rr.ind)){
+            rr <- rr.ind[jj]
+            samp[ii,jj,] <- gamma.post.pred(t(BB.prior[remap[ss],remap[rr],,]),iter.draws=100)
+        }
+    }
+
+    return(samp)
+
+}
+
+BlockMat.Post.Density.Plot <- function(object,tclass,ss.ind=1,rr.ind=1,
+                                       remap,col="steelblue2",trans, add=FALSE,
+                                       include.pred=FALSE, iter.draws=100,
+                                       ...){
+
+    if(length(ss.ind) > 1){
+        stop("ss.ind must be a single index")
+    }
+    if(length(rr.ind) > 1){
+        stop("rr.ind must be a single index")
+    }
+    if(missing(remap)){
+        kk <- dim(object$BB)[1]
+        remap=1:kk
+    }
+
+    tt.vec <- which(object$tmap == tclass)
+
+    if(missing(trans)){
+        trans <- 0.5 / sqrt(length(tt.vec))
+    }
+
+    density.mat.plot(object$chain$BB.mat[remap[ss.ind],remap[rr.ind],,tt.vec],
+                     col=col,trans=trans,add=add, ...)
+    if(include.pred){
+        samp <- post.pred.block(object=object,tclass=tclass,
+                                ss.ind=ss.ind, rr.ind=rr.ind, remap=remap,
+                                iter.draws=iter.draws)
+        abline(v=quantile(samp,c(0.025,0.975)),col=col,lty=2)
+        lines(density(samp,from=0),col=col,lwd=2)
+    }
+
+}
+
+
+
+

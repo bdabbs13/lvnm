@@ -33,7 +33,8 @@ using std::ifstream;
 
 CDynSBM::CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
 		  int total, int *rTimeMap, double *rHours,
-		  int mImpute) : missingVal(-1)
+		  int mImpute) : missingVal(-1), covCount(0),
+				 mhEpsilon(0.000001), mhSD(1), mhStart(100)
 {
    int ii, jj, tt, ll, kk;
 
@@ -85,6 +86,31 @@ CDynSBM::CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
       }
    }
 
+   //  Initializing Adaptive Sampling Containers
+   aPriorSenderCov.resize(aClasses,0);
+   aPriorReceiverCov.resize(aClasses,0);
+   for(tt = 0 ; tt < aClasses; tt++){
+      aPriorSenderCov[tt] = new std::vector<double *>(aNodes,0);
+      aPriorReceiverCov[tt] = new std::vector<double *>(aNodes,0);
+      for(ii = 0 ; ii < aNodes ; ii++){
+	 (*(aPriorSenderCov[tt]))[ii] = new double[5](); // () sets value to 0
+	 (*(aPriorReceiverCov[tt]))[ii] = new double[5](); // () sets value to 0
+      }
+   }
+
+   aPriorBlockMatCov.resize(aClasses,0);
+   for(tt = 0 ; tt < aClasses; tt++){
+      aPriorBlockMatCov[tt] = new std::vector<std::vector<double *> >(aBlocks);
+      for(ll = 0 ; ll < aBlocks ; ll++){
+	 (*(aPriorBlockMatCov[tt]))[ll].resize(aBlocks,0);
+	 for(kk = 0; kk < aBlocks; kk++){
+	    (*(aPriorBlockMatCov[tt]))[ll][kk] = new double[5](); // () sets to 0
+	 }
+      }
+   }
+
+
+
    aBlockMemb.resize(aNodes,-1);
 
    aPosteriorMemb.resize(aNodes);
@@ -118,6 +144,7 @@ CDynSBM::~CDynSBM (){
 
 /**********  LOADING FUNCTIONS  *********/
 
+/** Loading Adjacency Matrices into WSBM Objects **/
 void CDynSBM::LoadAdjacencyMatrices(int *AdjMat){
    int tt;
    for(tt = 0 ; tt < aTimes ; tt++){
@@ -126,6 +153,7 @@ void CDynSBM::LoadAdjacencyMatrices(int *AdjMat){
 
 }
 
+/** Loading Hyperpriors from R **/
 void CDynSBM::LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
 			      double *rHyperBlockMat){
    int ii;
@@ -136,8 +164,10 @@ void CDynSBM::LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
    }
 }
 
+/** Loading Initial Parameters from R and Passing to WSBM Objects **/
 void CDynSBM::LoadParameters(double *rSenderEffects, double *rReceiverEffects,
-			     double *rBlockEffects, int *rBlockMemb){
+			     double *rBlockEffects, int *rBlockMemb,
+			     double *rPosteriorMemb){
 
    int tt;
    for(tt = 0 ; tt < aTimes; tt++){
@@ -147,17 +177,16 @@ void CDynSBM::LoadParameters(double *rSenderEffects, double *rReceiverEffects,
    }
 
    aRBlockMemb = rBlockMemb;
+   aRPosteriorMemb = rPosteriorMemb;
    int ii;
    for(ii = 0 ; ii < aNodes ; ii++){
       aBlockMemb[ii] = rBlockMemb[ii] - 1;
-      //      Rprintf("ii = %d, rBlockMemb = %d, aBlockMemb = %d\n",
-      //ii,rBlockMemb[ii],aBlockMemb[ii]);
       aPosteriorMemb[ii][aBlockMemb[ii]] = 1.0;
    }
 
-
 }
 
+/** Loading Initial Priors from R and Keeping Pointers **/
 void CDynSBM::LoadPriors(double *rPriorSender, double *rPriorReceiver,
 		double *rPriorBlockMat, double *rPriorBlockMemb){
    aRPriorSender = rPriorSender;
@@ -175,6 +204,10 @@ void CDynSBM::LoadPriors(double *rPriorSender, double *rPriorReceiver,
       aPriorBlockMemb[ll] = rPriorBlockMemb[ll];
    }
 
+}
+
+void CDynSBM::LoadLogLike(double *rLogLik){
+   aRLogLike = rLogLik;
 }
 
 
@@ -224,7 +257,7 @@ void CDynSBM::LoadPriorBlockMat(){
 }
 
 
-
+/** Passing References to R Storage Locations to WSBM Objects **/
 void CDynSBM::PassReferences(){
    int tt;
    for(tt = 0 ; tt < aTimes ; tt++){
@@ -239,7 +272,9 @@ void CDynSBM::PassReferences(){
 /**********  MCMC SAMPLING FUNCTIONS  *********/
 
 void CDynSBM::step(){
+   //   Rprintf(" Priors");
    DrawPriors();
+   //   Rprintf(" Params");
    DrawParameters();
 }
 
@@ -258,38 +293,41 @@ void CDynSBM::DrawPriors(){
 
 void CDynSBM::DrawParameters(){
    int tt;
+   //   Rprintf("tt: ");
    for(tt = 0 ; tt < aTimes ; tt++){
+      //      Rprintf("%d ",tt);
       aWsbmList[tt].partialStep();
    }
    DrawBlockMemb();
 }
 
 void CDynSBM::DrawBlockMemb(){
-   int ii,jj,kk;
+   int ii,kk;
    double pMax;
    int ind[aBlocks];
 
    //   Rprintf("Log-Likelihood = %.2f\n",LogLike());
 
    for(ii = 0 ; ii < aNodes ; ii++){
-      for(jj = 0 ; jj < aBlocks ; jj++){
-	 aBlockMemb[ii] = jj;
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 aBlockMemb[ii] = kk;
 
 	 // Calculating Log Posterior Probability
-	 //	 Rprintf("ii = %d, jj = %d",ii,jj);
-	 aPosteriorMemb[ii][jj] = nodeLogLike(ii) + log(aPriorBlockMemb[jj]);
-	 if(jj == 0){
-	    pMax = aPosteriorMemb[ii][jj];
+	 //	 Rprintf("ii = %d, kk = %d\n",ii,kk);
+	 aPosteriorMemb[ii][kk] = nodeLogLike(ii) + log(aPriorBlockMemb[kk]);
+	 //	 Rprintf("p.%d.%d = %.4f\n",ii,kk,aPosteriorMemb[ii][kk]);
+	 if(kk == 0){
+	    pMax = aPosteriorMemb[ii][kk];
 	 }else{
-	    if(aPosteriorMemb[ii][jj] > pMax){
-	       pMax = aPosteriorMemb[ii][jj];
+	    if(aPosteriorMemb[ii][kk] > pMax){
+	       pMax = aPosteriorMemb[ii][kk];
 	    }
 	 }
       }
 
       // Exponentiating Probabilities
-      for(jj = 0 ; jj < aBlocks ; jj++){
-	 aPosteriorMemb[ii][jj] = exp(aPosteriorMemb[ii][jj] - pMax);
+      for(kk = 0 ; kk < aBlocks ; kk++){
+	 aPosteriorMemb[ii][kk] = exp(aPosteriorMemb[ii][kk] - pMax);
       }
 
       normalizeVec(aPosteriorMemb[ii]);
@@ -311,9 +349,12 @@ void CDynSBM::DrawBlockMemb(){
 double CDynSBM::nodeLogLike(int node){
    int tt;
    double sum = 0.0;
+   //   Rprintf("tt: ");
    for(tt = 0 ; tt < aTimes ; tt++){
+      //      Rprintf("%d ",tt);
       sum += aWsbmList[tt].nodeLogLike(node);
    }
+   //   Rprintf("\n");
    return sum;
 }
 
@@ -353,11 +394,24 @@ void CDynSBM::DrawPriorSender(){
 	 rr[t_class]++;
 	 ss[t_class]++;
       }
+      //      Rprintf("p: %.2f  q: %.2f  r: %.2f  s: %.2f\n",
+      //	      pp[0],qq[0],rr[0],ss[0]);
 
       //  Making Posterior Draws
       for(tt = 0 ; tt < aClasses; tt++){
-	 rGammaPriorStep((*(aPriorSender[tt]))[ii],
-			 pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	 // rGammaPriorStep((*(aPriorSender[tt]))[ii],
+	 // 		 pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	 if(covCount < mhStart){
+	    GammaPriorMHDraw((*(aPriorSender[tt]))[ii][0],
+	 		     (*(aPriorSender[tt]))[ii][1],
+	 		     pp[tt],qq[tt],rr[tt],ss[tt],
+	 		     mhSD,mhSD,0.0);
+	 }else{
+	    GammaPriorMHDraw((*(aPriorSender[tt]))[ii], covCount,
+	 		     pp[tt],qq[tt],rr[tt],ss[tt],
+	 		     (*(aPriorSenderCov[tt]))[ii],
+	 		     mhEpsilon);
+	 }
       }
    }
 }
@@ -391,8 +445,19 @@ void CDynSBM::DrawPriorReceiver(){
 
       //  Making Posterior Draws
       for(tt = 0 ; tt < aClasses; tt++){
-	 rGammaPriorStep((*(aPriorReceiver[tt]))[ii],
-			 pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	 // rGammaPriorStep((*(aPriorReceiver[tt]))[ii],
+	 // 		 pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	 if(covCount < mhStart){
+	    GammaPriorMHDraw((*(aPriorReceiver[tt]))[ii][0],
+	 		     (*(aPriorReceiver[tt]))[ii][1],
+	 		     pp[tt],qq[tt],rr[tt],ss[tt],
+	 		     mhSD,mhSD,0.0);
+	 }else{
+	    GammaPriorMHDraw((*(aPriorReceiver[tt]))[ii], covCount,
+	 		     pp[tt],qq[tt],rr[tt],ss[tt],
+	 		     (*(aPriorReceiverCov[tt]))[ii],
+	 		     mhEpsilon);
+	 }
       }
    }
 }
@@ -427,8 +492,19 @@ void CDynSBM::DrawPriorBlockMat(){
 
 	 //  Making Posterior Draws
 	 for(tt = 0 ; tt < aClasses; tt++){
-	    rGammaPriorStep((*(aPriorBlockMat[tt]))[ll][kk],
-			 pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	    // rGammaPriorStep((*(aPriorBlockMat[tt]))[ll][kk],
+	    // 		    pp[tt],qq[tt],rr[tt],ss[tt],prop_sd);
+	    if(covCount < mhStart){
+	       GammaPriorMHDraw((*(aPriorBlockMat[tt]))[ll][kk][0],
+	    			(*(aPriorBlockMat[tt]))[ll][kk][1],
+	    			pp[tt],qq[tt],rr[tt],ss[tt],
+	    			mhSD,mhSD,0.0);
+	    }else{
+	       GammaPriorMHDraw((*(aPriorBlockMat[tt]))[ll][kk], covCount,
+	    			pp[tt],qq[tt],rr[tt],ss[tt],
+	    			(*(aPriorBlockMatCov[tt]))[ll][kk],
+	    			mhEpsilon);
+	    }
 	 }
       }
    }
@@ -448,7 +524,9 @@ void CDynSBM::Update(int iter){
    for(tt = 0 ; tt < aTimes ; tt++){
       aWsbmList[tt].partialUpdate(iter);
    }
-
+   UpdateBlockMemb(iter);
+   UpdatePosteriorMemb(iter);
+   UpdateLogLike(iter);
 }
 
 void CDynSBM::UpdatePriorSender(int iter){
@@ -493,6 +571,76 @@ void CDynSBM::UpdatePriorBlockMat(int iter){
 	 }
       }
    }
+}
+
+
+void CDynSBM::UpdateBlockMemb(int iter){
+   int ii;
+   int saveIter = iter * aNodes;
+   for(ii = 0 ; ii < aNodes ; ii++){
+      aRBlockMemb[saveIter++] = aBlockMemb[ii] + 1;
+   }
+}
+
+
+void CDynSBM::UpdatePosteriorMemb(int iter){
+   int ii, kk;
+   int saveIter = iter * aBlocks * aNodes;
+   for(kk = 0 ; kk < aBlocks; kk++){
+      for(ii = 0 ; ii < aNodes ; ii++){
+	 aRPosteriorMemb[saveIter++] =  aPosteriorMemb[ii][kk];
+      }
+   }
+}
+
+void CDynSBM::UpdateLogLike(int iter){
+   int tt;
+   int saveIter = iter * aTimes;
+   for(tt = 0 ; tt < aTimes; tt++){
+      aRLogLike[saveIter++] = aWsbmList[tt].LogLike();
+   }
+}
+
+void CDynSBM::UpdateCovariance(){
+
+   covCount++;
+   for(int tt = 0 ; tt < aClasses ; tt++){
+      for(int ii = 0 ; ii < aNodes ; ii++){
+	 updateSingleSSE((*(aPriorSender[tt]))[ii], covCount,
+			 (*(aPriorSenderCov[tt]))[ii]);
+	 updateSingleSSE((*(aPriorReceiver[tt]))[ii], covCount,
+			 (*(aPriorReceiverCov[tt]))[ii]);
+      }
+
+      for(int ll = 0 ; ll < aBlocks ; ll++){
+	 for(int kk = 0 ; kk < aBlocks ; kk++){
+	    updateSingleSSE((*(aPriorBlockMat[tt]))[ll][kk], covCount,
+			    (*(aPriorBlockMatCov[tt]))[ll][kk]);
+	 }
+      }
+   }
+
+}
+
+void CDynSBM::PrintCovariance(int tt, int ii){
+   Rprintf("Covariance Count: %d\n",covCount);
+   Rprintf("Sender Covariance:\n");
+   Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, a_mean = %.4f, b_mean = %.4f",
+	   (*(aPriorSenderCov[tt]))[ii][0],
+	   (*(aPriorSenderCov[tt]))[ii][1],
+	   (*(aPriorSenderCov[tt]))[ii][2],
+	   (*(aPriorSenderCov[tt]))[ii][3],
+	   (*(aPriorSenderCov[tt]))[ii][4]);
+
+   Rprintf("\n\n");
+   Rprintf("Receiver Covariance:\n");
+   Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, a_mean = %.4f, b_mean = %.4f",
+	   (*(aPriorReceiverCov[tt]))[ii][0],
+	   (*(aPriorReceiverCov[tt]))[ii][1],
+	   (*(aPriorReceiverCov[tt]))[ii][2],
+	   (*(aPriorReceiverCov[tt]))[ii][3],
+	   (*(aPriorReceiverCov[tt]))[ii][4]);
+
 }
 
 

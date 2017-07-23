@@ -140,6 +140,10 @@ class CWSBM {
    void drawReceiverEffects();
    void rotate();
 
+   void normalizeReceiverEffects();
+   void normalizeSenderEffects();
+
+
 
    // Internal Loading Functions
    void RLoadBlockMat(double *rBlockMat);

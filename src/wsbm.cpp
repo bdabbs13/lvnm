@@ -545,9 +545,13 @@ void CWSBM::step(){
 }
 
 void CWSBM::partialStep(){
+
    drawBlockMat();
    drawSenderEffects();
+   normalizeSenderEffects();
+
    drawReceiverEffects();
+   normalizeReceiverEffects();
 
    if(aImputeFlag){
       Rprintf("Imputing Missing Values...\n");
@@ -572,7 +576,31 @@ void CWSBM::drawSenderEffects(){
       //	      ii,gammaPost[0],gammaPost[1],aSenderEffects[ii]);
    }
 
+
 }
+
+void CWSBM::normalizeSenderEffects(){
+
+    int ii;
+
+    std::vector<double> norm_vec;
+    norm_vec.resize(aBlocks,0.0);
+    std::vector<int> block_count;
+    block_count.resize(aBlocks,0);
+
+    for(ii = 0 ; ii < aNodes ; ii++){
+	norm_vec[(*aBlockMemb)[ii]] += aSenderEffects[ii];
+	block_count[(*aBlockMemb)[ii]]++;
+    }
+    for(int kk = 0 ; kk < aBlocks; kk++){
+	norm_vec[kk] /= block_count[kk];
+    }
+    for(ii = 0 ; ii < aNodes ; ii++){
+	aSenderEffects[ii] /= norm_vec[(*aBlockMemb)[ii]];
+    }
+
+}
+
 
 void CWSBM::drawReceiverEffects(){
    int jj;
@@ -588,6 +616,29 @@ void CWSBM::drawReceiverEffects(){
       //	      jj,gammaPost[0],gammaPost[1],aReceiverEffects[jj]);
    }
 }
+
+void CWSBM::normalizeReceiverEffects(){
+
+    int ii;
+
+    std::vector<double> norm_vec;
+    norm_vec.resize(aBlocks,0.0);
+    std::vector<int> block_count;
+    block_count.resize(aBlocks,0);
+
+    for(ii = 0 ; ii < aNodes ; ii++){
+	norm_vec[(*aBlockMemb)[ii]] += aReceiverEffects[ii];
+	block_count[(*aBlockMemb)[ii]]++;
+    }
+    for(int kk = 0 ; kk < aBlocks; kk++){
+	norm_vec[kk] /= block_count[kk];
+    }
+    for(ii = 0 ; ii < aNodes ; ii++){
+	aReceiverEffects[ii] /= norm_vec[(*aBlockMemb)[ii]];
+    }
+
+}
+
 
 void CWSBM::drawBlockMat(){
 

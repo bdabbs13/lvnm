@@ -118,7 +118,10 @@ convert.time.table <- function(tab,cutoffs,nn,labs,sorted=FALSE){
                 message("Iteration: ",ii,", Time Elapsed: ",(proc.time() - t0)[3])
             }
 
-            if(tab[ii,3] > cutoffs[tt+1]) tt <- tt + 1
+            if(tab[ii,3] > cutoffs[tt+1]) {
+                tt <- tt + 1
+                if(tt > TT) break
+            }
             ss <- inv(tab[ii,1])
             rr <- inv(tab[ii,2])
 
@@ -209,8 +212,8 @@ read.and.convert.time.table <- function(fn,start,duration,
                                 stringsAsFactors = FALSE)
     classes <- sapply(raw.data,class)
     classes[] <- "NULL"
-    classes[sender.col] <- "integer"
-    classes[receiver.col] <- "integer"
+    classes[sender.col] <- "numeric"
+    classes[receiver.col] <- "numeric"
     classes[time.col] <- "character"
 
     tab <- read.csv(gzfile(fn),nrows = max.rows,skip=0,
@@ -239,3 +242,17 @@ read.and.convert.time.table <- function(fn,start,duration,
 
 }
 
+
+
+convert.to.edgelist <- function(AA){
+    nn <- nrow(AA)
+    el <- array(NA,c(nn*nn,3))
+    rn <- 0
+    for(ii in 1:nn){
+        for(jj in 1:nn){
+            rn <- rn + 1
+            el[rn,] <- c(ii,jj,AA[ii,jj])
+        }
+    }
+    return(el)
+}

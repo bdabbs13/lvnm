@@ -21,19 +21,15 @@ class CDynSBM {
    //   int GetEquivalentTime(int t);
 
    // Loading Functions
-   //   void RLoadDynSBM();
-   void LoadAdjacencyMatrices(int *AdjMat);
-   void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
-			double *rHyperBlockMat);
-   void LoadParameters(double *rSenderEffects, double *rReceiverEffects,
-		       double *rBlockEffects, int *rBlockMemb,
-		       double *rPosteriorMemb);
-   void LoadPriors(double *rPriorSender, double *rPriorReceiver,
-		   double *rPriorBlockMat, double *rPriorBlockMemb);
-   void LoadLogLike(double *rLogLik);
-   void PassReferences();
-
-
+   void RLoadDynSBM(int *AdjMat,
+		    double *rHyperSender, double *rHyperReceiver,
+		    double *rHyperBlockMat,
+		    double *rSenderEffects, double *rReceiverEffects,
+		    double *rBlockEffects, int *rBlockMemb,
+		    double *rPosteriorMemb, int update_mmb,
+		    double *rPriorSender, double *rPriorReceiver,
+		    double *rPriorBlockMat, double *rPriorBlockMemb,
+		    double *rLogLik);
 
    //  MCMC Functions
    void step();
@@ -49,7 +45,7 @@ class CDynSBM {
 
    // Saving Functions
    void Update(int iter);
-   void UpdateCovariance();
+   void adapt();
 
    //  Retrieval Functions
    int GetNodes() const { return aNodes;}
@@ -74,6 +70,7 @@ class CDynSBM {
    int aClasses;
    int missingVal;
    int aTotal;
+   bool update_mmb;
    double mhEpsilon;
    double mhSD;
    double mhStart;
@@ -117,6 +114,19 @@ class CDynSBM {
    /***** Flags *****/
    bool aImputeFlag;
    bool is_BlockMat_logged;
+
+
+   // Loading Functions
+   void LoadAdjacencyMatrices(int *AdjMat);
+   void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
+   			double *rHyperBlockMat);
+   void LoadParameters(double *rSenderEffects, double *rReceiverEffects,
+   		       double *rBlockEffects, int *rBlockMemb,
+   		       double *rPosteriorMemb, int update_mmb);
+   void LoadPriors(double *rPriorSender, double *rPriorReceiver,
+   		   double *rPriorBlockMat, double *rPriorBlockMemb);
+   void LoadLogLike(double *rLogLik);
+   void PassReferences();
 
    // MCMC Functions
    void DrawPriorSender();
@@ -194,13 +204,8 @@ class CDynSBM {
 };
 
 //  Function for performing the MCMC algorithm
-void wsbmMCMC(CWSBM *myWSBM, int start, int total, int burnIn, int thin,
-	     int shift_size, int extend_max, double qq, //double *flatTable,
-	     double *rBlockMat, int *rBlockMemb,
-	      double *rSenderEffects, double *rReceiverEffects,
-	     double *logLik, double *rPosteriorMemb, int verbose);
-
-//void printAdjacencyMatrix();
+void dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn, int thin,
+	   int shift_size, int extend_max, double qq, int verbose);
 
 #endif
 

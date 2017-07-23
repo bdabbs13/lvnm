@@ -32,9 +32,13 @@ export(data.gen.dynsbm)
 export(dynsbm.priors)
 export(rgamma.prior)
 export(dgamma.prior,ldgamma.prior)
+export(get.iter.list.dynsbm)
 export(BlockMat.plot,SenderMat.plot,ReceiverMat.plot,BlockPrior.plot)
 export(density.mat.plot, gamma.post.pred)
 export(BlockMat.Post.Density.Plot, post.pred.block)
+export(Sender.Post.Density.Plot, post.pred.sender)
+export(Receiver.Post.Density.Plot, post.pred.receiver)
+
 
 export(sbm.marginal.log.like.net,sbm.log.like.net)
 export(mmsbm.log.like.YY)
@@ -51,3 +55,4 @@ export(plot.fit.mmsbm)
 export(plot.ll)
 
 export(convert.time.table,day.time.cutoffs,read.and.convert.time.table)
+export(convert.to.edgelist)

@@ -106,6 +106,10 @@ extern "C" {
 	PutRNGstate();
     }
 
+
+
+
+    //  Weighted Stochastic Block Model Wrapper Function (R)
     void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	      double *rPriorSender, double *rPriorReceiver,
 	      double *rPriorBlockMat, double *rPriorBlockMemb,
@@ -117,93 +121,117 @@ extern "C" {
 	      double *postMat, double *rHours, int *verbose_t)
     {
 
-	GetRNGstate();
-
-	int start = *start_t, verbose = *verbose_t;
-	//  MCMC Control Parameters
-	int total = *iters, burnIn = *burn_t, thin = *thin_t;
-
-	//  Convergence Checking Criteria
-	double qq = *qq_t;
-	int shift_size = *shift_t;
-	int extend_max = *extend_max_t;
-
-
 	/*****  INITIALIZATION  *****/
 	//  Initializing WSBM object
-	CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY, rPriorSender, rPriorReceiver,
-				  rPriorBlockMat, rPriorBlockMemb, *rHours,
-				  *multi_t);
-
-	//  Loading Previous Chain
-	if(start > 0){
-	    myWSBM->RLoadWSBM(rBlockMat, rBlockMemb,
-			      rSenderEffects, rReceiverEffects,
-			      postMat);
-	    if(verbose > 2) myWSBM->print(false);
-	}
-	wsbmMCMC(myWSBM, start, total, burnIn, thin,
-		 shift_size, extend_max, qq,
-		 rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
-		 logLik, postMat, verbose);
-
-	//      myWSBM->print(false);
-	delete myWSBM;
-	PutRNGstate();
-    }
+	// CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY,
+	// 			  rPriorSender,rPriorReceiver,
+	// 			  rPriorBlockMat,rPriorBlockMemb,
+	// 			  *rHours,*multi_t);
 
 
-    void dynsbm(int *iters, int *burnin_t, int *thin_t, int *start_t,
-		int *extend_max_t, int *shift_t, int *qq_t,
-
-		int *nn_t, int *YY, int *kk_t, int *multi_t,
-		int *TT_t, int *ee_t, int *rTimeMap, double *rHours,
-
-		double *rHyperSender, double *rHyperReceiver,
-		double *rHyperBlockMat, double *rPriorBlockMemb,
-
-		double *rPriorSender, double *rPriorReceiver,
-		double *rPriorBlockMat, int *rBlockMemb,
-
-		double *rSenderEffects, double *rReceiverEffects,
-		double *rBlockEffects,
-
-		double *rLogLik, double *rPosteriorMemb, int *verbose_t, int *update_mmb_t)
-    {
 
 	GetRNGstate();
 
+	/*****  Loading Data/Initialization  *****/
+	int verbose = *verbose_t;
+
+	//  Initializing WSBM Object
+	CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t,*multi_t);
+
+	//  Load Data From R
+	myWSBM->loadDataR(YY,*rHours,
+			  rPriorSender,rPriorReceiver,
+			  rPriorBlockMat,rPriorBlockMemb);
+
+	myWSBM->loadStateR(rBlockMat, rBlockMemb,
+			  rSenderEffects, rReceiverEffects,
+			  postMat);
+
+
+	/*****  Setting Up MCMC Sampler  *****/
 	//  MCMC Control Parameters
-	int total = *iters, burnIn = *burnin_t, thin = *thin_t, start = *start_t;
+	int total = *iters, burnIn = *burn_t, thin = *thin_t;
+	int start = *start_t;
 
 	//  Convergence Checking Criteria
 	double qq = *qq_t;
 	int shift_size = *shift_t, extend_max = *extend_max_t;
 
+	//  Run MCMC Chain
+	wsbmMCMC(myWSBM, start, total, burnIn, thin,
+		 shift_size, extend_max, qq,
+		 rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
+		 logLik, postMat, verbose);
+
+	/*****  Cleaning Up  *****/
+	delete myWSBM;
+	PutRNGstate();
+    }
+
+
+
+
+    //  Dynamic Weighted Stochastic Block Model Wrapper Function (R)
+    void dynsbm(int *nn_t, int *kk_t, int *TT_t, int *ee_t, int *multi_t,
+		// Data Values 6-8
+		int *YY, int *rTimeMap, double *rHours,
+		// Hyper Prior Parameter Storage 9-12
+		double *rHyperSender, double *rHyperReceiver,
+		double *rHyperBlockMat, double *rPriorBlockMemb,
+		// Prior Parameter Storage 13-16
+		double *rPriorSender, double *rPriorReceiver,
+		double *rPriorBlockMat, int *rBlockMemb,
+		// Parameter Storage 17-19
+		double *rSenderEffects, double *rReceiverEffects,
+		double *rBlockEffects,
+		// Auxiliary Statistic Storage 20-21
+		double *rLogLik, double *rPosteriorMemb,
+		// Model Flags 22-23
+		int *verbose_t, int *update_mmb_t,
+		// MCMC Control Parameters
+		int *iters, int *burnin_t, int *thin_t, int *start_t,
+		int *extend_max_t, int *shift_t, int *qq_t)
+    {
+
+	GetRNGstate();
+
+
+	/*****  Loading Data/Initialization  *****/
 	int verbose = *verbose_t;
 
-
-	//  Initializing WSBM object
+	//  Initializing DynSBM object
 	CDynSBM *myDynSBM = new CDynSBM(*nn_t, *kk_t, *TT_t, *ee_t,
-					(total - burnIn) / thin,
-					rTimeMap, rHours, *multi_t);
+					(*iters - *burnin_t) / *thin_t,
+					*multi_t);
+	//  Load Data From R
+	myDynSBM->LoadDataR(YY, rTimeMap, rHours,
+			    rHyperSender, rHyperReceiver, rHyperBlockMat);
 
-	//  Load State From R
-	myDynSBM->RLoadDynSBM(YY,
-			      rHyperSender, rHyperReceiver, rHyperBlockMat,
-			      rSenderEffects,rReceiverEffects,rBlockEffects,
-			      rBlockMemb,rPosteriorMemb,*update_mmb_t,
-			      rPriorSender,rPriorReceiver,rPriorBlockMat,
-			      rPriorBlockMemb,rLogLik);
-      
+	myDynSBM->LoadStateR(rSenderEffects,rReceiverEffects,rBlockEffects,
+			     rBlockMemb,rPosteriorMemb,*update_mmb_t,
+			     rPriorSender,rPriorReceiver,rPriorBlockMat,
+			     rPriorBlockMemb,rLogLik);
+
+	/*****  Setting Up MCMC Sampler  *****/
+	//  Load Control Parameters
+	int total = *iters, burnIn = *burnin_t, thin = *thin_t;
+	int start = *start_t;
+
+	//  Convergence Checking Criteria
+	double qq = *qq_t;
+	int shift_size = *shift_t, extend_max = *extend_max_t;
+
 	//  Run MCMC Chain
 	dynSBMMCMC(myDynSBM,
-		   start, total, burnIn, thin,
-		   shift_size, extend_max, qq, verbose);
+	 	   start, total, burnIn, thin,
+	 	   shift_size, extend_max, qq, verbose);
 
+	/*****  Cleaning Up  *****/
 	delete myDynSBM;
 	PutRNGstate();
     }
+
+
 
 
 

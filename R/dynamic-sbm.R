@@ -301,48 +301,55 @@ dynsbm <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
 ############  Call to C++ Function  ##############
 ##################################################
     out <- .C("dynsbm",
-              as.integer(total),                    # 1: NUMBER of MCMC DRAWS
-              as.integer(burn.in), as.integer(thin),# 2-3: Burnin, Thin Control
-              as.integer(start),                    # 4: Starting Iteration
-              extend.max, shift.size, qq,           # 5-7: Autoconverge Control
-              as.integer(nn),                       # 8: Nodes in Networks
-              as.integer(net.mat.clean),            # 9: Networks
-              as.integer(kk),                       # 10: Number of Blocks
-              multi.int,                            # 11: Multi Impute Indicator
-              as.integer(TT), as.integer(ee),       # 12-13: Time / Equiv Pts
-              as.integer(tmap),                     # 14: Time/Equiv Map
-              as.double(hours.vec),                 # 15: Hours Per Equiv
-              as.double(hyperpriors$SS),            # 16: Sender Hyperprior
-              as.double(hyperpriors$RR),            # 17: Receiver Hyperprior
-              as.double(hyperpriors$BB),            # 18: BlockMatrix Hyperprior
-              as.double(eta),                       # 19: BlockMemb Prior
-              flatSS.prior,                         # 20: Sender Priors
-              flatRR.prior,                         # 21: Receiver Priors
-              flatBB.prior,                         # 22: BlockMatrix Priors
-              as.integer(flatMMB),                  # 23: BlockMemb Params
-              flatSS,                               # 24: Sender Params
-              flatRR,                               # 25: Receiver Params
-              flatBB,                               # 26: BlockMatrix Params
-              ll.vec,                               # 27: Log-Likelihood
-              flatHH,                               # 28: PosteriorMemb Matrix
-              as.integer(verbose),                  # 29: Verbose Indicator
-              as.integer(update.mmb))               # 30: Update Membership Vector
+              as.integer(nn),                       # 1: Nodes in Networks
+              as.integer(kk),                       # 2: Number of Blocks
+              as.integer(TT), as.integer(ee),       # 3-4: Time / Equiv Pts
+              multi.int,                            # 5: Multi Impute Indicator
+
+              as.integer(net.mat.clean),            # 6: Networks
+              as.integer(tmap),                     # 7: Time/Equiv Map
+              as.double(hours.vec),                 # 8: Hours Per Equiv
+
+              as.double(hyperpriors$SS),            # 9: Sender Hyperprior
+              as.double(hyperpriors$RR),            # 10: Receiver Hyperprior
+              as.double(hyperpriors$BB),            # 11: BlockMatrix Hyperprior
+              as.double(eta),                       # 12: BlockMemb Prior
+
+              flatSS.prior,                         # 13: Sender Priors
+              flatRR.prior,                         # 14: Receiver Priors
+              flatBB.prior,                         # 15: BlockMatrix Priors
+              as.integer(flatMMB),                  # 16: BlockMemb Params
+
+              flatSS,                               # 17: Sender Params
+              flatRR,                               # 18: Receiver Params
+              flatBB,                               # 19: BlockMatrix Params
+
+              ll.vec,                               # 20: Log-Likelihood
+              flatHH,                               # 21: PosteriorMemb Matrix
+
+              as.integer(verbose),                  # 22: Verbose Indicator
+              as.integer(update.mmb),                # 23: Update Membership Vector
+
+              as.integer(total),                    # 24: NUMBER of MCMC DRAWS
+              as.integer(burn.in), as.integer(thin),# 25-6: Burnin, Thin Control
+              as.integer(start),                    # 27: Starting Iteration
+              extend.max, shift.size, qq)           # 28-30: Autoconverge Control
 
 
 ##################################################
 ###########  Processing C++ Output  ##############
 ##################################################
-    SS.prior <- array(out[[20]],c(nn,2,short.total,ee))
-    RR.prior <- array(out[[21]],c(nn,2,short.total,ee))
-    BB.prior <- array(out[[22]],c(kk,kk,2,short.total,ee))
-    MMB <- array(out[[23]],c(nn,short.total))
+    SS.prior <- array(out[[13]],c(nn,2,short.total,ee))
+    RR.prior <- array(out[[14]],c(nn,2,short.total,ee))
+    BB.prior <- array(out[[15]],c(kk,kk,2,short.total,ee))
+    MMB <- array(out[[16]],c(nn,short.total))
 
-    SS.mat <- array(out[[24]],c(nn,short.total,TT))
-    RR.mat <- array(out[[25]],c(nn,short.total,TT))
-    BB.mat <- array(out[[26]],c(kk,kk,short.total,TT))
-    HH.mat <- array(out[[28]],c(nn,kk,short.total))
+    SS.mat <- array(out[[17]],c(nn,short.total,TT))
+    RR.mat <- array(out[[18]],c(nn,short.total,TT))
+    BB.mat <- array(out[[19]],c(kk,kk,short.total,TT))
+    HH.mat <- array(out[[21]],c(nn,kk,short.total))
 
-    ll.mat <- array(out[[27]],c(TT,short.total))
+    ll.mat <- array(out[[20]],c(TT,short.total))
     ll.vec <- colSums(ll.mat)
 
     ##  Combining output into single structure
@@ -436,16 +443,16 @@ summary.dynsbm <- function(object,...){
 
 ###  Summary of Priors
     BB.prior.hat <- apply(object$BB.prior,c(1,2,3,5),mean)
-    BB.prior.mean <- apply(object$BB.prior[,,1,,,drop=FALSE]/object$BB.prior[,,2,,,drop=FALSE],c(1,2,4),mean)
-    BB.prior.var <- apply(object$BB.prior[,,1,,,drop=FALSE]/(object$BB.prior[,,2,,,drop=FALSE]^2),c(1,2,4),mean)
+    BB.prior.mean <- apply(object$BB.prior[,,1,,,drop=FALSE]/object$BB.prior[,,2,,,drop=FALSE],c(1,2,5),mean)
+    BB.prior.var <- apply(object$BB.prior[,,1,,,drop=FALSE]/(object$BB.prior[,,2,,,drop=FALSE]^2),c(1,2,5),mean)
 
     SS.prior.hat <- apply(object$SS.prior,c(1,2,4),mean)
-    SS.prior.mean <- apply(object$SS.prior[,1,,,drop=FALSE]/object$SS.prior[,2,,,drop=FALSE],c(1,3),mean)
-    SS.prior.var <- apply(object$SS.prior[,1,,,drop=FALSE]/(object$SS.prior[,2,,,drop=FALSE]^2),c(1,3),mean)
+    SS.prior.mean <- apply(object$SS.prior[,1,,,drop=FALSE]/object$SS.prior[,2,,,drop=FALSE],c(1,4),mean)
+    SS.prior.var <- apply(object$SS.prior[,1,,,drop=FALSE]/(object$SS.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
 
     RR.prior.hat <- apply(object$RR.prior,c(1,2,4),mean)
-    RR.prior.mean <- apply(object$RR.prior[,1,,,drop=FALSE]/object$RR.prior[,2,,,drop=FALSE],c(1,3),mean)
-    RR.prior.var <- apply(object$RR.prior[,1,,,drop=FALSE]/(object$RR.prior[,2,,,drop=FALSE]^2),c(1,3),mean)
+    RR.prior.mean <- apply(object$RR.prior[,1,,,drop=FALSE]/object$RR.prior[,2,,,drop=FALSE],c(1,4),mean)
+    RR.prior.var <- apply(object$RR.prior[,1,,,drop=FALSE]/(object$RR.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
 
 
     summ.obj <- structure(list(mmb=mmb,BB=BB.hat,SS=SS.hat,RR=RR.hat,

@@ -13,20 +13,31 @@ class CWSBM {
 	  double *rPriorSender, double *rPriorReceiver,
 	  double *rPriorBlockMat, double *rPriorBlockMemb,
 	  double rHours, int mImpute);
-   CWSBM (int rNodes, int rBlocks, double rHOurs, int mImpute);
+   CWSBM (int rNodes, int rBlocks, int mImpute);
    ~CWSBM();
 
    // Loading Functions
-   void RLoadWSBM(double *rBlockMat,int *rBlockMemb,
-		  double *rSenderEffects, double *rReceiverEffects,
-		  double *rPosteriorMemb);
+   // Loading info needed for dynsbm sampling
    void RLoadWSBM(double *rBlockMat,
 		  double *rSenderEffects, double *rReceiverEffects);
 
-   void LoadReferences(std::vector<double *> *dPriorSender,
-		   std::vector<double *> *dPriorReceiver,
-		   std::vector<std::vector<double *> > *dPriorBlockMat,
-		   std::vector<int> *dBlockMemb);
+   void loadDataR(int *adjMat, double rHours,
+		  double *rPriorSender, double *rPriorReceiver,
+		  double *rPriorBlockMat, double * rPriorBlockMemb);
+
+   void loadStateR(double *rBlockMat,int *rBlockMemb,
+		   double *rSenderEffects, double *rReceiverEffects,
+		   double *rPosteriorMemb);
+
+   void initRandom();
+
+
+   // Passing References to Priors for dynSBM
+   void LoadReferences(double hours,
+		       std::vector<double *> *dPriorSender,
+		       std::vector<double *> *dPriorReceiver,
+		       std::vector<std::vector<double *> > *dPriorBlockMat,
+		       std::vector<int> *dBlockMemb);
 
 
    void LoadAdjacencyMatrix(int *AdjMat);
@@ -117,6 +128,10 @@ class CWSBM {
    std::vector<double *> *aPriorReceiver;
    std::vector<std::vector<double *> > *aPriorBlockMat;
 
+   double aLocalPriorBlockMat[2];
+   double aLocalPriorSender[2];
+   double aLocalPriorReceiver[2];
+
    /* double aPriorSender[2]; */
    /* double aPriorReceiver[2]; */
    /* double aPriorBlockMat[2]; */
@@ -151,7 +166,7 @@ class CWSBM {
    void RLoadPosteriorMemb(double *rPosteriorMemb);
    void RLoadSenderEffects(double *rSenderEffects);
    void RLoadReceiverEffects(double *rReceiverEffects);
-
+   void deallocatePriors();
    // Internal Updating Functions
    void updateBlockMat(int iter);
    void updateBlockMemb(int iter);

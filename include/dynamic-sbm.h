@@ -11,9 +11,11 @@
 //  Definition for WSBM class
 class CDynSBM {
  public:
+   /* CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses, */
+   /* 	    int total, int *rTimeMap, double *rHours, */
+   /* 	    int mImpute); */
    CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
-	    int total, int *rTimeMap, double *rHours,
-	    int mImpute);
+	    int total, int mImpute);
    ~CDynSBM();
 
 
@@ -21,41 +23,37 @@ class CDynSBM {
    //   int GetEquivalentTime(int t);
 
    // Loading Functions
-   void RLoadDynSBM(int *AdjMat,
-		    double *rHyperSender, double *rHyperReceiver,
-		    double *rHyperBlockMat,
-		    double *rSenderEffects, double *rReceiverEffects,
-		    double *rBlockEffects, int *rBlockMemb,
-		    double *rPosteriorMemb, int update_mmb,
-		    double *rPriorSender, double *rPriorReceiver,
-		    double *rPriorBlockMat, double *rPriorBlockMemb,
-		    double *rLogLik);
+   void LoadDataR(int *AdjMat, int *rTimeMap, double *rHours,
+		  double *rHyperSender, double *rHyperReceiver,
+		  double *rHyperBlockMat);
 
-   //  MCMC Functions
-   void step();
-   void DrawPriors();
-   void DrawParameters();
-   void DrawBlockMemb();
-   //void imputeMissingValues();  //Need to be updated
-
-   // Log-Likleihood Function
-   double LogLike();
-
-   /*****  I/O Functions  *****/
-
-   // Saving Functions
-   void Update(int iter);
-   void adapt();
+   void LoadStateR(double *rSenderEffects, double *rReceiverEffects,
+		   double *rBlockEffects, int *rBlockMemb,
+		   double *rPosteriorMemb, int update_mmb,
+		   double *rPriorSender, double *rPriorReceiver,
+		   double *rPriorBlockMat, double *rPriorBlockMemb,
+		   double *rLogLik);
 
    //  Retrieval Functions
    int GetNodes() const { return aNodes;}
    int GetBlocks() const { return aBlocks;}
    int GetTimes() const {return aTimes;}
    int GetTimeClasses() const {return aClasses;}
-   void GetBlockMat(double *rBlockMat);
 
-   // Helper Functions
-   void computeBlockMatMLE();
+
+   /*****  MCMC Interface Functions  *****/
+   //  MCMC Functions
+   void step();
+   void adapt();
+
+   // Writing Functions
+   void write(int iter);
+
+   // Log-Likleihood Function
+   double LogLike();
+
+
+   // Printing Functions (Primarily for Debugging)
    void print(bool);
    void printPriors();
    void printAllWSBM(bool printNetworks);
@@ -75,8 +73,11 @@ class CDynSBM {
    double mhSD;
    double mhStart;
 
+   enum WriterType { R_WRITER, TEXT_WRITER};
+   WriterType aWriter;
+
    /***** Observed Network *****/
-   std::vector<CWSBM> aWsbmList;
+   std::vector<CWSBM *> aWsbmList;
 
    /***** Time Hash Functions *****/
    std::vector<double> aHours;
@@ -116,7 +117,9 @@ class CDynSBM {
    bool is_BlockMat_logged;
 
 
+
    // Loading Functions
+   void LoadTime(int *rTimeMap, double *rHours);
    void LoadAdjacencyMatrices(int *AdjMat);
    void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
    			double *rHyperBlockMat);
@@ -129,15 +132,17 @@ class CDynSBM {
    void PassReferences();
 
    // MCMC Functions
+   void DrawPriors();
+   void DrawParameters();
+   void DrawBlockMemb();
+   //void imputeMissingValues();  //Need to be updated
+
    void DrawPriorSender();
    void DrawPriorReceiver();
    void DrawPriorBlockMat();
 
-   /* void drawBlockMemb(); */
-   /* void drawBlockMat(); */
-   /* void drawReceiverEffects(); */
-   /* void rotate(); */
-
+   // Writing Functions
+   void writeR(int iter);
 
    // Internal Loading Functions
    void LoadPriorSender();
@@ -151,12 +156,12 @@ class CDynSBM {
    /* void RLoadReceiverEffects(double *rReceiverEffects); */
 
    // Internal Updating Functions
-   void UpdatePriorSender(int iter);
-   void UpdatePriorReceiver(int iter);
-   void UpdatePriorBlockMat(int iter);
-   void UpdateBlockMemb(int iter);
-   void UpdatePosteriorMemb(int iter);
-   void UpdateLogLike(int iter);
+   void writeRPriorSender(int iter);
+   void writeRPriorReceiver(int iter);
+   void writeRPriorBlockMat(int iter);
+   void writeRBlockMemb(int iter);
+   void writeRPosteriorMemb(int iter);
+   void writeRLogLike(int iter);
 
    /*
    void updateBlockMat(int iter , double *rBlockMat);

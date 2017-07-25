@@ -45,22 +45,42 @@ extern "C" {
 
     void getBBmle(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb);
 
-    void dynsbm(int *iters, int *burnin_t, int *thin_t, int *start_t,
-		int *extend_max_t, int *shift_t, int *qq_t,
+    /* void dynsbm(int *iters, int *burnin_t, int *thin_t, int *start_t, */
+    /* 		int *extend_max_t, int *shift_t, int *qq_t, */
+		
+    /* 		int *nn_t, int *YY, int *kk_t, int *multi_t, */
+    /* 		int *TT_t, int *ee_t, int *rTimeMap, double *rHours, */
 
-		int *nn_t, int *YY, int *kk_t, int *multi_t,
-		int *TT_t, int *ee_t, int *rTimeMap, double *rHours,
+    /* 		double *rHyperSender, double *rHyperReceiver, */
+    /* 		double *rHyperBlockMat, double *rPriorBlockMemb, */
 
+    /* 		double *rPriorSender, double *rPriorReceiver, */
+    /* 		double *rPriorBlockMat, int *rBlockMemb, */
+
+    /* 		double *rSenderEffects, double *rReceiverEffects, */
+    /* 		double *rBlockEffects, */
+
+    /* 		double *rLogLik, double *rPosteriorMemb, int *verbose_t, int *update_mmb_t); */
+
+    void dynsbm(int *nn_t, int *kk_t, int *TT_t, int *ee_t, int *multi_t,
+		// Data Values
+		int *YY, int *rTimeMap, double *rHours,
+		// Hyper Prior Parameter Storage
 		double *rHyperSender, double *rHyperReceiver,
 		double *rHyperBlockMat, double *rPriorBlockMemb,
-
+		// Prior Parameter Storage
 		double *rPriorSender, double *rPriorReceiver,
 		double *rPriorBlockMat, int *rBlockMemb,
-
+		// Parameter Storage
 		double *rSenderEffects, double *rReceiverEffects,
 		double *rBlockEffects,
-
-		double *rLogLik, double *rPosteriorMemb, int *verbose_t, int *update_mmb_t);
+		// Auxiliary Statistic Storage
+		double *rLogLik, double *rPosteriorMemb,
+		// Model Flags
+		int *verbose_t, int *update_mmb_t,
+		// MCMC Control Parameters
+		int *iters, int *burnin_t, int *thin_t, int *start_t,
+		int *extend_max_t, int *shift_t, int *qq_t);
 
 }
 #endif

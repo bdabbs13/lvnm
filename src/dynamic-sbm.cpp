@@ -22,7 +22,16 @@ using std::ifstream;
 
 
 
+// -------------------------------------------------------------------------
+// FUNCTION: dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn,
+//              int thin,
+//		int shift_size, int extend_max, double qq, int verbose){
+/*!
+  \return Correctly sets feature, threshold, and flags after a NaNSplit
 
+  \brief Implement split on feature f at threshold t predetermined by optimize.
+*/
+// -------------------------------------------------------------------------
 void dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn, int thin,
 		int shift_size, int extend_max, double qq, int verbose){
 
@@ -31,15 +40,12 @@ void dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn, int thin,
 	myDynSBM->step();
 	myDynSBM->adapt();
 
-	if(ii >= burnIn){
-	    if(((ii - burnIn) % thin == 0)){
-		//  Save the result every thin iterations
-		int save_iter = (ii - burnIn)/thin;
-		myDynSBM->write(save_iter);
-	    }
+	if((ii >= burnIn) && ((ii - burnIn) % thin == 0)){
+	    //  Save the result every thin iterations
+	    int save_iter = (ii - burnIn)/thin;
+	    myDynSBM->write(save_iter);
 	}
     }
-
 }
 
 
@@ -47,110 +53,7 @@ void dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn, int thin,
 /*****************************************************************
  *********  FUNCTION DEFINITIONS FOR CDynSBM OBJECT CLASS  ***********
  *****************************************************************/
-
-
-
-
-/***********  WSBM CLASS CONSTRUCTOR AND DESTRUCTOR  **********/
-
 //  Constructor Function for WSBM object
-
-// CDynSBM::CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
-// 		  int total, int *rTimeMap, double *rHours,
-// 		  int mImpute) : missingVal(-1), covCount(0),
-// 				 mhEpsilon(0.000001), mhSD(1), mhStart(100)
-// {
-//     int ii, jj, tt, ll, kk;
-
-//     //  Loading Dimensions
-//     aNodes = rNodes;
-//     aBlocks = rBlocks;
-//     aTimes = rTimes;
-//     aClasses = rTimeClasses;
-//     aTotal = total;
-
-//     //Loading Time Information
-//     aHours.resize(aClasses);
-//     for(tt = 0 ; tt < aClasses ; tt++){
-// 	aHours[tt] = rHours[tt];
-//     }
-
-//     aTimeMap.resize(aTimes);
-//     for(tt = 0 ; tt < aTimes; tt++){
-// 	aTimeMap[tt] = rTimeMap[tt] - 1; // Converting to zero indexing
-//     }
-
-//     //  Initializing WSBM Objects
-//     aWsbmList.reserve(aTimes);
-//     for(tt = 0 ; tt < aTimes ; tt++){
-// 	aWsbmList.push_back(CWSBM(aNodes,aBlocks,aHours[aTimeMap[tt]],mImpute));
-//     }
-
-
-//     //  Initializing Prior Containers
-//     aPriorSender.resize(aClasses,0);
-//     aPriorReceiver.resize(aClasses,0);
-//     for(tt = 0 ; tt < aClasses; tt++){
-// 	aPriorSender[tt] = new std::vector<double *>(aNodes,0);
-// 	aPriorReceiver[tt] = new std::vector<double *>(aNodes,0);
-// 	for(ii = 0 ; ii < aNodes ; ii++){
-// 	    (*(aPriorSender[tt]))[ii] = new double[2](); // () sets value to 0
-// 	    (*(aPriorReceiver[tt]))[ii] = new double[2](); // () sets value to 0
-// 	}
-//     }
-
-//     aPriorBlockMat.resize(aClasses,0);
-//     for(tt = 0 ; tt < aClasses; tt++){
-// 	aPriorBlockMat[tt] = new std::vector<std::vector<double *> >(aBlocks);
-// 	for(ll = 0 ; ll < aBlocks ; ll++){
-// 	    (*(aPriorBlockMat[tt]))[ll].resize(aBlocks,0);
-// 	    for(kk = 0; kk < aBlocks; kk++){
-// 		(*(aPriorBlockMat[tt]))[ll][kk] = new double[2](); // () sets to 0
-// 	    }
-// 	}
-//     }
-
-//     //  Initializing Adaptive Sampling Containers
-//     aPriorSenderCov.resize(aClasses,0);
-//     aPriorReceiverCov.resize(aClasses,0);
-//     for(tt = 0 ; tt < aClasses; tt++){
-// 	aPriorSenderCov[tt] = new std::vector<double *>(aNodes,0);
-// 	aPriorReceiverCov[tt] = new std::vector<double *>(aNodes,0);
-// 	for(ii = 0 ; ii < aNodes ; ii++){
-// 	    (*(aPriorSenderCov[tt]))[ii] = new double[5](); // () sets value to 0
-// 	    (*(aPriorReceiverCov[tt]))[ii] = new double[5](); // () sets value to 0
-// 	}
-//     }
-
-//     aPriorBlockMatCov.resize(aClasses,0);
-//     for(tt = 0 ; tt < aClasses; tt++){
-// 	aPriorBlockMatCov[tt] = new std::vector<std::vector<double *> >(aBlocks);
-// 	for(ll = 0 ; ll < aBlocks ; ll++){
-// 	    (*(aPriorBlockMatCov[tt]))[ll].resize(aBlocks,0);
-// 	    for(kk = 0; kk < aBlocks; kk++){
-// 		(*(aPriorBlockMatCov[tt]))[ll][kk] = new double[5](); // () sets to 0
-// 	    }
-// 	}
-//     }
-
-
-
-//     aBlockMemb.resize(aNodes,-1);
-
-//     aPosteriorMemb.resize(aNodes);
-//     for(ii = 0 ; ii < aNodes ; ii++){
-// 	aPosteriorMemb[ii].resize(aBlocks,0);
-//     }
-
-//     aPriorBlockMemb.resize(aBlocks,0.0);
-
-
-// }
-
-
-
-//  Constructor Function for WSBM object
-//  New Cleaner Version
 
 CDynSBM::CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
 		  int total , int mImpute) : missingVal(-1), covCount(0),
@@ -233,13 +136,11 @@ CDynSBM::CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
 
     aPriorBlockMemb.resize(aBlocks,0.0);
 
-    aWriter = R_WRITER;
 }
 
 
 
-
-
+//  Destructor for CDynSBM
 CDynSBM::~CDynSBM (){
     int tt, ii;
     for(tt = 0 ; tt < aClasses ; tt++){
@@ -264,6 +165,14 @@ CDynSBM::~CDynSBM (){
 }
 
 
+
+/**************************************************/
+/**************************************************/
+/**********  PUBLIC FUNCTION DEFINITIONS  *********/
+/**************************************************/
+/**************************************************/
+
+
 /**********  LOADING FUNCTIONS  *********/
 
 /**  Public Function for Loading Data from R  **/
@@ -284,11 +193,13 @@ void CDynSBM::LoadDataR(int *AdjMat, int *rTimeMap, double *rHours,
 
 /**  Public Function for Loading State from R  **/
 void CDynSBM::LoadStateR(double *rSenderEffects, double *rReceiverEffects,
-		double *rBlockEffects, int *rBlockMemb,
-		double *rPosteriorMemb, int update_mmb,
-		double *rPriorSender, double *rPriorReceiver,
-		double *rPriorBlockMat, double *rPriorBlockMemb,
-		double *rLogLik){
+			 double *rBlockEffects, int *rBlockMemb,
+			 double *rPosteriorMemb, int update_mmb,
+			 double *rPriorSender, double *rPriorReceiver,
+			 double *rPriorBlockMat, double *rPriorBlockMemb,
+			 double *rLogLik){
+
+    aWriter = R_WRITER;
 
     //  Loading Parameters into WSBM Objects
     LoadParameters(rSenderEffects,rReceiverEffects,rBlockEffects,
@@ -301,7 +212,134 @@ void CDynSBM::LoadStateR(double *rSenderEffects, double *rReceiverEffects,
     PassReferences();
 }
 
+/**********  MCMC SAMPLING FUNCTIONS  *********/
 
+void CDynSBM::step(){
+    //   Rprintf(" Priors");
+    DrawPriors();
+    //   Rprintf(" Params");
+    DrawParameters();
+}
+
+void CDynSBM::adapt(){
+
+    covCount++;
+    for(int tt = 0 ; tt < aClasses ; tt++){
+	for(int ii = 0 ; ii < aNodes ; ii++){
+	    updateSingleSSE((*(aPriorSender[tt]))[ii], covCount,
+			    (*(aPriorSenderCov[tt]))[ii]);
+	    updateSingleSSE((*(aPriorReceiver[tt]))[ii], covCount,
+			    (*(aPriorReceiverCov[tt]))[ii]);
+	}
+
+	for(int ll = 0 ; ll < aBlocks ; ll++){
+	    for(int kk = 0 ; kk < aBlocks ; kk++){
+		updateSingleSSE((*(aPriorBlockMat[tt]))[ll][kk], covCount,
+				(*(aPriorBlockMatCov[tt]))[ll][kk]);
+	    }
+	}
+    }
+
+}
+
+//  Writing Function
+void CDynSBM::write(int iter){
+    if(aWriter == R_WRITER){
+	writeR(iter);
+    }else if(aWriter == TEXT_WRITER){
+	Rprintf("Warning:  Text Writing is not implemented\n");
+    }else{
+	Rprintf("Error:  Unknown writer provided\n");
+    }
+
+    int tt;
+    for(tt = 0 ; tt < aTimes ; tt++){
+	aWsbmList[tt]->write(iter);
+    }
+
+}
+
+
+double CDynSBM::LogLike(){
+    int tt;
+    double sum = 0.0;
+    for(tt = 0 ; tt < aTimes ; tt++){
+	sum += aWsbmList[tt]->LogLike();
+    }
+    return sum;
+}
+
+/**********  PRINTING FUNCTIONS  *********/
+
+void CDynSBM::printPriors(){
+    printPriorSender();
+    printPriorReceiver();
+    printPriorBlockMat();
+}
+
+
+
+void CDynSBM::printAllWSBM(bool printNetworks){
+    int tt;
+    for(tt = 0 ; tt < aTimes ; tt++){
+	Rprintf("\nNetwork Number: %d\n\n",tt);
+	aWsbmList[tt]->print(printNetworks);
+    }
+}
+
+void CDynSBM::printBlockMemb(){
+    int ii;
+    Rprintf("Block Memberships:\n");
+    for(ii = 0; ii < aNodes; ii++){
+	if(ii % 10 == 0){
+	    Rprintf("\n");
+	}
+	Rprintf("%d ",aBlockMemb[ii]);
+    }
+    Rprintf("\n\n");
+}
+
+void CDynSBM::PrintCovariance(int tt, int ii){
+    Rprintf("Covariance Count: %d\n",covCount);
+    Rprintf("Sender Covariance:\n");
+    Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, ",
+	    (*(aPriorSenderCov[tt]))[ii][0],
+	    (*(aPriorSenderCov[tt]))[ii][1],
+	    (*(aPriorSenderCov[tt]))[ii][2]);
+
+    Rprintf("a_mean = %.4f, b_mean = %.4f",
+	    (*(aPriorSenderCov[tt]))[ii][3],
+	    (*(aPriorSenderCov[tt]))[ii][4]);
+
+    Rprintf("\n\n");
+    Rprintf("Receiver Covariance:\n");
+    Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, ",
+	    (*(aPriorReceiverCov[tt]))[ii][0],
+	    (*(aPriorReceiverCov[tt]))[ii][1],
+	    (*(aPriorReceiverCov[tt]))[ii][2]);
+
+    Rprintf("a_mean = %.4f, b_mean = %.4f",
+	    (*(aPriorReceiverCov[tt]))[ii][3],
+	    (*(aPriorReceiverCov[tt]))[ii][4]);
+    Rprintf("\n\n");
+
+}
+
+
+
+
+
+/**************************************************/
+/**************************************************/
+/*********  PRIVATE FUNCTION DEFINITIONS  *********/
+/**************************************************/
+/**************************************************/
+
+
+/**********  Loading Functions  **********/
+
+
+/*****  LoadData Functions  *****/
 void CDynSBM::LoadTime(int *rTimeMap
 
 		       , double *rHours){
@@ -336,6 +374,9 @@ void CDynSBM::LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
     }
 }
 
+
+/*****  LoadStateR Functions  *****/
+
 /** Loading Initial Parameters from R and Passing to WSBM Objects **/
 void CDynSBM::LoadParameters(double *rSenderEffects, double *rReceiverEffects,
 			     double *rBlockEffects, int *rBlockMemb,
@@ -343,9 +384,9 @@ void CDynSBM::LoadParameters(double *rSenderEffects, double *rReceiverEffects,
 
     int tt;
     for(tt = 0 ; tt < aTimes; tt++){
-	aWsbmList[tt]->RLoadWSBM(&rBlockEffects[tt*aTotal*aBlocks*aBlocks],
-				&rSenderEffects[tt*aTotal*aNodes],
-				&rReceiverEffects[tt*aTotal*aNodes]);
+	aWsbmList[tt]->loadStateR(&rBlockEffects[tt*aTotal*aBlocks*aBlocks],
+				  &rSenderEffects[tt*aTotal*aNodes],
+				  &rReceiverEffects[tt*aTotal*aNodes]);
     }
 
     aRBlockMemb = rBlockMemb;
@@ -379,11 +420,6 @@ void CDynSBM::LoadPriors(double *rPriorSender, double *rPriorReceiver,
     }
 
 }
-
-void CDynSBM::LoadLogLike(double *rLogLik){
-    aRLogLike = rLogLik;
-}
-
 
 
 void CDynSBM::LoadPriorSender(){
@@ -431,121 +467,33 @@ void CDynSBM::LoadPriorBlockMat(){
 }
 
 
+void CDynSBM::LoadLogLike(double *rLogLik){
+    aRLogLike = rLogLik;
+}
+
 /** Passing References to R Storage Locations to WSBM Objects **/
 void CDynSBM::PassReferences(){
     int tt;
     for(tt = 0 ; tt < aTimes ; tt++){
-	//MODSSS need to Pass these to wsbm
-	//,aHours[aTimeMap[tt]]
 	aWsbmList[tt]->LoadReferences(aHours[aTimeMap[tt]],
-				     aPriorSender[aTimeMap[tt]],
-				     aPriorReceiver[aTimeMap[tt]],
-				     aPriorBlockMat[aTimeMap[tt]],
-				     &aBlockMemb);
+				      aPriorSender[aTimeMap[tt]],
+				      aPriorReceiver[aTimeMap[tt]],
+				      aPriorBlockMat[aTimeMap[tt]],
+				      &aBlockMemb);
     }
 
 }
 
-/**********  MCMC SAMPLING FUNCTIONS  *********/
 
-void CDynSBM::step(){
-    //   Rprintf(" Priors");
-    DrawPriors();
-    //   Rprintf(" Params");
-    DrawParameters();
-}
-
+/**********  MCMC Functions  **********/
 
 void CDynSBM::DrawPriors(){
-    // Drawing Sender Priors
+
     DrawPriorSender();
-
-    // Drawing Receiver Priors
     DrawPriorReceiver();
-
-    // Drawing BlockMat Priors
     DrawPriorBlockMat();
 
 }
-
-void CDynSBM::DrawParameters(){
-    int tt;
-    //   Rprintf("tt: ");
-    for(tt = 0 ; tt < aTimes ; tt++){
-	//      Rprintf("%d ",tt);
-	aWsbmList[tt]->partialStep();
-    }
-    if(update_mmb){
-	DrawBlockMemb();
-    }
-}
-
-void CDynSBM::DrawBlockMemb(){
-    int ii,kk;
-    double pMax;
-    int ind[aBlocks];
-
-    //   Rprintf("Log-Likelihood = %.2f\n",LogLike());
-
-    for(ii = 0 ; ii < aNodes ; ii++){
-	for(kk = 0 ; kk < aBlocks ; kk++){
-	    aBlockMemb[ii] = kk;
-
-	    // Calculating Log Posterior Probability
-	    //	 Rprintf("ii = %d, kk = %d\n",ii,kk);
-	    aPosteriorMemb[ii][kk] = nodeLogLike(ii) + log(aPriorBlockMemb[kk]);
-	    //	 Rprintf("p.%d.%d = %.4f\n",ii,kk,aPosteriorMemb[ii][kk]);
-	    if(kk == 0){
-		pMax = aPosteriorMemb[ii][kk];
-	    }else{
-		if(aPosteriorMemb[ii][kk] > pMax){
-		    pMax = aPosteriorMemb[ii][kk];
-		}
-	    }
-	}
-
-	// Exponentiating Probabilities
-	for(kk = 0 ; kk < aBlocks ; kk++){
-	    aPosteriorMemb[ii][kk] = exp(aPosteriorMemb[ii][kk] - pMax);
-	}
-
-	normalizeVec(aPosteriorMemb[ii]);
-	logZeroFix(aPosteriorMemb[ii]); // If aPosteriorMemb ~ 0 log(0) = NaN
-
-	// Drawing from Multinomial
-	rmultinom(1,aPosteriorMemb[ii].data(),aBlocks,ind);
-
-	//  Getting Block Membership Number
-	kk = 0;
-	while(ind[kk] != 1){
-	    kk++;
-	}
-	aBlockMemb[ii] = kk;
-    }
-
-}
-
-double CDynSBM::nodeLogLike(int node){
-    int tt;
-    double sum = 0.0;
-    //   Rprintf("tt: ");
-    for(tt = 0 ; tt < aTimes ; tt++){
-	//      Rprintf("%d ",tt);
-	sum += aWsbmList[tt]->nodeLogLike(node);
-    }
-    //   Rprintf("\n");
-    return sum;
-}
-
-double CDynSBM::LogLike(){
-    int tt;
-    double sum = 0.0;
-    for(tt = 0 ; tt < aTimes ; tt++){
-	sum += aWsbmList[tt]->LogLike();
-    }
-    return sum;
-}
-
 
 void CDynSBM::DrawPriorSender(){
     int tt, ii;
@@ -691,18 +639,78 @@ void CDynSBM::DrawPriorBlockMat(){
 
 
 
-/**********  WRITING FUNCTIONS  *********/
-
-void CDynSBM::write(int iter){
-    if(aWriter == R_WRITER){
-	writeR(iter);
-    }else if(aWriter == TEXT_WRITER){
-	Rprintf("Warning:  Text Writing is not implemented\n");
-    }else{
-	Rprintf("Error:  Unknown writer provided\n");
+void CDynSBM::DrawParameters(){
+    int tt;
+    //   Rprintf("tt: ");
+    for(tt = 0 ; tt < aTimes ; tt++){
+	//      Rprintf("%d ",tt);
+	aWsbmList[tt]->step();
+    }
+    if(update_mmb){
+	DrawBlockMemb();
     }
 }
 
+void CDynSBM::DrawBlockMemb(){
+    int ii,kk;
+    double pMax;
+    int ind[aBlocks];
+
+    //   Rprintf("Log-Likelihood = %.2f\n",LogLike());
+
+    for(ii = 0 ; ii < aNodes ; ii++){
+	for(kk = 0 ; kk < aBlocks ; kk++){
+	    aBlockMemb[ii] = kk;
+
+	    // Calculating Log Posterior Probability
+	    //	 Rprintf("ii = %d, kk = %d\n",ii,kk);
+	    aPosteriorMemb[ii][kk] = nodeLogLike(ii) + log(aPriorBlockMemb[kk]);
+	    //	 Rprintf("p.%d.%d = %.4f\n",ii,kk,aPosteriorMemb[ii][kk]);
+	    if(kk == 0){
+		pMax = aPosteriorMemb[ii][kk];
+	    }else{
+		if(aPosteriorMemb[ii][kk] > pMax){
+		    pMax = aPosteriorMemb[ii][kk];
+		}
+	    }
+	}
+
+	// Exponentiating Probabilities
+	for(kk = 0 ; kk < aBlocks ; kk++){
+	    aPosteriorMemb[ii][kk] = exp(aPosteriorMemb[ii][kk] - pMax);
+	}
+
+	normalizeVec(aPosteriorMemb[ii]);
+	logZeroFix(aPosteriorMemb[ii]); // If aPosteriorMemb ~ 0 log(0) = NaN
+
+	// Drawing from Multinomial
+	rmultinom(1,aPosteriorMemb[ii].data(),aBlocks,ind);
+
+	//  Getting Block Membership Number
+	kk = 0;
+	while(ind[kk] != 1){
+	    kk++;
+	}
+	aBlockMemb[ii] = kk;
+    }
+
+}
+
+double CDynSBM::nodeLogLike(int node){
+    int tt;
+    double sum = 0.0;
+    //   Rprintf("tt: ");
+    for(tt = 0 ; tt < aTimes ; tt++){
+	//      Rprintf("%d ",tt);
+	sum += aWsbmList[tt]->nodeLogLike(node);
+    }
+    //   Rprintf("\n");
+    return sum;
+}
+
+
+
+/**********  WRITING FUNCTIONS  *********/
 
 /*****  R Writing Functions  *****/
 
@@ -712,10 +720,6 @@ void CDynSBM::writeR(int iter){
     writeRPriorReceiver(iter);
     writeRPriorBlockMat(iter);
 
-    int tt;
-    for(tt = 0 ; tt < aTimes ; tt++){
-	aWsbmList[tt]->partialUpdate(iter);
-    }
     writeRBlockMemb(iter);
     writeRPosteriorMemb(iter);
     writeRLogLike(iter);
@@ -795,35 +799,8 @@ void CDynSBM::writeRLogLike(int iter){
 
 }
 
-void CDynSBM::adapt(){
 
-    covCount++;
-    for(int tt = 0 ; tt < aClasses ; tt++){
-	for(int ii = 0 ; ii < aNodes ; ii++){
-	    updateSingleSSE((*(aPriorSender[tt]))[ii], covCount,
-			    (*(aPriorSenderCov[tt]))[ii]);
-	    updateSingleSSE((*(aPriorReceiver[tt]))[ii], covCount,
-			    (*(aPriorReceiverCov[tt]))[ii]);
-	}
-
-	for(int ll = 0 ; ll < aBlocks ; ll++){
-	    for(int kk = 0 ; kk < aBlocks ; kk++){
-		updateSingleSSE((*(aPriorBlockMat[tt]))[ll][kk], covCount,
-				(*(aPriorBlockMatCov[tt]))[ll][kk]);
-	    }
-	}
-    }
-
-}
-
-
-/**********  PRINTING FUNCTIONS  *********/
-
-void CDynSBM::printPriors(){
-    printPriorSender();
-    printPriorReceiver();
-    printPriorBlockMat();
-}
+/**********  Printing Functions  **********/
 
 void CDynSBM::printPriorSender(){
     int tt, ii;
@@ -864,46 +841,5 @@ void CDynSBM::printPriorBlockMat(){
 	    }
 	}
     }
-}
-
-void CDynSBM::printAllWSBM(bool printNetworks){
-    int tt;
-    for(tt = 0 ; tt < aTimes ; tt++){
-	Rprintf("\nNetwork Number: %d\n\n",tt);
-	aWsbmList[tt]->print(printNetworks);
-    }
-}
-
-void CDynSBM::printBlockMemb(){
-    int ii;
-    Rprintf("Block Memberships:\n");
-    for(ii = 0; ii < aNodes; ii++){
-	if(ii % 10 == 0){
-	    Rprintf("\n");
-	}
-	Rprintf("%d ",aBlockMemb[ii]);
-    }
-    Rprintf("\n\n");
-}
-
-void CDynSBM::PrintCovariance(int tt, int ii){
-    Rprintf("Covariance Count: %d\n",covCount);
-    Rprintf("Sender Covariance:\n");
-    Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, a_mean = %.4f, b_mean = %.4f",
-	    (*(aPriorSenderCov[tt]))[ii][0],
-	    (*(aPriorSenderCov[tt]))[ii][1],
-	    (*(aPriorSenderCov[tt]))[ii][2],
-	    (*(aPriorSenderCov[tt]))[ii][3],
-	    (*(aPriorSenderCov[tt]))[ii][4]);
-
-    Rprintf("\n\n");
-    Rprintf("Receiver Covariance:\n");
-    Rprintf("a_sse = %.4f, b_sse = %.4f, ab_csse = %.4f, a_mean = %.4f, b_mean = %.4f",
-	    (*(aPriorReceiverCov[tt]))[ii][0],
-	    (*(aPriorReceiverCov[tt]))[ii][1],
-	    (*(aPriorReceiverCov[tt]))[ii][2],
-	    (*(aPriorReceiverCov[tt]))[ii][3],
-	    (*(aPriorReceiverCov[tt]))[ii][4]);
-
 }
 

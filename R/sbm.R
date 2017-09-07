@@ -312,22 +312,6 @@ sbm.spectral <- function(net,kk=3,cols=1:ncol(net),fixed=FALSE,is.weighted=NULL,
 }
 
 
-weighted.mle <- function(mmb,net,kk){
-
-    nn <- length(mmb)
-    BB <- array(0.0,c(kk,kk))
-    BB.count <- array(0.0,c(kk,kk))
-    for(ii in 1:nn){
-        for(jj in 1:nn){
-            if(!is.na(net[ii,jj])){
-                BB[mmb[ii],mmb[jj]] <- BB[mmb[ii],mmb[jj]] + net[ii,jj]
-                BB.count[mmb[ii],mmb[jj]] <- BB.count[mmb[ii],mmb[jj]] + 1
-            }
-        }
-    }
-    return(BB/BB.count)
-}
-
 
 get.HH.init <- function(mmb,ee,kk=max(mmb)){
     HH <- mmb.to.PI(mmb)

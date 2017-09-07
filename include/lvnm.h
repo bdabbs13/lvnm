@@ -32,7 +32,7 @@ extern "C" {
 	      double *rSenderEffects, double *rReceiverEffects,
 	      int *burn_t, int *thin_t,
 	      int *start_t, int *multi_t,double *logLik,
-	      int *extend_max_t, int *shift_t, double *qq_t,
+	      int *extend_max_t, double *qq_t,
 	      double *postMat, double *rHours, int *verbose_t);
 
 
@@ -44,23 +44,6 @@ extern "C" {
 	       int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t);
 
     void getBBmle(int *nn_t, int *kk_t, int *YY, double *BB, int *mmb);
-
-    /* void dynsbm(int *iters, int *burnin_t, int *thin_t, int *start_t, */
-    /* 		int *extend_max_t, int *shift_t, int *qq_t, */
-		
-    /* 		int *nn_t, int *YY, int *kk_t, int *multi_t, */
-    /* 		int *TT_t, int *ee_t, int *rTimeMap, double *rHours, */
-
-    /* 		double *rHyperSender, double *rHyperReceiver, */
-    /* 		double *rHyperBlockMat, double *rPriorBlockMemb, */
-
-    /* 		double *rPriorSender, double *rPriorReceiver, */
-    /* 		double *rPriorBlockMat, int *rBlockMemb, */
-
-    /* 		double *rSenderEffects, double *rReceiverEffects, */
-    /* 		double *rBlockEffects, */
-
-    /* 		double *rLogLik, double *rPosteriorMemb, int *verbose_t, int *update_mmb_t); */
 
     void dynsbm(int *nn_t, int *kk_t, int *TT_t, int *ee_t, int *multi_t,
 		// Data Values
@@ -80,7 +63,7 @@ extern "C" {
 		int *verbose_t, int *update_mmb_t,
 		// MCMC Control Parameters
 		int *iters, int *burnin_t, int *thin_t, int *start_t,
-		int *extend_max_t, int *shift_t, int *qq_t);
+		int *extend_max_t, double *qq_t);
 
 }
 #endif

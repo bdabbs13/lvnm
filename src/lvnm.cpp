@@ -23,6 +23,63 @@ using std::ifstream;
 //gsl_rng *rng;
 //ofstream myfile;
 
+template <class T>
+void MCMC(T *Mod, int start, int total, int burnIn, int thin,
+	  int extend_max, double qq, int verbose){
+
+    int ii, step_count;
+    int extend_count = -1;
+    std::vector<double> ll_vec;
+
+    // Main MCMC Loop
+    int raw_count = start;
+    ll_vec.resize(total,0.0);
+
+    bool converged = false;
+    do{
+    	step_count = 0;
+	extend_count++;
+
+	if(extend_count > 0){
+	    if(verbose > 1) Rprintf("Extending Chain...\n");
+	}
+
+    	while(step_count < total){
+    	    // Perform an MCMC Step
+    	    Mod->step();
+    	    Mod->adapt();
+
+    	    if((raw_count >= burnIn) && ((raw_count - burnIn) % thin == 0)){
+    		//  Save the result every thin iterations
+    		Mod->write(step_count);
+		ll_vec[step_count] = Mod->LogLike();
+		// if(verbose > 2) Rprintf("ll: %.4f\n",ll_vec[step_count]);
+
+    		step_count++;
+    	    }
+	    raw_count++;
+    	}
+
+	converged = convergenceCheck(ll_vec,qq);
+
+	if(converged){
+	    if(verbose > 0){
+		Rprintf("Converged after %d extensions\n",
+			extend_count);
+	    }
+	}
+    }while((!(converged)) && (extend_count < extend_max));
+
+    if(!converged){
+	if(verbose > 0)
+	    Rprintf("Warning: Failed to converge after %d extensions\n",
+		    extend_count);
+    }
+    // if(verbose > 2) Mod->print();
+
+}
+
+
 
 extern "C" {
 
@@ -30,7 +87,6 @@ extern "C" {
     // Function to be called by R
     void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
 	     double *betaPrior, double *eta,
-	     //double *flatTable,
 	     double *rBlockMat, int *rBlockMemb,
 	     int *burn_t, int *thin_t,
 	     int *start_t, int *multi_t,double *logLik,
@@ -40,8 +96,23 @@ extern "C" {
 
 	GetRNGstate();
 
-	int start = *start_t, verbose = *verbose_t;
-	//  MCMC Control Parameters
+	int verbose = *verbose_t;
+
+	/*****  INITIALIZATION  *****/
+	//  Initializing SBM object
+	CSBM *mySBM = new CSBM(*nn_t, *kk_t, *multi_t);
+	mySBM->loadDataR(YY, betaPrior, eta);
+	mySBM->loadStateR(rBlockMat,rBlockMemb,postMat,logLik);
+
+	//  Currently Initialization in R isn't accurate??
+	mySBM->initRandom();
+
+	//  Loading Previous Chain
+	int start = *start_t;
+	if(start > 0){
+	    // Currently do Nothing
+	}
+
 	int total = *iters, burnIn = *burn_t, thin = *thin_t;
 
 	//  Convergence Checking Criteria
@@ -49,28 +120,15 @@ extern "C" {
 	int shift_size = *shift_t;
 	int extend_max = *extend_max_t;
 
+	//  Run MCMC Chain
 
-	/*****  INITIALIZATION  *****/
-	//  Initializing SBM object
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, *multi_t);
+	MCMC(mySBM, start, total, burnIn, thin,
+	     extend_max, qq, verbose);
 
-	//  Loading Previous Chain
-	if(start > 0){
-	    // 1234
-	    //mySBM->loadTable(start, flatTable);
-
-	    /* Public should not be able to see these functions
-	       if(start == 1){
-	       mySBM->drawPP();
-	       mySBM->updatePosteriorMemb(0,postMat);
-	       }
-	    */
-	}
-
-	sbmMCMC(mySBM, start, total, burnIn, thin,
-		shift_size, extend_max, qq, //flatTable,
-		rBlockMat, rBlockMemb,
-		logLik, postMat, verbose);
+	// sbmMCMC(mySBM, start, total, burnIn, thin,
+	// 	shift_size, extend_max, qq, //flatTable,
+	// 	rBlockMat, rBlockMemb,
+	// 	logLik, postMat, verbose);
 
 	delete mySBM;
 	PutRNGstate();
@@ -95,8 +153,13 @@ extern "C" {
 	/*****  INITIALIZATION  *****/
 	//  Initializing SBM object
 
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
-	mySBM->RLoadSBM(rBlockMat, rBlockMemb);
+
+	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+	CSBM *mySBM = new CSBM(*nn_t, *kk_t,multi);
+	mySBM->loadDataR(YY, betaPrior, eta);
+
+	mySBM->loadStateR(rBlockMat,rBlockMemb,rPosteriorMemb,logLik);
+	// mySBM->RLoadSBM(rBlockMat, rBlockMemb);
 	mySBM->initPPem(0.1);
 
 	sbmEM(mySBM, iter_max, threshold, rPosteriorMemb, rBlockMat, rBlockMemb,
@@ -107,28 +170,17 @@ extern "C" {
     }
 
 
-
-
     //  Weighted Stochastic Block Model Wrapper Function (R)
-    void wsbm(int *iters, int *nn_t, int *kk_t, int *YY,
-	      double *rPriorSender, double *rPriorReceiver,
-	      double *rPriorBlockMat, double *rPriorBlockMemb,
-	      double *rBlockMat, int *rBlockMemb,
-	      double *rSenderEffects, double *rReceiverEffects,
-	      int *burn_t, int *thin_t,
-	      int *start_t, int *multi_t,double *logLik,
-	      int *extend_max_t, int *shift_t, double *qq_t,
-	      double *postMat, double *rHours, int *verbose_t)
+    void wsbm_R(int *iters, int *nn_t, int *kk_t, int *YY,
+		double *rPriorSender, double *rPriorReceiver,
+		double *rPriorBlockMat, double *rPriorBlockMemb,
+		double *rBlockMat, int *rBlockMemb,
+		double *rSenderEffects, double *rReceiverEffects,
+		int *burn_t, int *thin_t,
+		int *start_t, int *multi_t,double *logLik,
+		int *extend_max_t, double *qq_t,
+		double *postMat, double *rHours, int *verbose_t)
     {
-
-	/*****  INITIALIZATION  *****/
-	//  Initializing WSBM object
-	// CWSBM *myWSBM = new CWSBM(*nn_t, *kk_t, YY,
-	// 			  rPriorSender,rPriorReceiver,
-	// 			  rPriorBlockMat,rPriorBlockMemb,
-	// 			  *rHours,*multi_t);
-
-
 
 	GetRNGstate();
 
@@ -144,8 +196,8 @@ extern "C" {
 			  rPriorBlockMat,rPriorBlockMemb);
 
 	myWSBM->loadStateR(rBlockMat, rBlockMemb,
-			  rSenderEffects, rReceiverEffects,
-			  postMat);
+			   rSenderEffects, rReceiverEffects,
+			   postMat, logLik);
 
 
 	/*****  Setting Up MCMC Sampler  *****/
@@ -155,13 +207,15 @@ extern "C" {
 
 	//  Convergence Checking Criteria
 	double qq = *qq_t;
-	int shift_size = *shift_t, extend_max = *extend_max_t;
+	int extend_max = *extend_max_t;
 
 	//  Run MCMC Chain
-	wsbmMCMC(myWSBM, start, total, burnIn, thin,
-		 shift_size, extend_max, qq,
-		 rBlockMat, rBlockMemb, rSenderEffects, rReceiverEffects,
-		 logLik, postMat, verbose);
+	// wsbmMCMC(myWSBM, start, total, burnIn, thin,
+	// 	 shift_size, extend_max, qq, verbose);
+
+	MCMC(myWSBM, start, total, burnIn, thin,
+	     extend_max, qq, verbose);
+
 
 	/*****  Cleaning Up  *****/
 	delete myWSBM;
@@ -172,25 +226,25 @@ extern "C" {
 
 
     //  Dynamic Weighted Stochastic Block Model Wrapper Function (R)
-    void dynsbm(int *nn_t, int *kk_t, int *TT_t, int *ee_t, int *multi_t,
-		// Data Values 6-8
-		int *YY, int *rTimeMap, double *rHours,
-		// Hyper Prior Parameter Storage 9-12
-		double *rHyperSender, double *rHyperReceiver,
-		double *rHyperBlockMat, double *rPriorBlockMemb,
-		// Prior Parameter Storage 13-16
-		double *rPriorSender, double *rPriorReceiver,
-		double *rPriorBlockMat, int *rBlockMemb,
-		// Parameter Storage 17-19
-		double *rSenderEffects, double *rReceiverEffects,
-		double *rBlockEffects,
-		// Auxiliary Statistic Storage 20-21
-		double *rLogLik, double *rPosteriorMemb,
-		// Model Flags 22-23
-		int *verbose_t, int *update_mmb_t,
-		// MCMC Control Parameters
-		int *iters, int *burnin_t, int *thin_t, int *start_t,
-		int *extend_max_t, int *shift_t, int *qq_t)
+    void dynsbm_R(int *nn_t, int *kk_t, int *TT_t, int *ee_t, int *multi_t,
+		  // Data Values 6-8
+		  int *YY, int *rTimeMap, double *rHours,
+		  // Hyper Prior Parameter Storage 9-12
+		  double *rHyperSender, double *rHyperReceiver,
+		  double *rHyperBlockMat, double *rPriorBlockMemb,
+		  // Prior Parameter Storage 13-16
+		  double *rPriorSender, double *rPriorReceiver,
+		  double *rPriorBlockMat, int *rBlockMemb,
+		  // Parameter Storage 17-19
+		  double *rSenderEffects, double *rReceiverEffects,
+		  double *rBlockEffects,
+		  // Auxiliary Statistic Storage 20-21
+		  double *rLogLik, double *rPosteriorMemb,
+		  // Model Flags 22-23
+		  int *verbose_t, int *update_mmb_t,
+		  // MCMC Control Parameters
+		  int *iters, int *burnin_t, int *thin_t, int *start_t,
+		  int *extend_max_t, double *qq_t)
     {
 
 	GetRNGstate();
@@ -201,7 +255,7 @@ extern "C" {
 
 	//  Initializing DynSBM object
 	CDynSBM *myDynSBM = new CDynSBM(*nn_t, *kk_t, *TT_t, *ee_t,
-					(*iters - *burnin_t) / *thin_t,
+					*iters,
 					*multi_t);
 	//  Load Data From R
 	myDynSBM->LoadDataR(YY, rTimeMap, rHours,
@@ -219,12 +273,14 @@ extern "C" {
 
 	//  Convergence Checking Criteria
 	double qq = *qq_t;
-	int shift_size = *shift_t, extend_max = *extend_max_t;
+	int extend_max = *extend_max_t;
 
 	//  Run MCMC Chain
-	dynSBMMCMC(myDynSBM,
-	 	   start, total, burnIn, thin,
-	 	   shift_size, extend_max, qq, verbose);
+	// dynSBMMCMC(myDynSBM,
+	//  	   start, total, burnIn, thin,
+	//  	   shift_size, extend_max, qq, verbose);
+	MCMC(myDynSBM, start, total, burnIn, thin,
+	     extend_max, qq, verbose);
 
 	/*****  Cleaning Up  *****/
 	delete myDynSBM;
@@ -274,16 +330,12 @@ extern "C" {
 	int multi = 1;
 	std::fill(eta,eta + *kk_t, 1.0);
 
-	/*
-	  double test1 = DBL_EPSILON;
-	  double test2 = log(test1/2);
-	  double test3 = log(MIN_LOG/2);
-	  Rprintf("eps: %f \n log(eps): %f \n log(min): %f",test1,test2,test3);
-	*/
-
 	/*****  INITIALIZATION  *****/
 	//  Initializing SBM object
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+	CSBM *mySBM = new CSBM(*nn_t, *kk_t, multi);
+	mySBM->loadDataR(YY, betaPrior, eta);
+
 	mySBM->RLoadSBM(rBlockMat, rBlockMemb);
 	//      mySBM->RLoadBlockMemb(mmb);
 	mySBM->computeBlockMatMLE();
@@ -298,7 +350,9 @@ extern "C" {
 	double beta[2];
 	double eta[*kk_t];
 
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, adjMat, beta, eta, 1);
+	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, adjMat, beta, eta, 1);
+	CSBM *mySBM = new CSBM(*nn_t, *kk_t,1);
+	mySBM->loadDataR(adjMat, beta, eta);
 	mySBM->print(true);
 
     }

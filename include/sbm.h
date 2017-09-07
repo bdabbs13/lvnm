@@ -9,133 +9,156 @@
 //  Definition for SBM class
 class CSBM {
  public:
-   CSBM (int rNodes, int aBlocks, int *adjMat, double *rPriorBlockMat,
-	 double *rPriorBlockMemb, int mImpute);
-   ~CSBM();
+    CSBM (int rNodes, int aBlocks,int mImpute);
+    ~CSBM();
 
-   // Loading Functions
-   void RLoadSBM(double *rBlockMat,int *rBlockMemb);
-   void initPPem(double);
-
-   //  MCMC Functions
-   void step();
-   void imputeMissingValues();  //Need to be updated
-
-   // EM Functions
-   void iterEM();
-   void getMultinomPosterior();
-   void saveBlockMatOld();
-   double BlockMatdiff();
+    // Loading Functions
+    void loadDataR(int *adjMat, double *rPriorBlockMat,double *rPriorBlockMemb);
+    void loadStateR(double *rBlockMat, int *rBlockMemb,
+		    double *rPosteriorMemb, double *rLogLik);
+    void RLoadSBM(double *rBlockMat,int *rBlockMemb);
 
 
-   // Log-Likleihood Function
-   double LogLike();
+    //  Functions used by MCMC
+
+    // Initialization Functions
+    void initRandom();
+
+    //  MCMC Functions
+    void step();
+    void adapt() { };
+
+    //  Writing
+    void write(int iter);
+    //  Log Likelihood
+    double LogLike();
 
 
-   // I/O Functions
-   // Saving Functions
-   void updateSBM(int iter, int *rBlockMemb, double *rBlockMat,
-		  double *rPosteriorMemb);
-   void updateSBM(int iter, int *rBlockMemb, double *rBlockMat,
-		  double *rPosteriorMemb, double *rEta);
+    //  Functions used by EM
+    void writeRPriorBlockMemb(double *rPriorBlockMat);
+    void initPPem(double);
 
-   //  Retrieval Functions
-   int GetNodes() const { return aNodes;}
-   int GetBlocks() const { return aBlocks;}
-   void GetBlockMat(double *rBlockMat);
+    void iterEM();
+    void getMultinomPosterior();
+    void saveBlockMatOld();
+    double BlockMatdiff();
 
+    //  Retrieval Functions
+    int GetNodes() const { return aNodes;}
+    int GetBlocks() const { return aBlocks;}
+    void GetBlockMat(double *rBlockMat);
 
-   // Helper Functions
-   void computeBlockMatMLE();
-   void print(bool);
-
-
+    // Helper Functions
+    void computeBlockMatMLE();
+    void print(bool);
 
 
  private:
-   int aNodes;
-   int aBlocks;
-   int missingVal;
-   std::vector<std::vector<int> > aAdjMat;
-   std::vector<std::vector<int> > aAdjPartial;
+    /**********  Parameters and Containers  **********/
 
-   std::vector<std::vector<double> > aBlockMat;
-   std::vector<std::vector<double> > aBlockMatInv;
-   std::vector<std::vector<double> > aBlockMatOld;
+    // Dimensional Paramters
+    int aNodes;
+    int aBlocks;
 
-   std::vector<std::vector<double> > aHitMat;
-   std::vector<std::vector<double> > aMissMat;
+    // Flags
+    int missingVal;
+    bool aImputeFlag;
+    bool is_BlockMat_logged;
 
-   std::vector<std::vector<double> > aPosteriorMemb;
-   std::vector<std::vector<double> > aPosteriorMembOld;
-
-   std::vector<int> aBlockMemb;
-   std::vector<double> aPriorBlockMemb;
-   double aPriorBlockMat[2];
-
-   bool aImputeFlag;
-   bool is_BlockMat_logged;
-
-   // MCMC Functions
-   void drawBlockMemb();
-   void drawBlockMat();
-   void rotate();
+    /***** Observed Network *****/
+    std::vector<std::vector<int> > aAdjMat;
+    std::vector<std::vector<int> > aAdjPartial;
 
 
-   // Internal Loading Functions
-   void RLoadBlockMat(double *rBlockMat);
-   void RLoadBlockMemb(int *rBlockMemb);
-   void RLoadPosteriorMemb(double *rPosteriorMemb);
+    /*** Block Membership Containers ***/
+    std::vector<int> aBlockMemb;
 
-   // Internal Updating Functions
-   void updateBlockMat(int iter , double *rBlockMat);
-   void updateBlockMemb(int iter, int *rBlockMemb); // updateMMB
-   void updatePriorBlockMemb(double *rPriorBlockMat);
-   void updatePosteriorMemb(int iter, double *rPosteriorMemb);
+    std::vector<std::vector<double> > aPosteriorMemb;
+    std::vector<std::vector<double> > aPosteriorMembOld;
 
-   // Helper Functions
-   void savePosteriorMembOld();
-   void computeHitMiss();
-   bool isMissing(int val) { return (val == missingVal);}
+    /***  Block Matrix Containers  ***/
+    std::vector<std::vector<double> > aBlockMat;
+    std::vector<std::vector<double> > aBlockMatInv;
+    std::vector<std::vector<double> > aBlockMatOld;
 
-   // Log-Likelihood Functions
-   double nodeLogLike(int ii);
-   double tieLogLike(int yy, int sendBlock, int recBlock);
+    /***  Intermediate Containers  ***/
+    std::vector<std::vector<double> > aHitMat;
+    std::vector<std::vector<double> > aMissMat;
 
-   // Log-Likelihood Marginalized over Memberships
-   // Only used by EM
-   double nodeLogLike_long(int ii);
-   double tieLogLike_sender(int yy, int sendBlock, int receiver);
-   double tieLogLike_receiver(int, int recBlock, int sender);
-
-   // Block matrix Functions
-   void logBlockMat();
-   void expBlockMat();
-
-   // Debugging Functions
-   void printAdjacencyMatrix();
-   void printBlockMat();
-   void printPosteriorMemb();
-   void printBlockMemb();
-   void printPriorBlockMemb();
+    /***** Prior Containers *****/
+    std::vector<double> aPriorBlockMemb;
+    double aPriorBlockMat[2];
 
 
+    //  Writer Information
+    enum WriterType {R_WRITER};
+    WriterType aWriter;
 
+    /*****  Pointers for R_WRITER  *****/
+    double *aRBlockMat;
+    int *aRBlockMemb;
+    double *aRPosteriorMemb;
+    double *aRLogLike;
+
+    /**********  Internal Functions  **********/
+
+    // loadStateR
+    void RLoadBlockMat(double *rBlockMat);
+    void RLoadBlockMemb(int *rBlockMemb);
+    void RLoadPosteriorMemb(double *rPosteriorMemb);
+
+    // step Functions
+    void drawBlockMemb();
+    void drawBlockMat();
+    void imputeMissingValues();  //Need to be updated
+
+    //  Simple Label-Switching Solution
+    void rotate();
+
+
+    // Log-Likelihood Functions
+    double nodeLogLike(int ii);
+    double tieLogLike(int yy, int sendBlock, int recBlock);
+
+    // Log-Likelihood Marginalized over Memberships
+    // Only used by EM
+    double nodeLogLike_long(int ii);
+    double tieLogLike_sender(int yy, int sendBlock, int receiver);
+    double tieLogLike_receiver(int, int recBlock, int sender);
+
+    // Writing Functions for R
+    void writeR(int iter);
+
+    // Individual writeR Functions
+    void writeRBlockMat(int iter);
+    void writeRBlockMemb(int iter);
+    void writeRPosteriorMemb(int iter);
+
+    // Helper Functions
+    void savePosteriorMembOld();
+    void computeHitMiss();
+    bool isMissing(int val) { return (val == missingVal);}
+
+    // Block matrix Functions
+    void logBlockMat();
+    void expBlockMat();
+
+    // Printing Functions
+    void printAdjacencyMatrix();
+    void printBlockMat();
+    void printPosteriorMemb();
+    void printBlockMemb();
+    void printPriorBlockMemb();
 
 };
 
-//  Function for performing the MCMC algorithm
-void sbmMCMC(CSBM *mySBM, int start, int total, int burnIn, int thin,
-	     int shift_size, int extend_max, double qq, //double *flatTable,
-	     double *rBlockMat, int *rBlockMemb,
-	     double *logLik, double *rPosteriorMemb, int verbose);
-
+//  Function for performing the EM algorithm
 void sbmEM(CSBM *mySBM, int iter_max, double threshold,
 	   double *flatTable, double *rBlockMat, int *rBlockMemb,
 	   double *logLik, double *rPriorBlockMat,
 	   int verbose);
 
-void printAdjacencyMatrix();
+// void printAdjacencyMatrix();
 
 #endif
 

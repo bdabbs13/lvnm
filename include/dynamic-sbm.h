@@ -8,209 +8,175 @@
 
 
 
+
 //  Definition for WSBM class
 class CDynSBM {
  public:
-   /* CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses, */
-   /* 	    int total, int *rTimeMap, double *rHours, */
-   /* 	    int mImpute); */
-   CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
-	    int total, int mImpute);
-   ~CDynSBM();
+    CDynSBM (int rNodes, int rBlocks, int rTimes, int rTimeClasses,
+	     int total, int mImpute);
+    ~CDynSBM();
 
 
-   /***** Time Hash Functions *****/
-   //   int GetEquivalentTime(int t);
+    // Loading Functions
+    void LoadDataR(int *AdjMat, int *rTimeMap, double *rHours,
+		   double *rHyperSender, double *rHyperReceiver,
+		   double *rHyperBlockMat);
 
-   // Loading Functions
-   void LoadDataR(int *AdjMat, int *rTimeMap, double *rHours,
-		  double *rHyperSender, double *rHyperReceiver,
-		  double *rHyperBlockMat);
+    void LoadStateR(double *rSenderEffects, double *rReceiverEffects,
+		    double *rBlockEffects, int *rBlockMemb,
+		    double *rPosteriorMemb, int update_mmb,
+		    double *rPriorSender, double *rPriorReceiver,
+		    double *rPriorBlockMat, double *rPriorBlockMemb,
+		    double *rLogLik);
 
-   void LoadStateR(double *rSenderEffects, double *rReceiverEffects,
-		   double *rBlockEffects, int *rBlockMemb,
-		   double *rPosteriorMemb, int update_mmb,
-		   double *rPriorSender, double *rPriorReceiver,
-		   double *rPriorBlockMat, double *rPriorBlockMemb,
-		   double *rLogLik);
+    /*****  MCMC Interface Functions  *****/
+    //  MCMC Functions
+    void step();
+    void adapt();
 
-   //  Retrieval Functions
-   int GetNodes() const { return aNodes;}
-   int GetBlocks() const { return aBlocks;}
-   int GetTimes() const {return aTimes;}
-   int GetTimeClasses() const {return aClasses;}
+    // Writing Function
+    void write(int iter);
 
+    // Log-Likleihood Function
+    double LogLike();
 
-   /*****  MCMC Interface Functions  *****/
-   //  MCMC Functions
-   void step();
-   void adapt();
+    //  Retrieval Functions
+    int GetNodes() const { return aNodes;}
+    int GetBlocks() const { return aBlocks;}
+    int GetTimes() const {return aTimes;}
+    int GetTimeClasses() const {return aClasses;}
 
-   // Writing Functions
-   void write(int iter);
-
-   // Log-Likleihood Function
-   double LogLike();
-
-
-   // Printing Functions (Primarily for Debugging)
-   void print(bool);
-   void printPriors();
-   void printAllWSBM(bool printNetworks);
-   void printBlockMemb();
-   void PrintCovariance(int tt, int ii);
+    // Printing Functions (Primarily for Debugging)
+    void printPriors();
+    void printAllWSBM(bool printNetworks);
+    void printBlockMemb();
+    void PrintCovariance(int tt, int ii);
 
 
  private:
-   int aNodes;
-   int aBlocks;
-   int aTimes;
-   int aClasses;
-   int missingVal;
-   int aTotal;
-   bool update_mmb;
-   double mhEpsilon;
-   double mhSD;
-   double mhStart;
 
-   enum WriterType { R_WRITER, TEXT_WRITER};
-   WriterType aWriter;
+    /**********  Parameters and Containers  **********/
 
-   /***** Observed Network *****/
-   std::vector<CWSBM *> aWsbmList;
+    // Dimensional Parameters
+    int aNodes;
+    int aBlocks;
+    int aTimes;
+    int aClasses;
+    int aTotal;
 
-   /***** Time Hash Functions *****/
-   std::vector<double> aHours;
-   std::vector<int> aTimeMap;
+    // Flags
+    int missingVal;
+    bool update_mmb;
+    bool aImputeFlag;
+    bool is_BlockMat_logged;
 
-   //  Block Membership Vector
-   std::vector<int> aBlockMemb; // aNodes
-   std::vector<std::vector<double> > aPosteriorMemb; // aNodes x aBlocks
-
-   //  Priors
-   std::vector<double> aPriorBlockMemb;
-   std::vector<std::vector<double *> *> aPriorSender;
-   std::vector<std::vector<double *> *> aPriorReceiver;
-   std::vector< std::vector<std::vector<double *> > *> aPriorBlockMat;
-
-   //  Adaptive Sampling Characteristics
-   int covCount;
-   std::vector<std::vector<double *> *> aPriorSenderCov;
-   std::vector<std::vector<double *> *> aPriorReceiverCov;
-   std::vector< std::vector<std::vector<double *> > *> aPriorBlockMatCov;
-
-   //  Hyperpriors
-   double aHyperSender[4];
-   double aHyperReceiver[4];
-   double aHyperBlockMat[4];
-
-   /***** R Storage Pointers *****/
-   double *aRPriorSender;
-   double *aRPriorReceiver;
-   double *aRPriorBlockMat;
-   int *aRBlockMemb;
-   double *aRPosteriorMemb;
-   double *aRLogLike;
-
-   /***** Flags *****/
-   bool aImputeFlag;
-   bool is_BlockMat_logged;
+    // Adaptive MCMC Parameters
+    double mhEpsilon;
+    double mhSD;
+    double mhStart;
 
 
+    /***** WSBM Objects  *****/
+    std::vector<CWSBM *> aWsbmList;
 
-   // Loading Functions
-   void LoadTime(int *rTimeMap, double *rHours);
-   void LoadAdjacencyMatrices(int *AdjMat);
-   void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
-   			double *rHyperBlockMat);
-   void LoadParameters(double *rSenderEffects, double *rReceiverEffects,
-   		       double *rBlockEffects, int *rBlockMemb,
-   		       double *rPosteriorMemb, int update_mmb);
-   void LoadPriors(double *rPriorSender, double *rPriorReceiver,
-   		   double *rPriorBlockMat, double *rPriorBlockMemb);
-   void LoadLogLike(double *rLogLik);
-   void PassReferences();
+    /***** Time Hash Functions *****/
+    std::vector<double> aHours;
+    std::vector<int> aTimeMap;
 
-   // MCMC Functions
-   void DrawPriors();
-   void DrawParameters();
-   void DrawBlockMemb();
-   //void imputeMissingValues();  //Need to be updated
+    /*****  Block Membership Params  *****/
+    std::vector<int> aBlockMemb; // aNodes
+    std::vector<std::vector<double> > aPosteriorMemb; // aNodes x aBlocks
 
-   void DrawPriorSender();
-   void DrawPriorReceiver();
-   void DrawPriorBlockMat();
+    /*****  Prior Containers  *****/
+    std::vector<double> aPriorBlockMemb;
+    std::vector<std::vector<double *> *> aPriorSender;
+    std::vector<std::vector<double *> *> aPriorReceiver;
+    std::vector< std::vector<std::vector<double *> > *> aPriorBlockMat;
 
-   // Writing Functions
-   void writeR(int iter);
+    /*****  Adaptive Sampling Containers  *****/
+    int covCount;
+    std::vector<std::vector<double *> *> aPriorSenderCov;
+    std::vector<std::vector<double *> *> aPriorReceiverCov;
+    std::vector< std::vector<std::vector<double *> > *> aPriorBlockMatCov;
 
-   // Internal Loading Functions
-   void LoadPriorSender();
-   void LoadPriorReceiver();
-   void LoadPriorBlockMat();
+    //  Hyperpriors
+    double aHyperSender[4];
+    double aHyperReceiver[4];
+    double aHyperBlockMat[4];
 
-   /* void RLoadBlockMat(double *rBlockMat); */
-   /* void RLoadBlockMemb(int *rBlockMemb); */
-   /* void RLoadPosteriorMemb(double *rPosteriorMemb); */
-   /* void RLoadSenderEffects(double *rSenderEffects); */
-   /* void RLoadReceiverEffects(double *rReceiverEffects); */
+    /*****  Writer Information  *****/
+    enum WriterType { R_WRITER, TEXT_WRITER};
+    WriterType aWriter;
 
-   // Internal Updating Functions
-   void writeRPriorSender(int iter);
-   void writeRPriorReceiver(int iter);
-   void writeRPriorBlockMat(int iter);
-   void writeRBlockMemb(int iter);
-   void writeRPosteriorMemb(int iter);
-   void writeRLogLike(int iter);
-
-   /*
-   void updateBlockMat(int iter , double *rBlockMat);
-   void updateBlockMemb(int iter, int *rBlockMemb); // updateMMB
-   void updatePriorBlockMemb(double *rPriorBlockMat);
-   void updatePosteriorMemb(int iter, double *rPosteriorMemb);
-   void updateSenderEffects(int iter, double *rSenderEffects);
-   void updateReceiverEffects(int iter, double *rReceiverEffects);
-   */
-
-   // Helper Functions
-   void savePosteriorMembOld();
-   void saveBlockMatOld();
-   void computeBlockTieSums();
-   void computeRowColSums();
-   void computeBlockSenderEffects();
-   void computeBlockReceiverEffects();
-   bool isMissing(int val) { return (val == missingVal);}
-
-   // Log-Likelihood Functions
-   double nodeLogLike(int ii);
-   double tieLogLike(int yy, int sendBlock, int recBlock);
-   double GetTieMean(int ss, int rr);
-
-   // Block matrix Functions
-   //   void logBlockMat();
-   //   void expBlockMat();
-
-   // Debugging Functions
-   void printPriorSender();
-   void printPriorReceiver();
-   void printPriorBlockMat();
-
-   /* void printAdjacencyMatrix(); */
-   /* void printBlockMat(); */
-   /* void printPosteriorMemb(); */
-   /* void printBlockMemb(); */
-   /* void printPriorBlockMemb(); */
-   /* void printSenderEffects(); */
-   /* void printReceiverEffects(); */
+    /*****  Pointers for R_WRITER  *****/
+    double *aRPriorSender;
+    double *aRPriorReceiver;
+    double *aRPriorBlockMat;
+    int *aRBlockMemb;
+    double *aRPosteriorMemb;
+    double *aRLogLike;
 
 
+    /**********  Internal Functions  **********/
 
+    // LoadData Functions
+    void LoadTime(int *rTimeMap, double *rHours);
+    void LoadAdjacencyMatrices(int *AdjMat);
+    void LoadHyperPriors(double *rHyperSender, double *rHyperReceiver,
+			 double *rHyperBlockMat);
+
+    // LoadStateR Functions
+    void LoadParameters(double *rSenderEffects, double *rReceiverEffects,
+			double *rBlockEffects, int *rBlockMemb,
+			double *rPosteriorMemb, int update_mmb);
+
+    void LoadPriors(double *rPriorSender, double *rPriorReceiver,
+		    double *rPriorBlockMat, double *rPriorBlockMemb);
+    // Internal Loading Functions
+    void LoadPriorSender();
+    void LoadPriorReceiver();
+    void LoadPriorBlockMat();
+
+    void LoadLogLike(double *rLogLik);
+    void PassReferences();
+
+    // MCMC Functions
+    void DrawPriors();
+    // Subfunctions of Draw Priors
+    void DrawPriorSender();
+    void DrawPriorReceiver();
+    void DrawPriorBlockMat();
+
+    void DrawParameters();
+    // Subfunction of DrawParameters
+    void DrawBlockMemb();
+    //void imputeMissingValues();  //Need to be updated
+
+    // Log-Likelihood Functions
+    double nodeLogLike(int ii);
+
+
+    // Writing Functions for R
+    void writeR(int iter);
+
+    void writeRPriorSender(int iter);
+    void writeRPriorReceiver(int iter);
+    void writeRPriorBlockMat(int iter);
+    void writeRBlockMemb(int iter);
+    void writeRPosteriorMemb(int iter);
+    void writeRLogLike(int iter);
+
+    // Printing Functions
+    void printPriorSender();
+    void printPriorReceiver();
+    void printPriorBlockMat();
 
 };
 
 //  Function for performing the MCMC algorithm
 void dynSBMMCMC(CDynSBM *myDynSBM, int start, int total, int burnIn, int thin,
-	   int shift_size, int extend_max, double qq, int verbose);
+		int shift_size, int extend_max, double qq, int verbose);
+
 
 #endif
 

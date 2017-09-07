@@ -2,70 +2,57 @@
 % Please edit documentation in R/wsbm.R
 \name{wsbm}
 \alias{wsbm}
-\title{Weighted Stochastic Block Model Estimator}
+\title{Create Weighted Stochastic Block Model Object}
 \usage{
-wsbm(net, kk = 3, hours = 1, self.ties = TRUE, total = 1000,
-  burn.in = 500, thin = 10, priors = wsbm.priors(), eta = rep(1/kk, kk),
-  init.vals = NULL, spectral.start = FALSE, clean.out = FALSE,
-  verbose = 0, autoconverge = wsbm.convergence(), multistart = 0,
-  multistart.total = 20, label.switch.mode = c("adhoc", "kl-loss"),
-  max.runs = 200, multiImpute = FALSE)
+wsbm(nn, mmb, BB, SS = rep(1, nn), RR = rep(1, nn), mmb.prior = c(0.5,
+  0.5), self.ties = TRUE, hours = 1, gen = FALSE)
 }
 \arguments{
-\item{net}{Adjacency matrix}
+\item{nn}{number of nodes in the network}
 
-\item{kk}{Number of blocks}
+\item{mmb}{block memberhsip vector}
 
-\item{hours}{Scaling parameter}
+\item{BB}{block propensity matrix}
 
-\item{self.ties}{If true assumes self ties are possible}
+\item{SS}{sender effect vector}
 
-\item{total}{Number of draws output by MCMC sampler}
+\item{RR}{receiver effect vector}
 
-\item{burn.in}{Number of iterations to discard}
+\item{mmb.prior}{prior distribution for multinomial distribution over
+block memberships}
 
-\item{thin}{Amount of draws to thin by}
+\item{self.ties}{if true self ties are allowed}
 
-\item{priors}{Priors for MCMC algorithm.  See wsbm.priors for more details}
+\item{hours}{scaling factor so that other factors can be interpreted
+as hourly rate parameters.}
 
-\item{eta}{Prior on block membership vector}
-
-\item{init.vals}{List containing parameters for initialization}
-
-\item{spectral.start}{If true, a spectral clustering algorithm is used to
-obtain initial parameter estimates}
-
-\item{clean.out}{If true, removes MCMC chain from output and only
-returns posterior means}
-
-\item{verbose}{Higher values correspond to more informative output as the
-sampler runs}
-
-\item{autoconverge}{Parameters for checking convergence of MCMC chain.
-See wsbm.convergence for more details.}
-
-\item{multistart}{If multistart is greater than 0, multistart random
-initializations are used to find an optimal starting point for the
-MCMC algorithm}
-
-\item{multistart.total}{Number of iterations to perform for each
-multistart chain}
-
-\item{label.switch.mode}{Methods for correcting label switching issues
-within MCMC chain.  The "kl-loss" method is more principled but very slow.}
+\item{gen}{if TRUE also samples a network from the model and includes it as a
+component of the model object}
 }
 \value{
-Returns a wsbm object that has posterior means for each parameter
-in the weighted directed degree corrected stochastic block model.  If
-clean.out is FALSE, this object also contains an element 'chain' which
-contains the thinned and burned in draws from the MCMC sampler.  The prior
-parameters from the call to wsbm are also included.
+Returns a "wsbm" model object containing all the parameters needed
+for sampling networks from the model.  If gen = TRUE, the object also
+contains a network sampled from this parameterization.
 }
 \description{
-Estimates parameters for the weighted stochastic block model using
-an MCMC algorithm.
+Generates a Model Object for a Weighted Stochastic Block Model
+}
+\examples{
+kk <- 3
+nn <- kk^2 * 10
+mmb <-  rep(1:kk,each=nn/kk)
+BB <- array(1,c(kk,kk)); diag(BB) <- 5
+SS <- RR <- rep(c(rep(5,nn/(kk^2)),rep(1,nn*(kk-1)/(kk^2))),kk)
+set.seed(100)
+dat <- wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR,gen=TRUE)
+
+### Plotting Intensity Matrix and Adjacency Matrix
+par(mfrow=c(1,2))
+plot(dat,main="Mean Intensity Matrix")
+network.plot(dat,main="Adjacency Matrix")
+
 }
 \seealso{
-\code{\link{wsbm.priors}}, \code{\link{wsbm.convergence}}
+\code{\link{wsbm.fit}}
 }
 

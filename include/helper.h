@@ -94,7 +94,11 @@ double ldGammaPrior(double alpha, double beta,
 void getMeanVar(double *vec, int lower, int upper,
 		double *Mean_t, double *Var_t, double * Len_t);
 
+void getMeanVar(std::vector<double> vec, int lower, int upper,
+		double &mm, double &vv, double &ll);
+
 int convergenceCheck(double *logLik, int total, double qq);
+bool convergenceCheck(std::vector<double> logLik, double qq);
 
 double var(double *vec, int end);
 void getCovariance(double *v1, double *v2, int start, int end,
@@ -137,6 +141,11 @@ void logZeroFix(std::vector<double> &vec);
 void logZeroFix(double *vec, int ll);
 
 double logCheck(double val);
+
+/* template <class T> */
+/* void MCMC(T *Mod, int start, int total, int burnIn, int thin, */
+/* 	  int extend_max, double qq, int verbose); */
+
 
 
 

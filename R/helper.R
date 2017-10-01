@@ -6,6 +6,9 @@
 #####
 ##############################################################
 
+#' @include generics.R
+NULL
+
 get.weighted.adj <- function(ig){
   elm <- igraph::get.edgelist(ig)
   elm <- cbind(elm,igraph::E(ig)$count)
@@ -23,6 +26,18 @@ import.weighted.gml <- function(fn){
     ig <- igraph::read_graph(fn,format="gml")
     return(get.weighted.adj(ig))
 }
+
+PI.to.mmb <- function(PI){
+    return(apply(PI,1,which.max))
+}
+
+mmb.to.PI <- function(mmb,kk=max(mmb)){
+    nn <- length(mmb)
+    PI <- array(0,c(nn,kk))
+    PI[cbind(1:nn,mmb)] <- 1
+    return(PI)
+}
+
 
 max.acf <- function(flatTable,kk.max=100,make.plot=TRUE){
   cols <- ncol(flatTable)
@@ -208,7 +223,7 @@ read.and.convert.time.table <- function(fn,start,duration,
                                     monday=monday)
 
     message((proc.time() - t0)[3],":  ","Reading Data File...")
-    tab <- raw.data <- read.csv(gzfile(fn),nrows = 10,skip=0,
+    tab <- raw.data <- utils::read.csv(gzfile(fn),nrows = 10,skip=0,
                                 stringsAsFactors = FALSE)
     classes <- sapply(raw.data,class)
     classes[] <- "NULL"
@@ -216,7 +231,7 @@ read.and.convert.time.table <- function(fn,start,duration,
     classes[receiver.col] <- "numeric"
     classes[time.col] <- "character"
 
-    tab <- read.csv(gzfile(fn),nrows = max.rows,skip=0,
+    tab <- utils::read.csv(gzfile(fn),nrows = max.rows,skip=0,
                     colClasses=classes)
 
     message("Data File has ",nrow(tab)," rows")
@@ -418,6 +433,7 @@ format.vector <- function(vec,digits=3,max.width=78,...){
 
 }
 
+#' @describeIn network.plot Plots heatmap assuming x is an adjacency matrix
 #' @export
 network.plot.matrix <- function(x,pal=grey((50:1)/50),
                                 node.order=NULL, ...){
@@ -429,6 +445,11 @@ network.plot.matrix <- function(x,pal=grey((50:1)/50),
 }
 
 
+#' @describeIn network.plot Plots heatmap for multiple adjacency matrices
+#'   combined into a single 3-dimensional array.  Dimensions 1 and 2 are
+#'   assumed to correspond to the nodes, and dimension 3 the different
+#'   networks.
+#' @export
 network.plot.array <- function(x,pal=grey((50:1)/50),
                                node.order=NULL, ...){
 
@@ -552,8 +573,7 @@ node.gamma.plot <- function(mat,
 
 
 #####  Function for drawing from posterior predictive Gamma Distributions
-#' @export
-gamma.post.pred <- function(samp,iter.draws=100){
+post.pred.gamma <- function(samp,iter.draws=100){
     total <- nrow(samp)
     out <- rep(NA,iter.draws*total)
     for(ii in 1:total){
@@ -565,29 +585,66 @@ gamma.post.pred <- function(samp,iter.draws=100){
 
 
 #####  Function for plotting posterior Gamma Distributions
-#' @export
-density.mat.plot <- function(mat,col="steelblue2",trans=0.3,xlim,
+mat.plot.density <- function(mat,col="steelblue2",trans,xlim,
                              add=FALSE, ...){
     TT <- ncol(mat)
     first <- !add
     upper.d <- min(mean(mat)*10,max(mat))
+
+    if(missing(trans)) trans <- 0.5 / sqrt(TT)
+
     if(missing(xlim)){
         xlim <- c(0,upper.d)
     }
     for(ii in 1:TT){
         if(first){
-            plot(density(mat[,ii],from=0,to=upper.d,n=1e4),
-                 col=scales::alpha(col,trans),
+            plot(density(mat[,ii],from=0,n=1e4),
+                 col=adjustcolor(col,trans),
                  xlim=xlim, ...)
             first <- FALSE
         }else{
-            lines(density(mat[,ii],from=0,to=upper.d,n=1e4),
-                  col=scales::alpha(col,trans), ...)
+            lines(density(mat[,ii],from=0,n=1e4),
+                  col=adjustcolor(col,trans), ...)
         }
     }
 }
 
 
+
+
+pp.plot <- function(samp, mat=NULL,include.post=TRUE,add=FALSE,
+                    lwd=2,alpha=.05,xlim=NULL,ylim=NULL,
+                    col="steelblue2",trans,
+                    xlab=NULL,ylab=NULL,main=NULL, ...){
+
+    if(is.null(xlim)){
+        qq <- min(.001,alpha/4)
+        xlim <- quantile(samp,c(qq,1-qq))
+        xlim[1] <- min(xlim[1],mat); xlim[2] <- max(xlim[2],mat)
+    }
+
+    s.den <- density(samp,from=0,n=1e4)
+    if(is.null(ylim)) ylim <- c(0,max(s.den$y)*2)
+
+    if(add){
+        lines(s.den,col=col,lwd=lwd, ...)
+    }else{
+        if(is.null(xlab)) xlab <- "Parameter"
+        if(is.null(ylab)) ylab <- "Density"
+        if(is.null(main)) main <- "Posterior Predictive Density"
+        plot(s.den,col=col,type="l",
+             main=main,xlab=xlab,xlim=xlim,ylim=ylim,lwd=lwd, ...)
+    }
+
+    if(include.post){
+        if(is.null(mat)) stop("mat must not be NULL if include.post is true")
+        mat.plot.density(mat,col=col,add=TRUE, lwd=lwd, ...)
+    }
+
+    abline(v=quantile(samp,c(alpha/2,1-(alpha/2))),
+           col=col,lty=2,lwd=lwd,...)
+
+}
 
 
 
@@ -596,9 +653,10 @@ density.mat.plot <- function(mat,col="steelblue2",trans=0.3,xlim,
 #' Generates an adjacency matrix given a tie intensity or tie probability
 #' matrix
 #'
-#' @param x object of class matrix
+#' @param object object of class matrix
 #' @param self.ties if FALSE, the diagonals are structurally missing
-#' @param d distribution for sampling
+#' @param distribution distribution for sampling
+#' @param ... additional parameters
 #'
 #' @return Returns a matrix representing the adjacency matrix for a network
 #' drawn with the given tie intensities/probabilities
@@ -613,20 +671,47 @@ density.mat.plot <- function(mat,col="steelblue2",trans=0.3,xlim,
 #'
 #' @seealso \code{\link{net.gen.wsbm}}, \code{\link{net.gen.dynsbm}}
 #' @export
-net.gen.matrix <- function(x,self.ties=TRUE,
-                           d=c("poisson","bernoulli")){
-    if(dim(x)[1] != dim(x)[2])
+net.gen.matrix <- function(object,self.ties=TRUE,
+                           distribution=c("poisson","bernoulli"), ...){
+    if(dim(object)[1] != dim(object)[2])
         stop("Network intensity matrices must be symmetric")
-    nn <- dim(x)[1]
+    nn <- dim(object)[1]
 
-    d <- match.arg(d)
+    d <- match.arg(distribution)
     if(d == "poisson"){
-        net <- array(rpois(nn*nn,x),c(nn,nn))
+        net <- array(rpois(nn*nn,object),c(nn,nn))
     }else if(d == "bernoulli"){
-        net <- array(rbinom(nn*nn,1,x),c(nn,nn))
+        net <- array(rbinom(nn*nn,1,object),c(nn,nn))
     }
     if(!(self.ties)){
         diag(net) <- NA
     }
     return(net)
 }
+
+
+
+find.quantile <- function(x1,x2,twosided=FALSE){
+    x1 <- sort(x1); x2 <- sort(x2)
+    if(x2[1] < x1[1]){ s2 <- x1; s1 <- x2}
+    else{s1 <- x1; s2 <- x2}
+
+    n1 <- length(s1); n2 <- length(s2)
+    q1 <- 0; q2 <- 0
+    i2 <- 1
+    for(i1 in 1:n1){
+        q1 <- q1 + 1/n1
+        while((i2 < n2) && (s2[i2] < s1[i1])){
+            q2 <- q2 + 1/n2
+            i2 <- i2 + 1
+        }
+        if((1 - q2) < q1) break;
+    }
+    qmean <- mean(1-q1,q2)
+    qout <- min(qmean,1-qmean)
+    if(twosided) qout <- qout*2
+    mout <- round(mean(s1[i1],s2[i2]),6)
+    return(c(val=mout,q=round(qout,5)))
+}
+
+

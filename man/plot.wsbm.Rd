@@ -16,9 +16,7 @@ estimated block membership vector.}
 
 \item{pal}{pallete of colors to use ordered from low to high intensity}
 
-\item{xaxt}{a character which specifies the axis type}
-
-\item{yaxt}{a character which specifies the axis type}
+\item{...}{additional graphical parameters}
 }
 \description{
 Plots the expected mean tie probabilities for a given wsbm object.
@@ -29,11 +27,10 @@ indicate larger expected intensities.
 }
 \examples{
 data(commuter30)
-fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 plot(fit.1)
 
 }
 \seealso{
 \code{\link{wsbm.fit}}
 }
-

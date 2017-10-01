@@ -10,27 +10,26 @@
 \arguments{
 \item{x}{object of class dynsbm}
 
+\item{marginal}{if TRUE average tie probabilities for the equivalence
+classes are plotted.  If marginal is FALSE, the average tie probability
+for each individual network is plotted instead.}
+
 \item{node.order}{determines ordering of nodes.  "default" uses the original
 order of the adjacency matrix.  "membership" first orders the data using the
 estimated block membership vector.}
 
-\item{pal}{pallete of colors to use ordered from low to high intensity}
+\item{pal}{color palette used to indicate tie intensity}
 
-\item{xaxt}{a character which specifies the axis type}
-
-\item{yaxt}{a character which specifies the axis type}
+\item{...}{additional graphical parameters}
 }
 \description{
 Plots the expected mean tie probabilities for a given dynsbm object.
 }
 \details{
-Plots a greyscale image of the adjacency matrix.  Darker colors
-indicate larger expected intensities.
-}
-\examples{
-
+Plots a greyscale image of the mean tie intensity matrix.  The
+  individual network parameters are marginalized over each equivalence
+  class when marginal = TRUE.
 }
 \seealso{
 \code{\link{dynsbm}}
 }
-

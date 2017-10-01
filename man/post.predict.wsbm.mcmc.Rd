@@ -4,11 +4,13 @@
 \alias{post.predict.wsbm.mcmc}
 \title{Posterior Predictive Distribution Method for WSBM Fits}
 \usage{
-\method{post.predict}{wsbm.mcmc}(x, ...)
+\method{post.predict}{wsbm.mcmc}(object, ...)
 }
 \arguments{
-\item{x}{a fitted object of the class "wsbm".  Requires clean.out = FALSE
-in the call to wsbm.}
+\item{object}{a fitted object of the class "wsbm".  Requires
+clean.out = FALSE in the call to wsbm.}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns a 3 dimensional array of dimension n x n x total, where n
@@ -20,10 +22,11 @@ Generates a posterior predictive distribution for each tie in a network.
 }
 \examples{
 data(commuter30)
-fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 
-pp.dist <- post.pred(fit.1)
-density.ppd <- apply(post.pred,3,mean)
+pp.dist <- post.predict(fit.1)
+density.ppd <- apply(pp.dist,3,mean)
+##  Summarizing Posterior Prediction of Average Ties in Network
 summary(density.ppd)
 
 
@@ -31,4 +34,3 @@ summary(density.ppd)
 \seealso{
 \code{\link{wsbm.fit}} \code{\link{predict.wsbm}}
 }
-

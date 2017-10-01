@@ -4,10 +4,10 @@
 \alias{DIC}
 \title{Calculate Deviance Information Criterion}
 \usage{
-DIC(x, ...)
+DIC(object, ...)
 }
 \arguments{
-\item{x}{object for which to calculate DIC}
+\item{object}{object for which to calculate DIC}
 
 \item{...}{additional parameters}
 }
@@ -29,4 +29,3 @@ argument.
 \seealso{
 \code{\link{AIC}} \code{\link{BIC}}
 }
-

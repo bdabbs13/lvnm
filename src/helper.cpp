@@ -678,12 +678,12 @@ void colSums(std::vector<std::vector<double> > const &mat, double *totals){
 
     int nrow = mat.size();
     if(nrow < 1){
-	std::cout << "Matrix has no rows" << std::endl;
+	Rprintf("Matrix has no rows\n");
 	return;
     }
     int ncol = mat[0].size();
     if(ncol < 1){
-	std::cout << "Matrix has no columns" << std::endl;
+	Rprintf("Matrix has no columns\n");
 	return;
     }
 
@@ -703,12 +703,12 @@ void colSums(std::vector<std::vector<double> > const &mat,
 
     int nrow = mat.size();
     if(nrow < 1){
-	std::cout << "Matrix has no rows" << std::endl;
+	Rprintf("Matrix has no rows\n");
 	return;
     }
     int ncol = mat[0].size();
     if(ncol < 1){
-	std::cout << "Matrix has no columns" << std::endl;
+	Rprintf("Matrix has no columns\n");
 	return;
     }
 
@@ -770,12 +770,12 @@ void rowSums(std::vector<std::vector<double> > const &mat,
 
     int nrow = mat.size();
     if(nrow < 1){
-	std::cout << "Matrix has no rows" << std::endl;
+	Rprintf("Matrix has no rows\n");
 	return;
     }
     int ncol = mat[0].size();
     if(ncol < 1){
-	std::cout << "Matrix has no columns" << std::endl;
+	Rprintf("Matrix has no columns\n");
 	return;
     }
 

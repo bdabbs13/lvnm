@@ -1,13 +1,29 @@
 Package: lvnm
-Version: 0.4.0
-Date: 2016-09-21
+Version: 0.5.0
+Date: 2017-09-14
 Title: Latent Variable Network Models
-Author: Beau Dabbs <bdabbs@andrew.cmu.edu>
-Maintainer: Beau Dabbs <bdabbs@andrew.cmu.edu>
+Author: Beau Dabbs <bdabbs13@gmail.com>
+Maintainer: Beau Dabbs <bdabbs13@agmail.com>
 Description: lvnm fits various latent variable network models.
 License: GPL (>= 2.0)
 Imports:
-    svd,
-    lpSolve,
-    igraph
-RoxygenNote: 5.0.1
+    igraph,
+    stats,
+    graphics,
+    grDevices,
+    rgdal,
+    rgeos,
+    geosphere
+RoxygenNote: 6.0.1
+Collate: 
+    'data.R'
+    'generics.R'
+    'helper.R'
+    'wsbm.R'
+    'dynamic-sbm.R'
+    'gamma.prior.R'
+    'lvnm.R'
+    'mapnetplot.R'
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

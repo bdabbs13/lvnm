@@ -4,10 +4,12 @@
 \alias{net.gen.wsbm}
 \title{Generate Weighted Stochastic Block Model Networks}
 \usage{
-\method{net.gen}{wsbm}(x)
+\method{net.gen}{wsbm}(object, ...)
 }
 \arguments{
-\item{x}{object of class "wsbm"}
+\item{object}{object of class "wsbm"}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns a matrix representing the adjacency matrix for a network
@@ -27,8 +29,13 @@ set.seed(100)
 model <- wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR)
 net <- net.gen(model)
 
+plot(net)
+
+par(mfrow=c(2,2))
+for(ii in 1:4) plot(net.gen(model))
+
+
 }
 \seealso{
 \code{\link{wsbm}} \code{\link{wsbm.fit}}
 }
-

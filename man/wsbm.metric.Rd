@@ -30,10 +30,9 @@ Generates predicted intensities for a WSBM model given a network.
 }
 \examples{
 data(commuter30)
-met.3 <- wsbm.metric(commuter30,kk=3)
+met.3 <- wsbm.metric(commuter30$net,kk=3)
 
 }
 \seealso{
 \code{\link{wsbm}} \code{\link{predict.wsbm}}
 }
-

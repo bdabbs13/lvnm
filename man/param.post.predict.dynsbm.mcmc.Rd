@@ -4,11 +4,12 @@
 \alias{param.post.predict.dynsbm.mcmc}
 \title{Posterior Prediction of Future Parameter Values}
 \usage{
-\method{param.post.predict}{dynsbm.mcmc}(x, tclass, param = c("block",
+\method{param.post.predict}{dynsbm.mcmc}(object, tclass, param = c("block",
   "sender", "receiver"), ...)
 }
 \arguments{
-\item{x}{a fitted object of the class "dynsbm".  Requires clean.out = FALSE
+\item{object}{a fitted object of the class "dynsbm".  Requires
+clean.out = FALSE
 in the call to dynsbm.}
 
 \item{tclass}{which equivalence class to compute posterior predictive
@@ -16,6 +17,8 @@ distribution for.}
 
 \item{param}{which parameter to compute posterior predictive distribution
 for.}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns an array containing posterior predictive samples for the
@@ -25,10 +28,6 @@ given parameters.
 Generates a posterior predictive distribution for parameters in the
 DynSBM Model
 }
-\examples{
-
-}
 \seealso{
 \code{\link{dynsbm}} \code{\link{predict.dynsbm}}
 }
-

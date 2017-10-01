@@ -1,15 +1,18 @@
-#####  sbm.R
+#####  dynsbm.R
 #####  Functions Implementing SBM and MMSBM Fitting in C:
 #####    sbm - Fits SBM Model
 #####    mmsbm.C - Fits MMSBM Model
 #####    mmsbm - Fits MMSBM choosing intelligent starting values
 #####
 ##############################################################
-                                        #library(svd)
+
 #####  Function to generate data from WSBM model
 
 ####  Create some good examples for data generation
 
+
+#' @include generics.R helper.R wsbm.R
+NULL
 
 #' Create Dynamic Stochastic Block Model Object
 #'
@@ -22,6 +25,12 @@
 #' @param BB.prior block effect prior parameters for each equivalence class
 #' @param SS.prior sender effect prior parameters for each equivalence class
 #' @param RR.prior receiver effect prior parameters for each equivalence class
+#' @param BB.mat block effect parameters for each network.  Sampled from
+#'   BB.prior if not provided.
+#' @param SS.mat sender effect parameters for each network.  Sampled from
+#'   SS.prior if not provided.
+#' @param RR.mat receiver effect parameters for each network.  Sampled from
+#'   RR.prior if not provided.
 #' @param mmb.prior prior distribution for multinomial distribution over
 #' block memberships
 #' @param mmb block memberhsip vector
@@ -49,10 +58,14 @@
 #' SS.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 #' RR.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 #' dat <- dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
-#'               BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior
+#'               BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior,
 #'               mmb=mmb,self.ties=TRUE,normalize=TRUE,gen=TRUE)
 #'
-#' @seealso \code{\link{dynsbm}}
+#' plot(dat)
+#' plot(dat,marginal=FALSE)
+#' network.plot(dat)
+#'
+#' @seealso \code{\link{dynsbm.fit}}
 #' @export
 dynsbm <- function(nn=40,TT=4,tmap=rep(1:2,2),hours.vec=c(1,1),
                    BB.prior=NULL,SS.prior=NULL,RR.prior=NULL,
@@ -171,8 +184,10 @@ dynsbm <- function(nn=40,TT=4,tmap=rep(1:2,2),hours.vec=c(1,1),
 }
 
 
+#' @describeIn dynsbm Test whether an object is of class dynsbm
+#' @param object object that could be of class "dynsbm"
 #' @export
-is.dynsbm <- function(x) inherits(x,"dynsbm")
+is.dynsbm <- function(object) inherits(object,"dynsbm")
 
 
 #' Generate Set of Dynamic Stochastic Block Model Networks
@@ -180,23 +195,13 @@ is.dynsbm <- function(x) inherits(x,"dynsbm")
 #' Generates networks from the weighted stochastic block model
 #' with or without degree effects.
 #'
-#' @param nn number of nodes in the network
-#' @param TT number of networks to generate
-#' @param tmap mapping from time points 1:TT to equivalence classes
-#' @param hours.vec number of hours for each equivalence class
-#' @param BB.prior block effect prior parameters for each equivalence class
-#' @param SS.prior sender effect prior parameters for each equivalence class
-#' @param RR.prior receiver effect prior parameters for each equivalence class
-#' @param mmb.prior prior distribution for multinomial distribution over
-#' block memberships
-#' @param mmb block memberhsip vector
-#' @param self.ties if TRUE self ties are allowed
-#' @param normalize if TRUE, sender/receiver effects are normalized to have a
-#' mean of 1 within each block
+#' @param object object of class "dynsbm"
+#' @param marginal if TRUE, parameters are sampled from prior distributions
+#' before simulating a new network
+#' @param ... additional parameters
 #'
-#' @return Returns a list containing the simulated matrix of networks as the
-#' first component 'net.mat'. The list also contains all of the parameters
-#' used to simulate the networks.
+#' @return Returns an n x n x T array representing a collection of T
+#' networks with n nodes corresponding to the dynsbm object.
 #'
 #' @examples
 #' kk <- 3
@@ -205,52 +210,76 @@ is.dynsbm <- function(x) inherits(x,"dynsbm")
 #' tmap <- rep(1:ee,TT/ee)
 #' hours.vec <- c(12,12)
 #' mmb <-  rep(1:kk,each=nn/kk)
+#'
+#' ###  Setting up Reasonable Prior Distributions
 #' BB.prior <- array(1,c(kk,kk,2,ee))
 #' BB.prior[cbind(1:3,c(2,3,1),1,1)] <- 2
 #' BB.prior[cbind(1:3,c(3,1,2),1,2)] <- 2
 #'
 #' SS.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 #' RR.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
-#' dat <- data.gen.dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
-#'                        BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior
-#'                        mmb=mmb,self.ties=TRUE,normalize=TRUE)
 #'
-#' @seealso \code{\link{dynsbm}}
+#' ###  Setting up Object with Dynsbm Parameters
+#' dat <- dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
+#'               BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior,
+#'               mmb=mmb,self.ties=TRUE,normalize=TRUE)
+#'
+#' ###  Sampling New Edges Only
+#' net.mat.1 <- net.gen(dat)
+#' network.plot(net.mat.1)
+#'
+#' net.mat.2 <- net.gen(dat)
+#' network.plot(net.mat.2)
+#'
+#' net.mat.3 <- net.gen(dat)
+#' network.plot(net.mat.3)
+#'
+#' ###  Resampling Parameters from Priors and Edges
+#' net.mat.marg.1 <- net.gen(dat,marginal=TRUE)
+#' network.plot(net.mat.marg.1)
+#'
+#' net.mat.marg.2 <- net.gen(dat,marginal=TRUE)
+#' network.plot(net.mat.marg.2)
+#'
+#' net.mat.marg.3 <- net.gen(dat,marginal=TRUE)
+#' network.plot(net.mat.marg.3)
+#'
+#' @seealso \code{\link{dynsbm}}, \code{\link{dynsbm.fit}}
 #' @export
-net.gen.dynsbm <- function(x,marginal=FALSE){
+net.gen.dynsbm <- function(object,marginal=FALSE, ...){
 
-    nn <- x$nn; TT <- x$TT; tmap <- x$tmap; kk <- x$kk
+    nn <- object$nn; TT <- object$TT; tmap <- object$tmap; kk <- object$kk
 
     if(marginal){
         BB.mat <- array(NA,c(kk,kk,TT))
         for(tt in 1:TT){
-            BB.mat[,,tt] <- rgamma(kk^2,x$BB.prior[,,1,tmap[tt]],
-                                   x$BB.prior[,,2,tmap[tt]])
+            BB.mat[,,tt] <- rgamma(kk^2,object$BB.prior[,,1,tmap[tt]],
+                                   object$BB.prior[,,2,tmap[tt]])
         }
 
         SS.mat <- array(NA,c(nn,TT))
         for(tt in 1:TT){
-            SS.mat[,tt] <- rgamma(nn,x$SS.prior[,1,tmap[tt]],
-                                  x$SS.prior[,2,tmap[tt]])
+            SS.mat[,tt] <- rgamma(nn,object$SS.prior[,1,tmap[tt]],
+                                  object$SS.prior[,2,tmap[tt]])
         }
 
         RR.mat <- array(NA,c(nn,TT))
         for(tt in 1:TT){
-            RR.mat[,tt] <- rgamma(nn,x$RR.prior[,1,tmap[tt]],
-                                  x$RR.prior[,2,tmap[tt]])
+            RR.mat[,tt] <- rgamma(nn,object$RR.prior[,1,tmap[tt]],
+                                  object$RR.prior[,2,tmap[tt]])
         }
 
-        x$BB.mat <- BB.mat
-        x$SS.mat <- SS.mat
-        x$RR.mat <- RR.mat
+        object$BB.mat <- BB.mat
+        object$SS.mat <- SS.mat
+        object$RR.mat <- RR.mat
     }
 
-    wsbm.list <- create.wsbm.list(x)
+    wsbm.list <- create.wsbm.list(object)
 
     ##  Creating containers for network and parameters
-    net.mat <- array(NA,c(x$nn,x$nn,x$TT))
+    net.mat <- array(NA,c(object$nn,object$nn,object$TT))
 
-    for(tt in 1:x$TT){
+    for(tt in 1:object$TT){
         net.mat[,,tt] <- net.gen(wsbm.list[[tt]])
     }
     return(net.mat)
@@ -274,6 +303,9 @@ net.gen.dynsbm <- function(x,marginal=FALSE){
 #' If init.control contains a member named init.vals it is interpreted as a
 #' list of parameters from which to start the MCMC chain.
 #' @param mcmc.control control parameters for the MCMC algorithm
+#' @param update.mmb if FALSE, the block membership vector is not updated
+#'   during the MCMC routine.  This can be used if the block memberships are
+#'   known in advance.
 #' @param clean.out if true, removes MCMC chain from output and only
 #' returns posterior means
 #' @param verbose higher values correspond to more informative output as the
@@ -285,10 +317,10 @@ net.gen.dynsbm <- function(x,marginal=FALSE){
 #' contains the thinned and burned in draws from the MCMC sampler.  The prior
 #' parameters from the call to dynsbm are also included.
 #'
-#' @seealso \code{\link{dynsbm.priors}}
+#' @seealso \code{\link{dynsbm}}, \code{\link{dynsbm.priors}}
 #' @export
 dynsbm.fit <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
-                   priors=dynsbm.priors(eta=rep(1/kk,kk)),
+                   priors=dynsbm.priors(),
                    init.control=list(spectral.start=FALSE,
                                      multistart=0,
                                      multistart.total=10),
@@ -299,6 +331,8 @@ dynsbm.fit <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
                                      multi.impute=FALSE),
                    update.mmb=TRUE,clean.out=FALSE, verbose=1){
 
+
+    start.time <- Sys.time()
 
     ##  Parsing Control Parameters and Filling with Defaults
     mcmc.control <- parse.mcmc.control(mcmc.control)
@@ -349,7 +383,8 @@ dynsbm.fit <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
     thin <- mcmc.control$thin
     burn.in <- mcmc.control$burn.in
 
-    ## total <- short.total*thin + burn.in ## Actual Number of Iterations
+    ## Checking for Block Membership Prior
+    if(is.null(priors$eta)) priors$eta <- rep(1/kk,kk)
 
     ##  Storage for Priors
     flatBB.prior = double(total * 2 * kk*kk * ee)
@@ -502,6 +537,10 @@ dynsbm.fit <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
 
     dynsbm.fit.obj <- dynsbm.obj
     dynsbm.fit.obj$chain <- dynsbm.chain.obj
+
+    end.time <- Sys.time()
+    dynsbm.fit.obj$chain$time <- (end.time - start.time)
+
     class(dynsbm.fit.obj) <- c("dynsbm.fit","dynsbm.mcmc","dynsbm")
 
     if(clean.out){
@@ -525,23 +564,23 @@ dynsbm.fit <- function(net.mat, kk=3, tmap, hours.vec, self.ties=TRUE,
 #'
 #' Generating prior parameters for pass to dynsbm
 #'
-#' @param eta prior on block memberships
-#' @param block.alpha shape parameter for Block Effects
-#' @param block.beta rate parameter for Block Effects
-#' @param sender.alpha shape parameter for Sender Effects
-#' @param sender.beta rate parameter for Sender Effects
-#' @param receiver.alpha shape parameter for Receiver Effects
-#' @param receiver.beta rate parameter for Receiver Effects
+#' @param eta prior on block memberships.
+#' @param BB.hyperprior hyperprior parameters for conjugate Gamma
+#' distribution on block effect priors
+#' @param SS.hyperprior hyperprior parameters for conjugate Gamma
+#' distribution on sender effect priors
+#' @param RR.hyperprior hyperprior parameters for conjugate Gamma
+#' distribution on receiver effect priors
 #'
 #' @return Returns a list containing the parameters with useful defaults.  eta
 #' is the only required parameter.
 #'
 #' @seealso \code{\link{dynsbm}}
 #' @export
-dynsbm.priors <- function(eta,
-                          BB.hyperprior=c(.99,1.01,1,1),
-                          SS.hyperprior=c(.99,1.01,1,1),
-                          RR.hyperprior=c(.99,1.01,1,1)){
+dynsbm.priors <- function(eta=NULL,
+                          BB.hyperprior=c(.9999,.0011,.001,.001),
+                          SS.hyperprior=c(.999,.011,.01,.01),
+                          RR.hyperprior=c(.999,.011,.01,.01)){
 
     if(any(BB.hyperprior <= 0)){
         stop("Hyperprior for BB must have positive componenets")
@@ -571,32 +610,32 @@ dynsbm.priors <- function(eta,
 #' Generates a matrix of predicted intensities for each node pair
 #'
 #' @param object a fitted object of the class "dynsbm"
+#' @param marginal if TRUE, prediction is made using the marginal model.
+#' Otherwise, the model conditional on parameter estimates is used
+#' @param reps Number of samples from the marginal model to use when marginal
+#' = TRUE
+#' @param ... additional parameters
 #'
 #' @return Returns an array of predicted intensities.  These intensities are
 #' the predicted values given the posterior mean parameter estimates.
 #'
-#' @examples
-#' data(commuter30)
-#' fit.wsbm <- wsbm(commuter30,kk=3,hours=1)
-#' pred.mat <- predict(fit.wsbm)
-#'
-#' @seealso \code{\link{dynsbm}}
+#' @seealso \code{\link{dynsbm.fit}}
 #' @export
-predict.dynsbm <- function(x, marginal=TRUE, reps = 1000, ...){
+predict.dynsbm <- function(object, marginal=TRUE, reps = 1000, ...){
 
     if(marginal){
-        pmm <- array(NA,c(x$nn,x$nn,x$ee,reps))
-        x$TT <- x$ee
-        x$tmap <- 1:x$ee
+        pmm <- array(NA,c(object$nn,object$nn,object$ee,reps))
+        object$TT <- object$ee
+        object$tmap <- 1:object$ee
         for(ii in 1:reps){
-            pmm[,,,ii] <- net.gen(x,marginal=marginal)
+            pmm[,,,ii] <- net.gen(object,marginal=marginal)
         }
         pmat <- apply(pmm,c(1,2,3),mean)
         return(pmat)
     }else{
-        wsbm.list <-  create.wsbm.list(x)
-        TT <- x$TT
-        pmat <- array(NA,dim(x$net.mat))
+        wsbm.list <-  create.wsbm.list(object)
+        TT <- object$TT
+        pmat <- array(NA,dim(object$net.mat))
 
         for(tt in 1:TT){
             pmat[,,tt] <- predict(wsbm.list[[tt]])
@@ -611,42 +650,29 @@ predict.dynsbm <- function(x, marginal=TRUE, reps = 1000, ...){
 #'
 #' Generates a posterior predictive distribution for each tie in a network.
 #'
-#' @param x a fitted object of the class "dynsbm".  Requires clean.out = FALSE
-#' in the call to dynsbm.
+#' @param object a fitted object of the class "dynsbm".  Requires
+#' clean.out = FALSE in the call to dynsbm.
 #' @param marginal if TRUE, values block, sender, and receiver effects are
 #' marginalized over using the estimated prior parameters.
+#' @param ... additional parameters
 #'
 #' @return Returns a 3 dimensional array of dimension n x n x total, where n
 #' is the number of nodes in the network and total is the number of draws in
 #' the MCMC chain generated using wsbm.
 #'
-#' @examples
-#' data(commuter30)
-#' fit.wsbm <- wsbm(commuter30,kk=3,hours=1)
-#'
-#' pp.dist <- post.pred(fit.wsbm)
-#' density.ppd <- apply(post.pred,3,mean)
-#' summary(density.ppd)
-#'
-#' ##  Initializing with a specific block membership
-#' init.vals <- list(mmb=c(rep(1,15),rep(2,10),rep(3,5)))
-#' fit.wsbm.2 <- wsbm(commuter30,kk=3,hours=1,
-#'                    init.control=list(init.vals=init.vals))
-#' fit.wsbm.2
-#'
 #' @seealso \code{\link{dynsbm}} \code{\link{predict.dynsbm}}
 #' @export
-post.predict.dynsbm.mcmc <- function(x, marginal=TRUE, ...){
-    if(x$chain$clean) stop("Use clean.out = TRUE to keep MCMC chains")
-    nn <- x$nn; TT <- x$TT; ee <- x$ee
-    total <- x$chain$mcmc.control$total
+post.predict.dynsbm.mcmc <- function(object, marginal=TRUE, ...){
+    if(object$chain$clean) stop("Use clean.out = TRUE to keep MCMC chains")
+    nn <- object$nn; TT <- object$TT; ee <- object$ee
+    total <- object$chain$mcmc.control$total
 
 
     if(marginal) pmat.post <- array(NA,c(nn,nn,ee,total))
     else pmat.post <- array(NA,c(nn,nn,TT,total))
 
     for(ii in 1:total){
-        tmp.obj <- get.iter(x,ii)
+        tmp.obj <- get.iter(object,ii)
         if(marginal){
             tmp.obj$TT <- ee
             tmp.obj$tmap <- 1:ee
@@ -666,50 +692,50 @@ post.predict.dynsbm.mcmc <- function(x, marginal=TRUE, ...){
 #################################################################
 
 
-summary.dynsbm.chain <- function(x,...){
+summary.dynsbm.chain <- function(object,...){
 ###    browser()
-    TT <- dim(x$net.mat)[3]
-    total <- dim(x$BB.mat)[3];
-    nn <- x$nn; TT <- x$TT; ee <- x$ee; kk <- x$kk
+    TT <- dim(object$net.mat)[3]
+    total <- dim(object$BB.mat)[3];
+    nn <- object$nn; TT <- object$TT; ee <- object$ee; kk <- object$kk
 
 ###  Summary of Parameters
-    BB.hat <- apply(x$BB.mat,c(1,2,4),mean)
-    SS.hat <- apply(x$SS.mat,c(1,3),mean)
-    RR.hat <- apply(x$RR.mat,c(1,3),mean)
+    BB.hat <- apply(object$BB.mat,c(1,2,4),mean)
+    SS.hat <- apply(object$SS.mat,c(1,3),mean)
+    RR.hat <- apply(object$RR.mat,c(1,3),mean)
 
-    PI.mean <- t(apply(x$mmb,1,tabulate,nbins=kk) / total)
+    PI.mean <- t(apply(object$mmb,1,tabulate,nbins=kk) / total)
     mmb <- apply(PI.mean,1,which.max)
 
 ###  Summary of Priors
-    BB.prior.hat <- apply(x$BB.prior,c(1,2,3,5),mean)
-    SS.prior.hat <- apply(x$SS.prior,c(1,2,4),mean)
-    RR.prior.hat <- apply(x$RR.prior,c(1,2,4),mean)
+    BB.prior.hat <- apply(object$BB.prior,c(1,2,3,5),mean)
+    SS.prior.hat <- apply(object$SS.prior,c(1,2,4),mean)
+    RR.prior.hat <- apply(object$RR.prior,c(1,2,4),mean)
 
 
     dynsbm.obj <- dynsbm(nn=nn,TT=TT,mmb=mmb,
                          BB.prior=BB.prior.hat,BB.mat=BB.hat,
                          SS.prior=SS.prior.hat,SS.mat=SS.hat,
                          RR.prior=RR.prior.hat,RR.mat=RR.hat,
-                         tmap=x$tmap,hours.vec=x$hours.vec,
-                         self.ties=x$self.ties)
+                         tmap=object$tmap,hours.vec=object$hours.vec,
+                         self.ties=object$self.ties)
 
     return(dynsbm.obj)
 
     ##  Calculating Posterior Mean/Variance
-    BB.prior.mean <- apply(x$BB.prior[,,1,,,drop=FALSE]/
-                           x$BB.prior[,,2,,,drop=FALSE],c(1,2,5),mean)
-    BB.prior.var <- apply(x$BB.prior[,,1,,,drop=FALSE]/
-                          (x$BB.prior[,,2,,,drop=FALSE]^2),c(1,2,5),mean)
+    BB.prior.mean <- apply(object$BB.prior[,,1,,,drop=FALSE]/
+                           object$BB.prior[,,2,,,drop=FALSE],c(1,2,5),mean)
+    BB.prior.var <- apply(object$BB.prior[,,1,,,drop=FALSE]/
+                          (object$BB.prior[,,2,,,drop=FALSE]^2),c(1,2,5),mean)
 
-    SS.prior.mean <- apply(x$SS.prior[,1,,,drop=FALSE]/
-                           x$SS.prior[,2,,,drop=FALSE],c(1,4),mean)
-    SS.prior.var <- apply(x$SS.prior[,1,,,drop=FALSE]/
-                          (x$SS.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
+    SS.prior.mean <- apply(object$SS.prior[,1,,,drop=FALSE]/
+                           object$SS.prior[,2,,,drop=FALSE],c(1,4),mean)
+    SS.prior.var <- apply(object$SS.prior[,1,,,drop=FALSE]/
+                          (object$SS.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
 
-    RR.prior.mean <- apply(x$RR.prior[,1,,,drop=FALSE]/
-                           x$RR.prior[,2,,,drop=FALSE],c(1,4),mean)
-    RR.prior.var <- apply(x$RR.prior[,1,,,drop=FALSE]/
-                          (x$RR.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
+    RR.prior.mean <- apply(object$RR.prior[,1,,,drop=FALSE]/
+                           object$RR.prior[,2,,,drop=FALSE],c(1,4),mean)
+    RR.prior.var <- apply(object$RR.prior[,1,,,drop=FALSE]/
+                          (object$RR.prior[,2,,,drop=FALSE]^2),c(1,4),mean)
 }
 
 
@@ -717,15 +743,16 @@ summary.dynsbm.chain <- function(x,...){
 #'
 #' Returns log-likelihood for posterior mean estimates.
 #'
-#' @param x an object of class "dynsbm"
+#' @param object an object of class "dynsbm"
+#' @param ... additional arguments to logLik
 #'
 #' @return returns the log-likelihood of the data given the posterior mean
 #' parameter estimates.
 #'
 #' @seealso \code{\link{dynsbm}}
 #' @export
-logLik.dynsbm <- function(x){
-    return(sum(sapply(create.wsbm.list(x),logLik)))
+logLik.dynsbm <- function(object, ...){
+    return(sum(sapply(create.wsbm.list(object),logLik)))
 }
 
 
@@ -734,7 +761,10 @@ logLik.dynsbm <- function(x){
 #'
 #' Returns Akaike Information Criterion for DynSBM Fit
 #'
-#' @param x an object of class "dynsbm"
+#' @param object an object of class "dynsbm"
+#' @param ... additional arguments to AIC
+#' @param k numeric, the penalty per parameter to be used; the default k = 2
+#' is the classical AIC
 #'
 #' @return returns the Akaike Information Criterion using the posterior mean
 #' parameters as approximations to the MLE.  The number of parameters is taken
@@ -742,12 +772,12 @@ logLik.dynsbm <- function(x){
 #'
 #' @seealso \code{\link{dynsbm}}
 #' @export
-AIC.dynsbm <- function(x){
-    TT <- x$TT # dim(x$net.mat)[3]
-    nn <- x$nn # dim(x$net.mat)[1]
-    kk <- x$kk # dim(x$BB)[1]
+AIC.dynsbm <- function(object, ..., k=2){
+    TT <- object$TT
+    nn <- object$nn
+    kk <- object$kk
     edf <- TT*(2*(nn-kk) + kk^2) +nn
-    return(-2*logLik(x) + 2 * edf)
+    return(-2*logLik(object) + k * edf)
 }
 
 
@@ -756,20 +786,22 @@ AIC.dynsbm <- function(x){
 #'
 #' Returns Bayesian Information Criterion for DynBM Fit
 #'
-#' @param x an object of class "dynsbm"
+#' @param object an object of class "dynsbm"
+#' @param ... additional arguments to BIC
 #'
 #' @return returns the Bayesian Information Criterion using the posterior mean
 #' parameters as approximations to the MLE.  The number of parameters is taken
 #' to be T*(2*(n-k) + k*k) + n and the sample size is taken to be T*n*n.
 #'
 #' @seealso \code{\link{dynsbm}}
+#' @import stats
 #' @export
-BIC.dynsbm <- function(x){
-    TT <- x$TT # dim(x$net.mat)[3]
-    nn <- x$nn # dim(x$net.mat)[1]
-    kk <- x$kk # dim(x$BB)[1]
+BIC.dynsbm <- function(object, ...){
+    TT <- object$TT
+    nn <- object$nn
+    kk <- object$kk
     edf <- TT*(2*(nn-kk) + kk^2) +nn
-    return(-2*logLik(x) + (2*log(nn) + log(TT)) * edf)
+    return(-2*logLik(object) + (2*log(nn) + log(TT)) * edf)
 }
 
 
@@ -778,16 +810,17 @@ BIC.dynsbm <- function(x){
 #'
 #' Returns Deviance Information Criterion for DynSBM Fit
 #'
-#' @param x an object of class "dynsbm"
+#' @param object an object of class "dynsbm"
+#' @param ... additional parameters
 #'
 #' @return returns the Deviance Information Criterion.
 #'
 #' @seealso \code{\link{dynsbm}}
 #' @export
-DIC.dynsbm <- function(x){
-    if(!is.null(x$chain$logLik)){
-        DIC.df <- (2*logLik(x) - 2*mean(x$chain$logLik))
-        return(-2*logLik(x) + 2 * DIC.df)
+DIC.dynsbm <- function(object, ...){
+    if(!is.null(object$chain$logLik)){
+        DIC.df <- (2*logLik(object) - 2*mean(object$chain$logLik))
+        return(-2*logLik(object) + 2 * DIC.df)
     }else{
         return(NULL)
     }
@@ -821,13 +854,15 @@ format.dynsbm <- function(x, digits=4, max.width=78,...){
     head.str <- "Posterior Sample for DynSBM"
     time.str <- paste("Network Count:",dim(x$net.mat)[3])
     map.str <- paste0("Equivalence Classes:\n",
-                      format.vector(x$tmap,digits=digits,max.width=max.width,...),
+                      format.vector(x$tmap,digits=digits,
+                                    max.width=max.width,...),
                       "\n")
 
     node.str <- paste("Nodes:",dim(x$net.mat)[1])
     block.str <- paste("Blocks:",dim(x$BB)[1])
     mmb.str <- paste0("Block Membership:\n",
-                     format.vector(x$mmb,digits=digits,max.width=max.width,...))
+                      format.vector(x$mmb,digits=digits,
+                                    max.width=max.width,...))
 
     ll.str <- paste0("\n","Log-Likelihood:  ",format(logLik(x),digits=7))
     ic.str <- paste("BIC: ",format(BIC(x),digits=7),
@@ -864,16 +899,22 @@ format.dynsbm <- function(x, digits=4, max.width=78,...){
 
 ## }
 
+#' Convert DynSBM Object to List of WSBM Objects
+#'
+#' @param object object of class "dynsbm"
+#'
+#' @return Returns a list of length TT where each object in the list is of
+#'   class "wsbm".
 #' @export
-create.wsbm.list <- function(x){
-    TT <- x$TT
+create.wsbm.list <- function(object){
+    TT <- object$TT
     wsbm.list <- NULL
     for(tt in 1:TT){
-        obj <- with(x,wsbm(nn=nn,mmb=mmb,BB=BB.mat[,,tt],
+        obj <- with(object,wsbm(nn=nn,mmb=mmb,BB=BB.mat[,,tt],
                            SS=SS.mat[,tt],RR=RR.mat[,tt],
                            self.ties=self.ties,hours=hours.vec[tmap[tt]]))
-        if(!is.null(x$net.mat)){
-            obj$net <- x$net.mat[,,tt]
+        if(!is.null(object$net.mat)){
+            obj$net <- object$net.mat[,,tt]
         }
         wsbm.list[[tt]] <- obj
     }
@@ -1020,17 +1061,18 @@ dynsbm.load.init.vals <- function(init.control,priors,net.mat,kk,
 #' Plots the expected mean tie probabilities for a given dynsbm object.
 #'
 #' @param x object of class dynsbm
+#' @param marginal if TRUE average tie probabilities for the equivalence
+#'   classes are plotted.  If marginal is FALSE, the average tie probability
+#'   for each individual network is plotted instead.
 #' @param node.order determines ordering of nodes.  "default" uses the original
 #' order of the adjacency matrix.  "membership" first orders the data using the
 #' estimated block membership vector.
-#' @param xaxt a character which specifies the axis type
-#' @param yaxt a character which specifies the axis type
-#' @param pal pallete of colors to use ordered from low to high intensity
+#' @param pal color palette used to indicate tie intensity
+#' @param ... additional graphical parameters
 #'
-#' @details Plots a greyscale image of the adjacency matrix.  Darker colors
-#' indicate larger expected intensities.
-#'
-#' @examples
+#' @details Plots a greyscale image of the mean tie intensity matrix.  The
+#'   individual network parameters are marginalized over each equivalence
+#'   class when marginal = TRUE.
 #'
 #' @seealso \code{\link{dynsbm}}
 #' @export
@@ -1073,13 +1115,13 @@ plot.dynsbm <- function(x,marginal=TRUE,
     }
 }
 
-
+#' @describeIn network.plot Plots heatmap for each network in net.mat
 #' @export
 network.plot.dynsbm <- function(x, pal=grey((50:1)/50), node.order=NULL,
                                 ...){
     net.mat <- x$net.mat
     if(is.null(net.mat))
-        stop("x must have a net component.  Try calling wsbm with gen=TRUE")
+        stop("x must have a net component.  Call wsbm with gen=TRUE")
 
     mfrow <- size.device(x$TT,scale=5)
     old.par <- par(mfrow=mfrow,mar=c(1,1,2,1),cex.main=2)
@@ -1096,77 +1138,71 @@ network.plot.dynsbm <- function(x, pal=grey((50:1)/50), node.order=NULL,
 
 
 
-#' Diagnostic Plotting Method for DynSBM fits
+#' @describeIn diagnostic.plot Plots MCMC chains for various
+#'   parameters in DynSBM model.
 #'
-#' Plots MCMC chains for various parameters in WSBM model.
-#'
-#' @param x object of class "dynsbm"
-#' @param t network or class number to plot diagnostics for
 #' @param marginal if TRUE, plots diagnostics for class level parameters,
 #' otherwise plots diagnostics for network level parameters
-#' @param param which parameters diagnostics to plot.  The default value "block"
-#' plots the block intensity parameters.  Passing "sender" and "receiver" plots
-#' the chains for the sender and receiver effects.  The last option, "ll",
-#' plots the Log-Likelihood for each step of the chain.
-#' @param scale.ylim logical indicating whether each chain should have the same
-#' range for the y-axis.  This can be suppressed by passing ylim.
-#' @param ... other graphical parameters to pass to the plotting functions
-#'
-#' @details Plots MCMC chains for the specified set of parameters.
+#' @param t if marginal = TRUE, t is the class number for which to plot
+#'   diagnostics.  If marginal = FALSE, t is the network number.
 #'
 #' @examples
-#' data(commuter30)
-#' fit.wsbm <- wsbm(commuter30,kk=3,hours=1)
+#' ### Dynamic SBM Example
+#' data(dc60)
+#' fit.dc <- dynsbm.fit(dc60$net.mat,kk=3,
+#'                      tmap=dc60$tmap,hours.vec=dc60$hours.vec)
 #'
-#' diagnostic.plot(fit.wsbm,param="block")
-#' diagnostic.plot(fit.wsbm,param="sender")
-#' diagnostic.plot(fit.wsbm,param="receiver")
-#' diagnostic.plot(fit.wsbm,param="ll")
+#' diagnostic.plot(fit.dc,t=1,param="block")
+#' diagnostic.plot(fit.dc,t=2,param="block")
 #'
-#' @seealso \code{\link{wsbm}}
+#' diagnostic.plot(fit.dc,t=1,param="sender")
+#' diagnostic.plot(fit.dc,t=1,param="receiver")
+#' diagnostic.plot(fit.dc,t=1,param="ll")
+#'
+#' diagnostic.plot(fit.dc,t=1,param="block",marginal=FALSE)
 #' @export
-diagnostic.plot.dynsbm.mcmc <- function(x,t,
-                                        marginal=TRUE,
+diagnostic.plot.dynsbm.mcmc <- function(object,marginal=TRUE,t,
                                         param=c("block",
-                                               "sender","receiver","ll"),
+                                                "sender","receiver","ll"),
                                         ...){
-    if(x$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    if(object$chain$clean) stop("clean.out must be FALSE to use diagnostics")
 
     param <- match.arg(param)
 
     if(marginal){
         if(param == "block"){
-            block.diagnostic.mar.dynsbm.mcmc(x,t, ...)
+            block.diagnostic.mar.dynsbm.mcmc(object,t, ...)
         }else if(param == "sender"){
-            sender.diagnostic.mar.dynsbm.mcmc(x,t, ...)
+            sender.diagnostic.mar.dynsbm.mcmc(object,t, ...)
         }else if(param == "receiver"){
-            receiver.diagnostic.mar.dynsbm.mcmc(x,t, ...)
+            receiver.diagnostic.mar.dynsbm.mcmc(object,t, ...)
         }else if(param == "ll"){
-            ll.diagnostic.mar.dynsbm.mcmc(x, ...)
+            ll.diagnostic.mar.dynsbm.mcmc(object, ...)
         }
 
     }else{
         if(param == "block"){
-            block.diagnostic.cond.dynsbm.mcmc(x,t, ...)
+            block.diagnostic.cond.dynsbm.mcmc(object,t, ...)
         }else if(param == "sender"){
-            sender.diagnostic.cond.dynsbm.mcmc(x,t, ...)
+            sender.diagnostic.cond.dynsbm.mcmc(object,t, ...)
         }else if(param == "receiver"){
-            receiver.diagnostic.cond.dynsbm.mcmc(x,t, ...)
+            receiver.diagnostic.cond.dynsbm.mcmc(object,t, ...)
         }else if(param == "ll"){
-            ll.diagnostic.cond.dynsbm.mcmc(x, ...)
+            ll.diagnostic.cond.dynsbm.mcmc(object, ...)
         }
     }
 }
 
-block.diagnostic.cond.dynsbm.mcmc <- function(x,t,
+block.diagnostic.cond.dynsbm.mcmc <- function(object,t,
                                              xlim=NULL,ylim=NULL,
                                              scale.ylim=FALSE,
                                              blocks=NULL,...){
 
-    if(t > x$TT) stop(paste0("t is greater than the number of networks ",x$TT))
+    if(t > object$TT) stop(paste0("t is greater than the number of networks ",
+                                  object$TT))
 
-    kk <- x$kk
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$BB.mat)
+    kk <- object$kk
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$BB.mat)
     if(is.null(blocks)) blocks <- 1:kk
 
     if(dev.cur() == 1){
@@ -1180,7 +1216,7 @@ block.diagnostic.cond.dynsbm.mcmc <- function(x,t,
 
     for(ii in blocks){
         for(jj in blocks){
-            plot(x$chain$BB.mat[ii,jj,,t],ylim=ylim,xlim=xlim,type="l",
+            plot(object$chain$BB.mat[ii,jj,,t],ylim=ylim,xlim=xlim,type="l",
                  xlab="Iteration",ylab="",
                  main=paste0("B[",ii,",",jj,"]"),
                  ...)
@@ -1191,55 +1227,58 @@ block.diagnostic.cond.dynsbm.mcmc <- function(x,t,
 }
 
 
-sender.diagnostic.cond.dynsbm.mcmc <- function(x,t,
+sender.diagnostic.cond.dynsbm.mcmc <- function(object,t,
                                               xlim=NULL,ylim=NULL,
                                               scale.ylim=FALSE,
                                               nodes=NULL,...){
-    if(t > x$TT) stop(paste0("t is greater than the number of networks ",x$TT))
+    if(t > object$TT) stop(paste0("t is greater than the number of networks ",
+                                  object$TT))
 
-    node.diag.plot(x$chain$SS.mat[,,t],
+    node.diag.plot(object$chain$SS.mat[,,t],
                    xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                    main.prefix="S[",main.suffix="]",nodes=nodes)
     title(main=paste("Sender Effect Chains for Network",t),outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 }
 
 
 
-receiver.diagnostic.cond.dynsbm.mcmc <- function(x,t,
+receiver.diagnostic.cond.dynsbm.mcmc <- function(object,t,
                                               xlim=NULL,ylim=NULL,
                                               scale.ylim=FALSE,
                                               nodes=NULL,...){
-    if(t > x$TT) stop(paste0("t is greater than the number of networks ",x$TT))
+    if(t > object$TT) stop(paste0("t is greater than the number of networks ",
+                                  object$TT))
 
-    node.diag.plot(x$chain$RR.mat[,,t],
+    node.diag.plot(object$chain$RR.mat[,,t],
                    xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                    main.prefix="R[",main.suffix="]",nodes=nodes)
     title(main=paste("Receiver Effect Chains for Network",t),outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 }
 
 
 
-ll.diagnostic.cond.dynsbm.mcmc <- function(x,...){
-    ll.chain.plot(x,...)
+ll.diagnostic.cond.dynsbm.mcmc <- function(object,...){
+    ll.chain.plot(object,...)
 }
 
 
 #####  Marginal Diagnostic Plots
 
 
-block.diagnostic.mar.dynsbm.mcmc <- function(x,t,
+block.diagnostic.mar.dynsbm.mcmc <- function(object,t,
                                              xlim=NULL,ylim=NULL,
                                              scale.xlim=FALSE,scale.ylim=FALSE,
                                              blocks=NULL,...){
 
-    if(t > x$ee) stop(paste0("t is greater than the number of classes ",x$ee))
-    total <- x$chain$mcmc.control$total
+    if(t > object$ee) stop(paste0("t is greater than the number of classes ",
+                                  object$ee))
+    total <- object$chain$mcmc.control$total
 
-    kk <- x$kk
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$BB.mat[,,2,,t])
-    if(is.null(xlim) && scale.xlim) ylim <- range(x$chain$BB.mat[,,1,,t])
+    kk <- object$kk
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$BB.mat[,,2,,t])
+    if(is.null(xlim) && scale.xlim) ylim <- range(object$chain$BB.mat[,,1,,t])
     if(is.null(blocks)) blocks <- 1:kk
 
     if(dev.cur() == 1){
@@ -1253,7 +1292,7 @@ block.diagnostic.mar.dynsbm.mcmc <- function(x,t,
 
     for(ii in blocks){
         for(jj in blocks){
-            gamma.diagnostic(x$chain$BB.prior[ii,jj,,,t],
+            gamma.diagnostic(object$chain$BB.prior[ii,jj,,,t],
                                 ylim=ylim,xlim=xlim,
                                 main=paste0("B[",ii,",",jj,"]"),
                                 ...)
@@ -1263,88 +1302,74 @@ block.diagnostic.mar.dynsbm.mcmc <- function(x,t,
     par(old.par)
 }
 
-sender.diagnostic.mar.dynsbm.mcmc <- function(x,t,
+sender.diagnostic.mar.dynsbm.mcmc <- function(object,t,
                                               xlim=NULL,ylim=NULL,
                                               scale.ylim=FALSE,
                                               nodes=NULL,...){
-    if(t > x$TT) stop(paste0("t is greater than the number of networks ",x$TT))
+    if(t > object$TT) stop(paste0("t is greater than the number of networks ",
+                                  object$TT))
 
-    node.gamma.plot(x$chain$SS.prior[,,,t],
+    node.gamma.plot(object$chain$SS.prior[,,,t],
                     xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                     main.prefix="S[",main.suffix="]",nodes=nodes)
     title(main=paste("Sender Prior Chains for Class",t),outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 }
 
 
-receiver.diagnostic.mar.dynsbm.mcmc <- function(x,t,
+receiver.diagnostic.mar.dynsbm.mcmc <- function(object,t,
                                                 xlim=NULL,ylim=NULL,
                                                 scale.ylim=FALSE,
                                                 nodes=NULL,...){
-    if(t > x$TT) stop(paste0("t is greater than the number of networks ",x$TT))
+    if(t > object$TT) stop(paste0("t is greater than the number of networks ",
+                                  object$TT))
 
-    node.gamma.plot(x$chain$RR.prior[,,,t],
+    node.gamma.plot(object$chain$RR.prior[,,,t],
                     xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                     main.prefix="R[",main.suffix="]",nodes=nodes)
     title(main=paste("Receiver Prior Chains for Class",t),outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 }
 
 
-ll.diagnostic.mar.dynsbm.mcmc <- function(x,...){
-    ll.chain.plot(x,...)
+ll.diagnostic.mar.dynsbm.mcmc <- function(object,...){
+    ll.chain.plot(object,...)
 }
 
 
 
 #####  Plotting Parameter Summaries
 
-#' Parameter Plotting Method for DynSBM fits
+# Parameter Plotting Method for DynSBM fits
+#
+# Plots boxplots of posterior samples for parameters in DYNSBM model.
+#' @describeIn param.plot Displays boxplots of the posterior samples for
+#'   parameters within one of the equivalence classes specified by tclass.
+#' @param tclass class for which to plot parameters.
 #'
-#' Plots boxplots of posterior samples for parameters in DYNSBM model.
-#'
-#' @param x object of class "dynsbm"
-#' @param param which parameters diagnostics to plot.  The default value "block"
-#' plots the block intensity parameters.  Passing "sender" and "receiver" plots
-#' the chains for the sender and receiver effects.  The last option, "ll",
-#' plots the Log-Likelihood for each step of the chain.
-#' @param ... other graphical parameters to pass to the plotting functions
-#'
-#' @details Plots MCMC chains for the specified set of parameters.
-#'
-#' @examples
-#' data(commuter30)
-#' fit.dynsbm <- dynsbm.fit(commuter30,kk=3,hours=1)
-#'
-#' param.plot(fit.dynsbm,param="block")
-#' param.plot(fit.dynsbm,param="sender")
-#' param.plot(fit.dynsbm,param="receiver")
-#' param.plot(fit.dynsbm,param="ll")
-#'
-#' @seealso \code{\link{dynsbm.fit}}
 #' @export
-param.plot.dynsbm.mcmc <- function(x,tclass,
+param.plot.dynsbm.mcmc <- function(object,tclass,
                                    param=c("block","sender","receiver"),
                                    ...){
-    if(x$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    if(object$chain$clean) stop("clean.out must be FALSE to use diagnostics")
 
     param <- match.arg(param)
     if(param == "block"){
-        block.param.plot.dynsbm.mcmc(x, tclass, ...)
+        block.param.plot.dynsbm.mcmc(object, tclass, ...)
     }else if(param == "sender"){
-        sender.param.plot.dynsbm.mcmc(x, tclass,  ...)
+        sender.param.plot.dynsbm.mcmc(object, tclass,  ...)
     }else if(param == "receiver"){
-        receiver.param.plot.dynsbm.mcmc(x, tclass, ...)
+        receiver.param.plot.dynsbm.mcmc(object, tclass, ...)
     }
 
 }
 
 
-block.param.plot.dynsbm.mcmc <- function(x, tclass, remap=NULL,
+block.param.plot.dynsbm.mcmc <- function(object, tclass, remap=NULL,
                                          truth=NULL, blocks=NULL,...){
 
 
-    kk <- x$kk; x$nn; x$TT
+    kk <- object$kk; object$nn; object$TT
 
     if(is.null(blocks)) blocks <- 1:kk
     if(is.null(remap)){
@@ -1364,7 +1389,7 @@ block.param.plot.dynsbm.mcmc <- function(x, tclass, remap=NULL,
         leg.col <- c(leg.col,"green")
     }
 
-    tt.vec <- which(x$tmap == tclass)
+    tt.vec <- which(object$tmap == tclass)
 
     if(dev.cur() == 1){
         len <- max(length(blocks)*2,7)
@@ -1377,7 +1402,7 @@ block.param.plot.dynsbm.mcmc <- function(x, tclass, remap=NULL,
 
     for(ii in blocks){
         for(jj in blocks){
-            boxplot(x$chain$BB.mat[remap[ii],remap[jj],,tt.vec],
+            boxplot(object$chain$BB.mat[remap[ii],remap[jj],,tt.vec],
                     names=tt.vec,xlab="Network",
                     main=paste0("B[",ii,",",jj,"]"),ylab="Effect",...)
 
@@ -1387,7 +1412,7 @@ block.param.plot.dynsbm.mcmc <- function(x, tclass, remap=NULL,
                          y0=truth[ii,jj,tt.vec],col="green",lwd=3)
 
             }
-            ab <- x$BB.prior[remap[ii],remap[jj],,tclass]
+            ab <- object$BB.prior[remap[ii],remap[jj],,tclass]
             abline(h=ab[1]/ab[2],lwd=3,col="blue")
         }
     }
@@ -1401,18 +1426,18 @@ block.param.plot.dynsbm.mcmc <- function(x, tclass, remap=NULL,
 
 
 
-sender.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
+sender.param.plot.dynsbm.mcmc <- function(object, tclass, truth,
                                           nodes, block,
                                           scale.ylim=TRUE,ylim=NULL,
                                           ...){
-    kk <- x$kk; nn <- x$nn; TT <- x$TT
+    kk <- object$kk; nn <- object$nn; TT <- object$TT
 
     if(missing(nodes)){
         if(missing(block)){
             nodes <- 1:nn
         }else{
             if(block > kk) stop("block must be between 1 and ",kk)
-            nodes <- which(x$mmb == block)
+            nodes <- which(object$mmb == block)
         }
     }else{
         if(any(nodes > nn) | any(nodes < 1)){
@@ -1423,15 +1448,15 @@ sender.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
         }
     }
 
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$SS.mat[nodes,,])
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$SS.mat[nodes,,])
 
     mfrow <- size.device(length(nodes))
     old.par <- par(mfrow=mfrow,cex.main=2,
                    mar=c(2,1.5,2,1),oma=c(0,1,3,1))
 
-    tt.vec <- which(x$tmap == tclass)
+    tt.vec <- which(object$tmap == tclass)
     for(ii in nodes){
-        boxplot(x$chain$SS.mat[ii,,tt.vec],
+        boxplot(object$chain$SS.mat[ii,,tt.vec],
                 names=tt.vec,xlab="",ylim=ylim,
                 main=paste0("S[",ii,"]"),ylab="Effect",...)
 
@@ -1440,7 +1465,7 @@ sender.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
                      x1=1:length(nodes) + .3,
                      y0=truth[nodes,tt.vec[ii]],col="green",lwd=3)
         }
-        ab <- x$SS.prior[ii,,tclass]
+        ab <- object$SS.prior[ii,,tclass]
         mm <- ab[1] / ab[2]
         abline(h=mm,col="blue",lwd=3)
     }
@@ -1450,18 +1475,18 @@ sender.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
 }
 
 
-receiver.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
+receiver.param.plot.dynsbm.mcmc <- function(object, tclass, truth,
                                             nodes, block,
                                             scale.ylim=TRUE,ylim=NULL,
                                             ...){
-    kk <- x$kk; nn <- x$nn; TT <- x$TT
+    kk <- object$kk; nn <- object$nn; TT <- object$TT
 
     if(missing(nodes)){
         if(missing(block)){
             nodes <- 1:nn
         }else{
             if(block > kk) stop("block must be between 1 and ",kk)
-            nodes <- which(x$mmb == block)
+            nodes <- which(object$mmb == block)
         }
     }else{
         if(any(nodes > nn) | any(nodes < 1)){
@@ -1477,11 +1502,11 @@ receiver.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
     old.par <- par(mfrow=mfrow,cex.main=2,
                    mar=c(2,1.5,2,1),oma=c(0,1,3,1))
 
-    tt.vec <- which(x$tmap == tclass)
+    tt.vec <- which(object$tmap == tclass)
 
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$RR.mat[nodes,,])
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$RR.mat[nodes,,])
     for(ii in nodes){
-        boxplot(x$chain$RR.mat[ii,,tt.vec],
+        boxplot(object$chain$RR.mat[ii,,tt.vec],
                 names=tt.vec,xlab="",ylim=ylim,
                 main=paste0("R[",ii,"]"),ylab="Effect",...)
 
@@ -1490,7 +1515,7 @@ receiver.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
                      x1=1:length(nodes) + .3,
                      y0=truth[nodes,tt.vec[ii]],col="green",lwd=3)
         }
-        ab <- x$RR.prior[ii,,tclass]
+        ab <- object$RR.prior[ii,,tclass]
         mm <- ab[1] / ab[2]
         abline(h=mm,col="blue",lwd=3)
     }
@@ -1618,11 +1643,22 @@ receiver.param.plot.dynsbm.mcmc <- function(x, tclass, truth,
 ## }
 
 
+#' Block Prior Plotting Method for DynSBM Class
+#'
+#' Method for plotting posterior distribution of block prior means across
+#'   DynSBM classes
+#'
+#' @param object object of class "dynsbm"
+#' @param remap relabeling of blocks that is a permuation of 1:kk
+#' @param truth true values for comparison if known
+#' @param blocks subset of the blocks 1:kk for which to plot posteriors
+#' @param ... additional parameters to pass to plotting functions
+#'
 #' @export
-block.prior.plot.dynsbm.mcmc <- function(x, remap=NULL, truth=NULL,
+block.prior.plot.dynsbm.mcmc <- function(object, remap=NULL, truth=NULL,
                                          blocks=NULL,...){
 
-    kk <- x$kk; nn <- x$nn; ee <- x$ee
+    kk <- object$kk; nn <- object$nn; ee <- object$ee
 
     if(is.null(blocks)){
         blocks <- 1:kk
@@ -1649,8 +1685,8 @@ block.prior.plot.dynsbm.mcmc <- function(x, remap=NULL, truth=NULL,
 
     for(ii in blocks){
         for(jj in blocks){
-            boxplot(x$chain$BB.prior[remap[ii],remap[jj],1,,] /
-                    x$chain$BB.prior[remap[ii],remap[jj],2,,] ,
+            boxplot(object$chain$BB.prior[remap[ii],remap[jj],1,,] /
+                    object$chain$BB.prior[remap[ii],remap[jj],2,,] ,
                     main=paste0("B[",remap[ii],",",remap[jj],"]"), ...)
 
             if(!missing(truth)){
@@ -1674,57 +1710,61 @@ block.prior.plot.dynsbm.mcmc <- function(x, remap=NULL, truth=NULL,
 #' Generates a posterior predictive distribution for parameters in the
 #' DynSBM Model
 #'
-#' @param x a fitted object of the class "dynsbm".  Requires clean.out = FALSE
+#' @param object a fitted object of the class "dynsbm".  Requires
+#' clean.out = FALSE
 #' in the call to dynsbm.
 #' @param tclass which equivalence class to compute posterior predictive
 #' distribution for.
 #' @param param which parameter to compute posterior predictive distribution
 #' for.
+#' @param ... additional parameters
 #'
 #' @return Returns an array containing posterior predictive samples for the
 #' given parameters.
 #'
-#' @examples
 #'
 #' @seealso \code{\link{dynsbm}} \code{\link{predict.dynsbm}}
 #' @export
-param.post.predict.dynsbm.mcmc <- function(x,tclass,
+param.post.predict.dynsbm.mcmc <- function(object,tclass,
                                            param=c("block",
                                                    "sender","receiver"),
                                            ...){
-    if(x$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    if(object$chain$clean) stop("clean.out must be FALSE to use diagnostics")
 
     param <- match.arg(param)
 
     if(param == "block"){
-        post.predict.block.dynsbm.mcmc(x,tclass,...)
+        post.predict.block.dynsbm.mcmc(object,tclass,...)
     }else if(param == "sender"){
-        post.predict.sender.dynsbm.mcmc(x,tclass,...)
+        post.predict.sender.dynsbm.mcmc(object,tclass,...)
     }else if(param == "receiver"){
-        post.predict.receiver.dynsbm.mcmc(x,tclass,...)
+        post.predict.receiver.dynsbm.mcmc(object,tclass,...)
     }
 
 }
 
 
-post.predict.block.dynsbm.mcmc <- function(x,tclass,blocks,
-                                           remap,iter.draws=1,...){
+post.predict.block.dynsbm.mcmc <- function(object,tclass,blocks=NULL,
+                                           sblocks=NULL,rblocks=NULL,
+                                           remap=NULL,iter.draws=1,...){
 
-    kk <- x$kk
-    total <- x$chain$mcmc.control$total
+    kk <- object$kk
+    total <- object$chain$mcmc.control$total
 
-    if(missing(blocks)) blocks <- 1:kk
-    if(missing(remap)) remap <-1:kk
+    if(is.null(blocks)) blocks <- 1:kk
+    if(is.null(sblocks)) sblocks <- blocks
+    if(is.null(rblocks)) rblocks <- blocks
+    if(is.null(remap)) remap <-1:kk
 
-    samp <- array(NA,c(length(blocks), length(blocks), total*iter.draws))
-    BB.prior <- x$chain$BB.prior[,,,,tclass]
+    samp <- array(NA,c(length(sblocks), length(rblocks), total*iter.draws))
+    BB.prior <- object$chain$BB.prior[,,,,tclass]
 
-    for(ii in 1:length(ss.ind)){
-        ss <- ss.ind[ii]
-        for(jj in 1:length(rr.ind)){
-            rr <- rr.ind[jj]
+    for(ii in 1:length(sblocks)){
+        ss <- sblocks[ii]
+        for(jj in 1:length(rblocks)){
+            rr <- rblocks[jj]
             mat <- t(BB.prior[remap[ss],remap[rr],,])
-            samp[ii,jj,] <- gamma.post.pred(mat,iter.draws=iter.draws)
+            samp[ii,jj,] <- post.pred.gamma(mat,iter.draws=iter.draws)
         }
     }
     return(samp)
@@ -1732,195 +1772,410 @@ post.predict.block.dynsbm.mcmc <- function(x,tclass,blocks,
 
 
 
-post.predict.sender.dynsbm.mcmc <- function(x,tclass,blocks,
+post.predict.sender.dynsbm.mcmc <- function(object,tclass,
+                                            nodes=NULL,block=NULL,
                                             iter.draws=1,...){
-
-    nn <- x$nn
-    total <- x$chain$mcmc.control$total
-
-    if(missing(nodes)) nodes <- 1:nn
-
-    samp <- array(NA,c(length(nodes), total*iter.draws))
-    prior <- x$chain$SS.prior[,,,tclass]
-
-    for(ii in 1:length(nodes)){
-        mat <- t(prior[nodes[ii],,])
-        samp[ii,] <- gamma.post.pred(mat,iter.draws=iter.draws)
-    }
-
-    return(samp)
-}
-
-
-post.predict.receiver.dynsbm.mcmc <- function(x,tclass,blocks,
-                                              iter.draws=1,...){
-
-    nn <- x$nn
-    total <- x$chain$mcmc.control$total
-
-    if(missing(nodes)) nodes <- 1:nn
-
-    samp <- array(NA,c(length(nodes), total*iter.draws))
-    prior <- x$chain$RR.prior[,,,tclass]
-
-    for(ii in 1:length(nodes)){
-        mat <- t(prior[nodes[ii],,])
-        samp[ii,] <- gamma.post.pred(mat,iter.draws=iter.draws)
-    }
-
-    return(samp)
-}
-
-
-#' @export
-BlockMat.Post.Density.Plot <- function(x,tclass,
-                                       ss.ind=1,rr.ind=1,
-                                       remap,col="steelblue2",
-                                       trans, add=FALSE,
-                                       include.pred=TRUE,
-                                       iter.draws=1, pred.lwd=2,
-                                       ...){
-
-    if(length(ss.ind) > 1){
-        stop("ss.ind must be a single index")
-    }
-    if(length(rr.ind) > 1){
-        stop("rr.ind must be a single index")
-    }
-    if(missing(remap)){
-        kk <- x$kk
-        remap=1:kk
-    }
-
-    tt.vec <- which(x$tmap == tclass)
-
-    if(missing(trans)){
-        trans <- 0.5 / sqrt(length(tt.vec))
-    }
-
-    density.mat.plot(x$chain$BB.mat[remap[ss.ind],remap[rr.ind],,tt.vec],
-                     col=col,trans=trans,add=add, ...)
-    if(include.pred){
-        samp <- post.pred.block(x=x,tclass=tclass,
-                                ss.ind=ss.ind, rr.ind=rr.ind, remap=remap,
-                                iter.draws=iter.draws)
-        abline(v=quantile(samp,c(0.025,0.975)),col=col,lty=2,lwd=pred.lwd)
-        lines(density(samp,from=0,n=1e4),col=col,lwd=pred.lwd)
-    }
-
-}
-
-
-#' @export
-Sender.Post.Density.Plot <- function(x,tclass,node,
-                                     col="steelblue2",trans, add=FALSE,
-                                     include.pred=FALSE, iter.draws=100,
-                                     ...){
-
-    if(length(node) > 1){
-        stop("node must be a single index")
-    }
-
-    tt.vec <- which(x$tmap == tclass)
-
-    if(missing(trans)){
-        trans <- 0.5 / sqrt(length(tt.vec))
-    }
-
-    density.mat.plot(x$chain$SS.mat[node,,tt.vec],
-                     col=col,trans=trans,add=add, ...)
-    if(include.pred){
-        samp <- post.pred.sender(x=x,tclass=tclass,
-                                nodes=node,
-                                iter.draws=iter.draws)
-        abline(v=quantile(samp,c(0.025,0.975)),col=col,lty=2)
-        lines(density(samp,from=0,n=1e4),col=col,lwd=2)
-    }
-
-}
-
-
-
-
-#' @export
-Receiver.Post.Density.Plot <- function(x,tclass,node,
-                                       col="steelblue2",trans, add=FALSE,
-                                       include.pred=FALSE, iter.draws=100,
-                                       ...){
-
-    if(length(node) > 1){
-        stop("node must be a single index")
-    }
-
-    tt.vec <- which(x$tmap == tclass)
-
-    if(missing(trans)){
-        trans <- 0.5 / sqrt(length(tt.vec))
-    }
-
-    density.mat.plot(x$chain$RR.mat[node,,tt.vec],
-                     col=col,trans=trans,add=add, ...)
-    if(include.pred){
-        samp <- post.pred.receiver(x=x,tclass=tclass,
-                                nodes=node,
-                                iter.draws=iter.draws)
-        abline(v=quantile(samp,c(0.025,0.975)),col=col,lty=2)
-        lines(density(samp,from=0,n=1e4),col=col,lwd=2)
-    }
-
-}
-
-
-
-#####  Wrapper Functions to perform the above functions for specific classes
-#####  and indices within the block probability matrix.
-#' @export
-post.pred.receiver <- function(object,tclass,nodes,iter.draws=100){
-
-    nn <- dim(object$RR)[1]
-    total <- dim(object$chain$RR.prior)[3]
+    nn <- object$nn; kk <- object$kk
+    total <- object$chain$mcmc.control$total
 
     if(missing(nodes)){
-        nodes <- 1:nn
-    }
-
-    samp <- array(NA,c(length(nodes), total*iter.draws))
-    prior <- object$chain$RR.prior[,,,tclass]
-
-    for(ii in 1:length(nodes)){
-        node <- nodes[ii]
-        samp[ii,] <- gamma.post.pred(t(prior[node,,]),iter.draws=iter.draws)
-    }
-
-    return(samp)
-}
-
-
-#' @export
-post.pred.sender <- function(object,tclass,nodes,iter.draws=100){
-
-    nn <- dim(object$SS)[1]
-    total <- dim(object$chain$SS.prior)[3]
-
-    if(missing(nodes)){
-        nodes <- 1:nn
+        if(missing(block)){
+            nodes <- 1:nn
+        }else{
+            if(block > kk) stop("block must be between 1 and ",kk)
+            nodes <- which(object$mmb == block)
+        }
+    }else{
+        if(any(nodes > nn) | any(nodes < 1)){
+            stop("nodes must contain integers between 1 and ",nn)
+        }
+        if(!missing(block)){
+            warning("The argument for block is ignored when nodes is used.")
+        }
     }
 
     samp <- array(NA,c(length(nodes), total*iter.draws))
     prior <- object$chain$SS.prior[,,,tclass]
 
     for(ii in 1:length(nodes)){
-        node <- nodes[ii]
-        samp[ii,] <- gamma.post.pred(t(prior[node,,]),iter.draws=iter.draws)
+        mat <- t(prior[nodes[ii],,])
+        samp[ii,] <- post.pred.gamma(mat,iter.draws=iter.draws, ...)
     }
 
     return(samp)
 }
 
 
+post.predict.receiver.dynsbm.mcmc <- function(object,tclass,
+                                              nodes=NULL,block=NULL,
+                                              iter.draws=1,...){
 
+    nn <- object$nn; kk <- object$kk
+    total <- object$chain$mcmc.control$total
+
+    if(missing(nodes)){
+        if(missing(block)){
+            nodes <- 1:nn
+        }else{
+            if(block > kk) stop("block must be between 1 and ",kk)
+            nodes <- which(object$mmb == block)
+        }
+    }else{
+        if(any(nodes > nn) | any(nodes < 1)){
+            stop("nodes must contain integers between 1 and ",nn)
+        }
+        if(!missing(block)){
+            warning("The argument for block is ignored when nodes is used.")
+        }
+    }
+
+    samp <- array(NA,c(length(nodes), total*iter.draws))
+    prior <- object$chain$RR.prior[,,,tclass]
+
+    for(ii in 1:length(nodes)){
+        mat <- t(prior[nodes[ii],,])
+        samp[ii,] <- post.pred.gamma(mat,iter.draws=iter.draws)
+    }
+
+    return(samp)
+}
+
+#' Posterior Predictive Plotting for DynSBM Parameters
+#'
+#' @param object object of class "dynsbm"
+#' @param tclass equivalence class for which to plot posterior predictive
+#'   distribution
+#' @inheritParams param.plot
 #' @export
-get.iter.dynsbm.mcmc <- function(object,iter){
+post.pred.plot <- function(object, tclass,
+                           param=c("block","sender","receiver"),
+                           ...){
+
+    if(object$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    param <- match.arg(param)
+
+    if(param == "block"){
+        block.post.pred.plot(object, tclass, ...)
+    }else if(param == "sender"){
+        sender.post.pred.plot(object, tclass, ...)
+    }else if(param == "receiver"){
+        receiver.post.pred.plot(object, tclass, ...)
+    }
+}
+
+
+
+block.post.pred.plot <- function(object,tclass,
+                                 sblock,rblock,
+                                 remap=NULL, col="steelblue2",add=FALSE,
+                                 include.post=TRUE,
+                                 iter.draws=50, lwd=2,
+                                 alpha=.05,xlim=NULL,
+                                 xlab=NULL,ylab=NULL,main=NULL,
+                                 ...){
+
+    if(length(sblock) > 1 || sblock > object$kk || sblock < 1)
+        stop("sblock must be a single integer between 1 and kk")
+    if(length(rblock) > 1 || rblock > object$kk || rblock < 1)
+        stop("rblock must be a single integer between 1 and kk")
+    if(is.null(remap)) remap <- 1:object$kk
+
+    tt.vec <- which(object$tmap == tclass)
+
+
+    samp <- param.post.predict(object=object,tclass=tclass,param="block",
+                               sblocks=sblock,rblocks=rblock,
+                               iter.draws=iter.draws,...)
+
+    mat <- NULL
+    if(include.post){
+        mat <- object$chain$BB.mat[remap[sblock],
+                                   remap[rblock],,]
+        mat <- mat[,tt.vec,drop=FALSE]
+    }
+
+    if(is.null(xlab)) xlab <- paste0("B[",sblock,",",rblock,"]")
+
+    pp.plot(samp=samp,mat=mat,include.post=include.post,add=add,
+            lwd=lwd,alpha=alpha,xlim=xlim,col=col,
+            xlab=xlab,ylab=ylab,main=main,...)
+
+}
+
+
+
+sender.post.pred.plot <- function(object,tclass,node,
+                                  remap=NULL, col="steelblue2",add=FALSE,
+                                  include.post=TRUE,
+                                  iter.draws=50, lwd=2,
+                                  alpha=.05,xlim=NULL,
+                                  xlab=NULL,ylab=NULL,main=NULL,
+                                  ...){
+
+    if(length(node) > 1 || node < 1 || node > object$nn)
+        stop("node must be a single integer between 1 and nn")
+
+    tt.vec <- which(object$tmap == tclass)
+
+
+    samp <- param.post.predict(object=object,tclass=tclass,param="sender",
+                               nodes=node,iter.draws=iter.draws,...)
+    mat <- NULL
+    if(include.post){
+        mat <- object$chain$SS.mat[node,,]
+        mat <- mat[,tt.vec,drop=FALSE]
+    }
+
+    if(is.null(xlab)) xlab <- paste0("S[",node,"]")
+    pp.plot(samp=samp,mat=mat,include.post=include.post,add=add,
+            lwd=lwd,alpha=alpha,xlim=xlim,col=col,
+            xlab=xlab,ylab=ylab,main=main,...)
+}
+
+
+
+receiver.post.pred.plot <- function(object,tclass,node,
+                                    remap=NULL, col="steelblue2",add=FALSE,
+                                    include.post=TRUE,
+                                    iter.draws=50, lwd=2,
+                                    alpha=.05,xlim=NULL,
+                                    xlab=NULL,ylab=NULL,main=NULL,
+                                    ...){
+
+    if(length(node) > 1 || node < 1 || node > object$nn)
+        stop("node must be a single integer between 1 and nn")
+
+    tt.vec <- which(object$tmap == tclass)
+
+
+    samp <- param.post.predict(object=object,tclass=tclass,param="receiver",
+                               nodes=node,iter.draws=iter.draws,...)
+
+    mat <- NULL
+    if(include.post){
+        mat <- object$chain$RR.mat[node,,]
+        mat <- mat[,tt.vec,drop=FALSE]
+    }
+
+    if(is.null(xlab)) xlab <- paste0("R[",node,"]")
+    pp.plot(samp=samp,mat=mat,include.post=include.post,add=add,
+            lwd=lwd,alpha=alpha,xlim=xlim,col=col,
+            xlab=xlab,ylab=ylab,main=main,...)
+}
+
+
+######################################################################
+############## Performing Posterior Predictive Test  #################
+######################################################################
+
+
+#' Posterior Predictive Plotting for DynSBM Parameters
+#'
+#' @param object.1 base object of class "dynsbm.mcmc"
+#' @param object.2 test object of class "dynsbm.mcmc"
+#' @inheritParams post.pred.plot
+#'
+#' @return Returns result of a posterior predictive test on the networks in
+#'   object.2 for the given parameters.  The test is to determine if the
+#'   parameters for each network in object.2 came from the same distribution
+#'   as the networks in object.1.  It is assumed that all of the networks in
+#'   object.1 come from the same underlying distribution for each equivalence
+#'   class.
+#' @export
+post.pred.test <- function(object.1,object.2,
+                           param=c("block","sender","receiver","all"),
+                           ...){
+
+    if(object.1$chain$clean) stop("clean.out must be FALSE to use posterior")
+    if(object.2$chain$clean) stop("clean.out must be FALSE to use posterior")
+
+    param <- match.arg(param)
+
+    if(param == "block"){
+        block.post.pred.test(object.1,object.2, ...)
+    }else if(param == "sender"){
+        node.post.pred.test(object.1,object.2, param="sender", ...)
+    }else if(param == "receiver"){
+        node.post.pred.test(object.1,object.2, param="receiver", ...)
+    }else if(param == "all"){
+        out.df <- block.post.pred.test(object.1,object.2,...)
+        out.df <- rbind(out.df,
+                        node.post.pred.test(object.1,object.2,
+                                            param="sender",...))
+        out.df <- rbind(out.df,
+                        node.post.pred.test(object.1,object.2,
+                                            param="receiver",...))
+        return(out.df)
+    }
+}
+
+
+
+
+
+single.block.test <- function(object.1, object.2, tclass,
+                           alpha=0.05,iter.draws=10){
+    ## browser()
+    if(missing(object.1)) stop("object.1 must be provided")
+    if(missing(object.2)) object.2 <- object.1
+    if(tclass > object.1$ee) stop("tclass is greater than ee: ",
+                                  object.1$ee)
+
+    kk <- object.1$kk; nn <- object.1$nn; TT <- object.1$TT
+
+    samp <- param.post.predict(object=object.1,tclass=tclass,param="block",
+                               iter.draws=iter.draws)
+
+    anom.blocks <- data.frame(Parameter=character(),
+                              Sender=numeric(),Receiver=numeric(),
+                              Class=numeric(),
+                              Intensity=numeric(),Level=numeric(),
+                              stringsAsFactors=FALSE)
+    for(ss in 1:kk){
+        for(rr in 1:kk){
+
+            qq <- quantile(samp[ss,rr,], c(alpha/2, 1 - (alpha/2)))
+            tt.vec <- which(object.2$tmap == tclass)
+
+            subsamp <- samp[ss,rr,]
+            mat <- object.2$chain$BB.mat[ss,rr,,][,tt.vec,drop=FALSE]
+            lower.ests <- apply(mat,2,quantile,prob=c(alpha/2))
+            upper.ests <- apply(mat,2,quantile,prob=c(1-(alpha/2)))
+            for(ii in 1:length(tt.vec)){
+                if(upper.ests[ii] < qq[1]){
+                    point.qq <- find.quantile(subsamp,mat[,ii],twosided=TRUE)
+                    anom.blocks[nrow(anom.blocks) + 1,]<- c("block",
+                                                          ss,rr,tt.vec[ii],
+                                                          point.qq)
+                }else if(lower.ests[ii] > qq[2]){
+                    point.qq <- find.quantile(subsamp,mat[,ii],twosided=TRUE)
+                    anom.blocks[nrow(anom.blocks) + 1,]<- c("block",
+                                                          ss,rr,tt.vec[ii],
+                                                          point.qq)
+                }
+            }
+        }
+    }
+    names(anom.blocks) <- c("Parameter","Sender","Receiver","Class",
+                            "Intensity","Level")
+    return(anom.blocks)
+}
+
+
+block.post.pred.test <- function(object.1, object.2, alpha=0.05,
+                                 iter.draws = 10){
+
+
+    if(missing(object.1)) stop("object must be provided")
+    if(missing(object.2)) object.2 <- object.1
+    tclasses <- 1:object.1$ee
+
+    anom.block.mat <- NULL
+    for(tt in tclasses){
+        anom.block.mat <- rbind(anom.block.mat,
+                                single.block.test(object.1=object.1,
+                                                  object.2=object.2,
+                                                  tclass=tt,alpha=alpha,
+                                                  iter.draws=iter.draws))
+    }
+
+    return(anom.block.mat)
+}
+
+
+
+
+single.node.test <- function(object.1, object.2, tclass,
+                             param=c("sender","receiver"),
+                             alpha=0.05,iter.draws=10){
+    ## browser()
+    param <- match.arg(param)
+    if(missing(object.1)) stop("object.1 must be provided")
+    if(missing(object.2)) object.2 <- object.1
+    if(tclass > object.1$ee) stop("tclass is greater than ee: ",
+                                  object.1$ee)
+
+    nn <- object.1$nn; TT <- object.1$TT
+
+    samp <- param.post.predict(object=object.1,tclass=tclass,param=param,
+                               iter.draws=iter.draws)
+    if(param == "sender") node.mat <- object.2$chain$SS.mat
+    else if(param == "receiver") node.mat <- object.2$chain$RR.mat
+
+    anom.nodes <- data.frame(Parameter=character(),
+                             Sender=numeric(),Receiver=numeric(),
+                             Class=numeric(),
+                             Intensity=numeric(),Level=numeric(),
+                             stringsAsFactors=FALSE)
+
+    for(node in 1:nn){
+
+        qq <- quantile(samp[node,], c(alpha/2, 1 - (alpha/2)))
+        tt.vec <- which(object.2$tmap == tclass)
+
+        subsamp <- samp[node,]
+        mat <- node.mat[node,,][,tt.vec,drop=FALSE]
+
+        lower.ests <- apply(mat,2,quantile,prob=c(alpha/2))
+        upper.ests <- apply(mat,2,quantile,prob=c(1-(alpha/2)))
+        for(ii in 1:length(tt.vec)){
+            if(upper.ests[ii] < qq[1]){
+                point.qq <- find.quantile(subsamp,mat[,ii],twosided=TRUE)
+                ## point.qq <- mean(samp[node,] < upper.ests[ii])
+                anom.nodes[nrow(anom.nodes) + 1,]<- c(param,
+                                                      node,node,tt.vec[ii],
+                                                      point.qq)
+
+            }else if(lower.ests[ii] > qq[2]){
+                point.qq <- find.quantile(subsamp,mat[,ii],twosided=TRUE)
+                ## point.qq <- mean(samp[node,] < lower.ests[ii])
+                anom.nodes[nrow(anom.nodes) + 1,]<- c(param,
+                                                      node,node,tt.vec[ii],
+                                                      point.qq)
+            }
+        }
+    }
+
+    ## names(anom.nodes) <- c("Sender","Receiver","Class",
+    ##                        "Intensity","Level")
+
+    if(nrow(anom.nodes) > 0){
+        if(param == "sender") anom.nodes$Receiver <- NA
+        if(param == "receiver") anom.nodes$Sender <- NA
+    }
+
+    return(anom.nodes)
+}
+
+
+node.post.pred.test <- function(object.1, object.2, alpha=0.05,
+                                iter.draws = 10,
+                                param=c("sender","receiver")){
+
+    param <- match.arg(param)
+
+    if(missing(object.1)) stop("object must be provided")
+    if(missing(object.2)) object.2 <- object.1
+    tclasses <- 1:object.1$ee
+
+    anom.mat <- NULL
+    for(tt in tclasses){
+        anom.mat <- rbind(anom.mat,
+                          single.node.test(object.1=object.1,
+                                           object.2=object.2,
+                                           tclass=tt,alpha=alpha,
+                                           iter.draws=iter.draws,
+                                           param=param))
+    }
+
+    return(anom.mat)
+}
+
+
+
+#' @describeIn get.iter returns "dynsbm" model object for a specific iteration.
+#' @export
+get.iter.dynsbm.mcmc <- function(object,iter, ...){
     if(is.null(object$chain)){
         stop(paste("Object does not contain MCMC chain.",
                    "Call dynsbm with clean.out=FALSE"))
@@ -1945,18 +2200,4 @@ get.iter.dynsbm.mcmc <- function(object,iter){
     dynsbm.obj$net.mat <- object$net.mat
 
     return(dynsbm.obj)
-
-    ## if(dim(chain$mmb)[2] < iter){
-    ##     stop(paste0("Chain has less than ",iter," iterations"))
-    ## }
-
-
-    ## iter.list <- list(mmb=chain$mmb[,iter],
-    ##                   BB.mat=chain$BB.mat[,,iter,],
-    ##                   SS.mat=chain$SS.mat[,iter,],
-    ##                   RR.mat=chain$RR.mat[,iter,],
-    ##                   BB.prior=BB.prior,
-    ##                   SS.prior=SS.prior,RR.prior=RR.prior)
-
-    ## return(iter.list)
 }

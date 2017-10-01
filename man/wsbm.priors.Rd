@@ -33,4 +33,3 @@ parameters
 \seealso{
 \code{\link{wsbm}}
 }
-

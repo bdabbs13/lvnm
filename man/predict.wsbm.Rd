@@ -8,6 +8,8 @@
 }
 \arguments{
 \item{object}{a fitted object of the class "wsbm"}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns a matrix of predicted intensities.  These intensities are the
@@ -18,11 +20,10 @@ Generates a matrix of predicted intensities for each node pair
 }
 \examples{
 data(commuter30)
-fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 pred.mat <- predict(fit.1)
 
 }
 \seealso{
 \code{\link{wsbm.fit}}, \code{\link{wsbm}}
 }
-

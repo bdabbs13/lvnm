@@ -2,21 +2,46 @@
 % Please edit documentation in R/wsbm.R
 \name{logLik.wsbm}
 \alias{logLik.wsbm}
-\title{Log-Likelihood method for WSBM Fits}
+\alias{AIC.wsbm}
+\alias{BIC.wsbm}
+\alias{DIC.wsbm}
+\title{Log-Likelihood and Information Criteria for WSBM}
 \usage{
-\method{logLik}{wsbm}(x)
+\method{logLik}{wsbm}(object, ...)
+
+\method{AIC}{wsbm}(object, ..., k = 2)
+
+\method{BIC}{wsbm}(object, ...)
+
+\method{DIC}{wsbm}(object, ...)
 }
 \arguments{
-\item{x}{an object of class "wsbm"}
+\item{object}{an object of class "wsbm"}
+
+\item{...}{additional parameters}
+
+\item{k}{numeric, the penalty per parameter to be used; the default k = 2
+is the classical AIC}
 }
 \value{
-returns the log-likelihood of the data given the posterior mean
-parameter estimates.
+\strong{logLik}: returns the log-likelihood of the data given
+  the posterior mean parameter estimates.
+
+\strong{AIC}: returns the Akaike Information Criterion using the
+  parameters in object as approximations to the MLE.  The number of
+  parameters is taken to be \eqn{2(n-k) + k^2 + n}{2(n-k) + k*k + n}.
+
+\strong{BIC}: returns the Bayesian Information Criterion using
+  the posterior mean parameters as approximations to the MLE.  The
+  number of parameters is taken to be 2*(n-k) + k*k + n and the sample
+  size is taken to be n*n.
+
+\strong{DIC}: returns the Deviance Information Criterion.
 }
 \description{
-Returns log-likelihood for posterior mean estimates.
+Computing log-likelihood and information criteria using parameters
+  in a "wsbm" model object.
 }
 \seealso{
 \code{\link{wsbm}}
 }
-

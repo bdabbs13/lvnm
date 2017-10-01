@@ -4,14 +4,16 @@
 \alias{post.predict.dynsbm.mcmc}
 \title{Posterior Predictive Distribution Method for DynSBM Fits}
 \usage{
-\method{post.predict}{dynsbm.mcmc}(x, marginal = TRUE, ...)
+\method{post.predict}{dynsbm.mcmc}(object, marginal = TRUE, ...)
 }
 \arguments{
-\item{x}{a fitted object of the class "dynsbm".  Requires clean.out = FALSE
-in the call to dynsbm.}
+\item{object}{a fitted object of the class "dynsbm".  Requires
+clean.out = FALSE in the call to dynsbm.}
 
 \item{marginal}{if TRUE, values block, sender, and receiver effects are
 marginalized over using the estimated prior parameters.}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns a 3 dimensional array of dimension n x n x total, where n
@@ -21,22 +23,6 @@ the MCMC chain generated using wsbm.
 \description{
 Generates a posterior predictive distribution for each tie in a network.
 }
-\examples{
-data(commuter30)
-fit.wsbm <- wsbm(commuter30,kk=3,hours=1)
-
-pp.dist <- post.pred(fit.wsbm)
-density.ppd <- apply(post.pred,3,mean)
-summary(density.ppd)
-
-##  Initializing with a specific block membership
-init.vals <- list(mmb=c(rep(1,15),rep(2,10),rep(3,5)))
-fit.wsbm.2 <- wsbm(commuter30,kk=3,hours=1,
-                   init.control=list(init.vals=init.vals))
-fit.wsbm.2
-
-}
 \seealso{
 \code{\link{dynsbm}} \code{\link{predict.dynsbm}}
 }
-

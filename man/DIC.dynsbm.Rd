@@ -4,10 +4,12 @@
 \alias{DIC.dynsbm}
 \title{DIC method for DynSBM Fits}
 \usage{
-\method{DIC}{dynsbm}(x)
+\method{DIC}{dynsbm}(object, ...)
 }
 \arguments{
-\item{x}{an object of class "dynsbm"}
+\item{object}{an object of class "dynsbm"}
+
+\item{...}{additional parameters}
 }
 \value{
 returns the Deviance Information Criterion.
@@ -18,4 +20,3 @@ Returns Deviance Information Criterion for DynSBM Fit
 \seealso{
 \code{\link{dynsbm}}
 }
-

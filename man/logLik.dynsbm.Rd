@@ -4,10 +4,12 @@
 \alias{logLik.dynsbm}
 \title{Log-Likelihood method for DynSBM Fits}
 \usage{
-\method{logLik}{dynsbm}(x)
+\method{logLik}{dynsbm}(object, ...)
 }
 \arguments{
-\item{x}{an object of class "dynsbm"}
+\item{object}{an object of class "dynsbm"}
+
+\item{...}{additional arguments to logLik}
 }
 \value{
 returns the log-likelihood of the data given the posterior mean
@@ -19,4 +21,3 @@ Returns log-likelihood for posterior mean estimates.
 \seealso{
 \code{\link{dynsbm}}
 }
-

@@ -11,10 +11,10 @@
 #include <Rmath.h>
 #include "lvnm.h"
 #include "helper.h"
-#include "sbm.h"
+//#include "sbm.h"
 #include "wsbm.h"
 #include "dynamic-sbm.h"
-#include "mmsbm.h"
+//#include "mmsbm.h"
 
 //using namespace std;
 using std::ifstream;
@@ -84,90 +84,90 @@ void MCMC(T *Mod, int start, int total, int burnIn, int thin,
 extern "C" {
 
 
-    // Function to be called by R
-    void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
-	     double *betaPrior, double *eta,
-	     double *rBlockMat, int *rBlockMemb,
-	     int *burn_t, int *thin_t,
-	     int *start_t, int *multi_t,double *logLik,
-	     int *extend_max_t, int *shift_t, double *qq_t,
-	     double *postMat, int *verbose_t)
-    {
+    // // Function to be called by R
+    // void sbm(int *iters, int *nn_t, int *kk_t, int *YY,
+    // 	     double *betaPrior, double *eta,
+    // 	     double *rBlockMat, int *rBlockMemb,
+    // 	     int *burn_t, int *thin_t,
+    // 	     int *start_t, int *multi_t,double *logLik,
+    // 	     int *extend_max_t, int *shift_t, double *qq_t,
+    // 	     double *postMat, int *verbose_t)
+    // {
 
-	GetRNGstate();
+    // 	GetRNGstate();
 
-	int verbose = *verbose_t;
+    // 	int verbose = *verbose_t;
 
-	/*****  INITIALIZATION  *****/
-	//  Initializing SBM object
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, *multi_t);
-	mySBM->loadDataR(YY, betaPrior, eta);
-	mySBM->loadStateR(rBlockMat,rBlockMemb,postMat,logLik);
+    // 	/*****  INITIALIZATION  *****/
+    // 	//  Initializing SBM object
+    // 	CSBM *mySBM = new CSBM(*nn_t, *kk_t, *multi_t);
+    // 	mySBM->loadDataR(YY, betaPrior, eta);
+    // 	mySBM->loadStateR(rBlockMat,rBlockMemb,postMat,logLik);
 
-	//  Currently Initialization in R isn't accurate??
-	mySBM->initRandom();
+    // 	//  Currently Initialization in R isn't accurate??
+    // 	mySBM->initRandom();
 
-	//  Loading Previous Chain
-	int start = *start_t;
-	if(start > 0){
-	    // Currently do Nothing
-	}
+    // 	//  Loading Previous Chain
+    // 	int start = *start_t;
+    // 	if(start > 0){
+    // 	    // Currently do Nothing
+    // 	}
 
-	int total = *iters, burnIn = *burn_t, thin = *thin_t;
+    // 	int total = *iters, burnIn = *burn_t, thin = *thin_t;
 
-	//  Convergence Checking Criteria
-	double qq = *qq_t;
-	int shift_size = *shift_t;
-	int extend_max = *extend_max_t;
+    // 	//  Convergence Checking Criteria
+    // 	double qq = *qq_t;
+    // 	int shift_size = *shift_t;
+    // 	int extend_max = *extend_max_t;
 
-	//  Run MCMC Chain
+    // 	//  Run MCMC Chain
 
-	MCMC(mySBM, start, total, burnIn, thin,
-	     extend_max, qq, verbose);
+    // 	MCMC(mySBM, start, total, burnIn, thin,
+    // 	     extend_max, qq, verbose);
 
-	// sbmMCMC(mySBM, start, total, burnIn, thin,
-	// 	shift_size, extend_max, qq, //flatTable,
-	// 	rBlockMat, rBlockMemb,
-	// 	logLik, postMat, verbose);
+    // 	// sbmMCMC(mySBM, start, total, burnIn, thin,
+    // 	// 	shift_size, extend_max, qq, //flatTable,
+    // 	// 	rBlockMat, rBlockMemb,
+    // 	// 	logLik, postMat, verbose);
 
-	delete mySBM;
-	PutRNGstate();
-    }
-
-
-    void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,
-		  double *eta,
-		  double *rPosteriorMemb, double *rBlockMat, int *rBlockMemb,
-		  double *threshold_t,
-		  double *logLik,int *verbose_t)
-    {
-
-	GetRNGstate();
-
-	int verbose = *verbose_t;
-	int iter_max = *iter_max_t;
-	int multi = 1;
-	double threshold = *threshold_t;
-	double betaPrior[2] = {0,0};
-
-	/*****  INITIALIZATION  *****/
-	//  Initializing SBM object
+    // 	delete mySBM;
+    // 	PutRNGstate();
+    // }
 
 
-	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t,multi);
-	mySBM->loadDataR(YY, betaPrior, eta);
+    // void sbmEMout(int *iter_max_t, int *nn_t, int *kk_t, int *YY,
+    // 		  double *eta,
+    // 		  double *rPosteriorMemb, double *rBlockMat, int *rBlockMemb,
+    // 		  double *threshold_t,
+    // 		  double *logLik,int *verbose_t)
+    // {
 
-	mySBM->loadStateR(rBlockMat,rBlockMemb,rPosteriorMemb,logLik);
-	// mySBM->RLoadSBM(rBlockMat, rBlockMemb);
-	mySBM->initPPem(0.1);
+    // 	GetRNGstate();
 
-	sbmEM(mySBM, iter_max, threshold, rPosteriorMemb, rBlockMat, rBlockMemb,
-	      logLik, eta, verbose);
+    // 	int verbose = *verbose_t;
+    // 	int iter_max = *iter_max_t;
+    // 	int multi = 1;
+    // 	double threshold = *threshold_t;
+    // 	double betaPrior[2] = {0,0};
 
-	delete mySBM;
-	PutRNGstate();
-    }
+    // 	/*****  INITIALIZATION  *****/
+    // 	//  Initializing SBM object
+
+
+    // 	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+    // 	CSBM *mySBM = new CSBM(*nn_t, *kk_t,multi);
+    // 	mySBM->loadDataR(YY, betaPrior, eta);
+
+    // 	mySBM->loadStateR(rBlockMat,rBlockMemb,rPosteriorMemb,logLik);
+    // 	// mySBM->RLoadSBM(rBlockMat, rBlockMemb);
+    // 	mySBM->initPPem(0.1);
+
+    // 	sbmEM(mySBM, iter_max, threshold, rPosteriorMemb, rBlockMat, rBlockMemb,
+    // 	      logLik, eta, verbose);
+
+    // 	delete mySBM;
+    // 	PutRNGstate();
+    // }
 
 
     //  Weighted Stochastic Block Model Wrapper Function (R)
@@ -291,71 +291,71 @@ extern "C" {
 
 
 
-    //  Function to be called by R
-    void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
-	       double *betaPrior, double *alpha,
-	       double *flatTable, int *burn_t, int *thin_t,
-	       int *start_t,int *multi_t, double *logLik,
-	       int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t)
-    {
+//     //  Function to be called by R
+//     void mmsbm(int *iters, int *nn_t, int *kk_t, int *YY,
+// 	       double *betaPrior, double *alpha,
+// 	       double *flatTable, int *burn_t, int *thin_t,
+// 	       int *start_t,int *multi_t, double *logLik,
+// 	       int *extend_max_t, int *shift_t, double *qq_t, int *verbose_t)
+//     {
 
-	GetRNGstate();
+// 	GetRNGstate();
 
-	//  Reading in values from pointers
-	int total = *iters, verbose = *verbose_t;
-	int burnIn = *burn_t, thin = *thin_t;
-	int start = *start_t;//, multiImpute = *multi_t;
+// 	//  Reading in values from pointers
+// 	int total = *iters, verbose = *verbose_t;
+// 	int burnIn = *burn_t, thin = *thin_t;
+// 	int start = *start_t;//, multiImpute = *multi_t;
 
-	mmsbm_t *myMMSBM = new mmsbm_t(*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
-	if(start > 0){
-	    myMMSBM->loadTable(start, flatTable);
-	}
-	double qq = *qq_t;
-	int shift_size = *shift_t;
-	int extend_max = *extend_max_t;
+// 	mmsbm_t *myMMSBM = new mmsbm_t(*nn_t, *kk_t, YY, betaPrior, alpha, *multi_t);
+// 	if(start > 0){
+// 	    myMMSBM->loadTable(start, flatTable);
+// 	}
+// 	double qq = *qq_t;
+// 	int shift_size = *shift_t;
+// 	int extend_max = *extend_max_t;
 
-	mmsbmMCMC(myMMSBM, start, total, burnIn, thin,
-		  shift_size, extend_max, qq, flatTable, logLik,verbose);
+// 	mmsbmMCMC(myMMSBM, start, total, burnIn, thin,
+// 		  shift_size, extend_max, qq, flatTable, logLik,verbose);
 
-	//  Sending RNG state back to R
-	delete myMMSBM;
-	PutRNGstate();
-    }
+// 	//  Sending RNG state back to R
+// 	delete myMMSBM;
+// 	PutRNGstate();
+//     }
 
-    void getBlockMatMLE(int *nn_t, int *kk_t, int *YY, double *rBlockMat, int *rBlockMemb){
+//     void getBlockMatMLE(int *nn_t, int *kk_t, int *YY, double *rBlockMat, int *rBlockMemb){
 
-	GetRNGstate();
-	double betaPrior[2] = {1,1};
-	double *eta = new double[*kk_t];
-	int multi = 1;
-	std::fill(eta,eta + *kk_t, 1.0);
+// 	GetRNGstate();
+// 	double betaPrior[2] = {1,1};
+// 	double *eta = new double[*kk_t];
+// 	int multi = 1;
+// 	std::fill(eta,eta + *kk_t, 1.0);
 
-	/*****  INITIALIZATION  *****/
-	//  Initializing SBM object
-	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t, multi);
-	mySBM->loadDataR(YY, betaPrior, eta);
+// 	/*****  INITIALIZATION  *****/
+// 	//  Initializing SBM object
+// 	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, YY, betaPrior, eta, multi);
+// 	CSBM *mySBM = new CSBM(*nn_t, *kk_t, multi);
+// 	mySBM->loadDataR(YY, betaPrior, eta);
 
-	mySBM->RLoadSBM(rBlockMat, rBlockMemb);
-	//      mySBM->RLoadBlockMemb(mmb);
-	mySBM->computeBlockMatMLE();
-	mySBM->GetBlockMat(rBlockMat);
-	delete mySBM;
+// 	mySBM->RLoadSBM(rBlockMat, rBlockMemb);
+// 	//      mySBM->RLoadBlockMemb(mmb);
+// 	mySBM->computeBlockMatMLE();
+// 	mySBM->GetBlockMat(rBlockMat);
+// 	delete mySBM;
 
-	PutRNGstate();
+// 	PutRNGstate();
 
-    }
+//     }
 
-    void sbmTesting(int *nn_t, int *kk_t, int *adjMat){
-	double beta[2];
-	double eta[*kk_t];
+//     void sbmTesting(int *nn_t, int *kk_t, int *adjMat){
+// 	double beta[2];
+// 	double eta[*kk_t];
 
-	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, adjMat, beta, eta, 1);
-	CSBM *mySBM = new CSBM(*nn_t, *kk_t,1);
-	mySBM->loadDataR(adjMat, beta, eta);
-	mySBM->print(true);
+// 	// CSBM *mySBM = new CSBM(*nn_t, *kk_t, adjMat, beta, eta, 1);
+// 	CSBM *mySBM = new CSBM(*nn_t, *kk_t,1);
+// 	mySBM->loadDataR(adjMat, beta, eta);
+// 	mySBM->print(true);
 
-    }
+//     }
 }
 
 

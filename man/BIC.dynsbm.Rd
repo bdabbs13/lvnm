@@ -4,10 +4,12 @@
 \alias{BIC.dynsbm}
 \title{BIC method for DynSBM Fits}
 \usage{
-\method{BIC}{dynsbm}(x)
+\method{BIC}{dynsbm}(object, ...)
 }
 \arguments{
-\item{x}{an object of class "dynsbm"}
+\item{object}{an object of class "dynsbm"}
+
+\item{...}{additional arguments to BIC}
 }
 \value{
 returns the Bayesian Information Criterion using the posterior mean
@@ -20,4 +22,3 @@ Returns Bayesian Information Criterion for DynBM Fit
 \seealso{
 \code{\link{dynsbm}}
 }
-

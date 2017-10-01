@@ -4,10 +4,15 @@
 \alias{AIC.dynsbm}
 \title{AIC method for DynSBM Fits}
 \usage{
-\method{AIC}{dynsbm}(x)
+\method{AIC}{dynsbm}(object, ..., k = 2)
 }
 \arguments{
-\item{x}{an object of class "dynsbm"}
+\item{object}{an object of class "dynsbm"}
+
+\item{...}{additional arguments to AIC}
+
+\item{k}{numeric, the penalty per parameter to be used; the default k = 2
+is the classical AIC}
 }
 \value{
 returns the Akaike Information Criterion using the posterior mean
@@ -20,4 +25,3 @@ Returns Akaike Information Criterion for DynSBM Fit
 \seealso{
 \code{\link{dynsbm}}
 }
-

@@ -2,12 +2,15 @@
 % Please edit documentation in R/dynamic-sbm.R
 \name{dynsbm}
 \alias{dynsbm}
+\alias{is.dynsbm}
 \title{Create Dynamic Stochastic Block Model Object}
 \usage{
 dynsbm(nn = 40, TT = 4, tmap = rep(1:2, 2), hours.vec = c(1, 1),
   BB.prior = NULL, SS.prior = NULL, RR.prior = NULL, BB.mat, SS.mat,
   RR.mat, mmb.prior = c(0.5, 0.5), mmb, self.ties = TRUE,
   normalize = FALSE, gen = FALSE)
+
+is.dynsbm(object)
 }
 \arguments{
 \item{nn}{number of nodes in the network}
@@ -24,6 +27,15 @@ dynsbm(nn = 40, TT = 4, tmap = rep(1:2, 2), hours.vec = c(1, 1),
 
 \item{RR.prior}{receiver effect prior parameters for each equivalence class}
 
+\item{BB.mat}{block effect parameters for each network.  Sampled from
+BB.prior if not provided.}
+
+\item{SS.mat}{sender effect parameters for each network.  Sampled from
+SS.prior if not provided.}
+
+\item{RR.mat}{receiver effect parameters for each network.  Sampled from
+RR.prior if not provided.}
+
 \item{mmb.prior}{prior distribution for multinomial distribution over
 block memberships}
 
@@ -36,6 +48,8 @@ mean of 1 within each block}
 
 \item{gen}{if TRUE also samples a network from the model and includes it as a
 component of the model object}
+
+\item{object}{object that could be of class "dynsbm"}
 }
 \value{
 Returns a "dynsbm" model object containing all the parameters needed
@@ -45,6 +59,11 @@ contains a network sampled from this parameterization.
 \description{
 Generates a Model Object for a Dynamic Stochastic Block Model
 }
+\section{Functions}{
+\itemize{
+\item \code{is.dynsbm}: Test whether an object is of class dynsbm
+}}
+
 \examples{
 kk <- 3
 nn <- kk^2 * 10
@@ -59,11 +78,14 @@ BB.prior[cbind(1:3,c(3,1,2),1,2)] <- 2
 SS.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 RR.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 dat <- dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
-              BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior
+              BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior,
               mmb=mmb,self.ties=TRUE,normalize=TRUE,gen=TRUE)
+
+plot(dat)
+plot(dat,marginal=FALSE)
+network.plot(dat)
 
 }
 \seealso{
-\code{\link{dynsbm}}
+\code{\link{dynsbm.fit}}
 }
-

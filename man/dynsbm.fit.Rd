@@ -5,12 +5,11 @@
 \title{Dynamic Weighted Stochastic Block Model Estimator}
 \usage{
 dynsbm.fit(net.mat, kk = 3, tmap, hours.vec, self.ties = TRUE,
-  priors = dynsbm.priors(eta = rep(1/kk, kk)),
-  init.control = list(spectral.start = FALSE, multistart = 0, multistart.total
-  = 10), mcmc.control = list(total = 1000, burn.in = 1000, thin = 10,
-  extend.alpha = 0.001, extend.max = 10, label.switch.mode = "adhoc",
-  label.switch.max = 200, multi.impute = FALSE), update.mmb = TRUE,
-  clean.out = FALSE, verbose = 1)
+  priors = dynsbm.priors(), init.control = list(spectral.start = FALSE,
+  multistart = 0, multistart.total = 10), mcmc.control = list(total = 1000,
+  burn.in = 1000, thin = 10, extend.alpha = 0.001, extend.max = 10,
+  label.switch.mode = "adhoc", label.switch.max = 200, multi.impute = FALSE),
+  update.mmb = TRUE, clean.out = FALSE, verbose = 1)
 }
 \arguments{
 \item{net.mat}{a 3-dimensional array containing a sequence of adjacency
@@ -33,6 +32,10 @@ list of parameters from which to start the MCMC chain.}
 
 \item{mcmc.control}{control parameters for the MCMC algorithm}
 
+\item{update.mmb}{if FALSE, the block membership vector is not updated
+during the MCMC routine.  This can be used if the block memberships are
+known in advance.}
+
 \item{clean.out}{if true, removes MCMC chain from output and only
 returns posterior means}
 
@@ -51,6 +54,5 @@ Estimates parameters for the dynamic weighted stochastic block model using
 an MCMC algorithm.
 }
 \seealso{
-\code{\link{dynsbm.priors}}
+\code{\link{dynsbm}}, \code{\link{dynsbm.priors}}
 }
-

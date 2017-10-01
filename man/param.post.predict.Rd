@@ -4,10 +4,10 @@
 \alias{param.post.predict}
 \title{Posterior Predictive Distribution Estimator}
 \usage{
-param.post.predict(x, ...)
+param.post.predict(object, ...)
 }
 \arguments{
-\item{x}{model object which contains output from an MCMC chain}
+\item{object}{model object which contains output from an MCMC chain}
 
 \item{...}{additional arguments for specific methods}
 }
@@ -21,4 +21,3 @@ additional information.
 \seealso{
 \code{\link{param.post.predict.dynsbm.mcmc}}
 }
-

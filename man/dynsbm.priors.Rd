@@ -4,23 +4,21 @@
 \alias{dynsbm.priors}
 \title{Prior Parameters for dynsbm}
 \usage{
-dynsbm.priors(eta, BB.hyperprior = c(0.99, 1.01, 1, 1),
-  SS.hyperprior = c(0.99, 1.01, 1, 1), RR.hyperprior = c(0.99, 1.01, 1, 1))
+dynsbm.priors(eta = NULL, BB.hyperprior = c(0.9999, 0.0011, 0.001, 0.001),
+  SS.hyperprior = c(0.999, 0.011, 0.01, 0.01), RR.hyperprior = c(0.999,
+  0.011, 0.01, 0.01))
 }
 \arguments{
-\item{eta}{prior on block memberships}
+\item{eta}{prior on block memberships.}
 
-\item{block.alpha}{shape parameter for Block Effects}
+\item{BB.hyperprior}{hyperprior parameters for conjugate Gamma
+distribution on block effect priors}
 
-\item{block.beta}{rate parameter for Block Effects}
+\item{SS.hyperprior}{hyperprior parameters for conjugate Gamma
+distribution on sender effect priors}
 
-\item{sender.alpha}{shape parameter for Sender Effects}
-
-\item{sender.beta}{rate parameter for Sender Effects}
-
-\item{receiver.alpha}{shape parameter for Receiver Effects}
-
-\item{receiver.beta}{rate parameter for Receiver Effects}
+\item{RR.hyperprior}{hyperprior parameters for conjugate Gamma
+distribution on receiver effect priors}
 }
 \value{
 Returns a list containing the parameters with useful defaults.  eta
@@ -32,4 +30,3 @@ Generating prior parameters for pass to dynsbm
 \seealso{
 \code{\link{dynsbm}}
 }
-

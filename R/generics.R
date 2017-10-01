@@ -10,12 +10,13 @@
 #' Plots a Heatmap Representation of an Adjacency Matrix
 #'
 #' @param x network object
-#' @param ...
+#' @param ... additional graphical parameters
 #'
-#' @details This is a generic function.
+#' @details Plots a heatmap representation of the adjacency matrix for a
+#' network object.
 #'
-#' @seealso \code{\link{network.plot.wsbm}},
-#' \code{\link{network.plot.dynsbm}}
+#' @seealso \code{\link{wsbm}},
+#' \code{\link{dynsbm}}
 #'
 #' @export
 network.plot <- function(x, ...){
@@ -26,7 +27,7 @@ network.plot <- function(x, ...){
 #'
 #' Generates Adjacency Matrix Corresponding to a Model Object
 #'
-#' @param x model object
+#' @param object model object
 #' @param ... additional arguments for specific methods
 #'
 #' @details This is a generic funciton.  See specific method definitions for
@@ -35,8 +36,8 @@ network.plot <- function(x, ...){
 #' @seealso  \code{\link{net.gen.wsbm}},
 #' \code{\link{net.gen.dynsbm}}
 #' @export
-net.gen <- function(x, ...) {
-    UseMethod("net.gen",x)
+net.gen <- function(object, ...) {
+    UseMethod("net.gen",object)
 }
 
 
@@ -44,17 +45,16 @@ net.gen <- function(x, ...) {
 #'
 #' Plots Diagnostics for Various Model Fits
 #'
-#' @param x model object
-#' @param ... additional arguments for specific methods
+#' @param object model object
+#' @param ... additional arguments for plotting methods
 #'
-#' @details This is a generic funciton.  See specific method definitions for
-#' additional information.
+#' @details Plots diagnostics for various parameter estimations for a given
+#'   model object.
 #'
-#' @seealso \code{\link{diagnostic.plot.wsbm.mcmc}},
-#' \code{\link{diagnostic.plot.dynsbm.mcmc}}
+#' @seealso \code{\link{wsbm.fit}}, \code{\link{dynsbm.fit}}
 #' @export
-diagnostic.plot <- function(x, ...) {
-    UseMethod("diagnostic.plot",x)
+diagnostic.plot <- function(object, ...) {
+    UseMethod("diagnostic.plot",object)
 }
 
 
@@ -62,17 +62,17 @@ diagnostic.plot <- function(x, ...) {
 #'
 #' Plots Parameter Summaries for Various Model Fits
 #'
-#' @param x model object
-#' @param ... additional arguments for specific methods
+#' @param object model object
+#' plots the Log-Likelihood for each step of the chain.
+#' @param ... other graphical parameters to pass to the plotting functions
 #'
-#' @details This is a generic funciton.  See specific method definitions for
-#' additional information.
+#' @details Displays boxplots for various sets of parameters for the model
+#'   object.
 #'
-#' @seealso \code{\link{param.plot.wsbm.mcmc}}
-#' \code{\link{param.plot.dynsbm.mcmc}}
+#' @seealso \code{\link{wsbm.fit}}, \code{\link{dynsbm.fit}}
 #' @export
-param.plot <- function(x, ...) {
-    UseMethod("param.plot",x)
+param.plot <- function(object, ...) {
+    UseMethod("param.plot",object)
 }
 
 
@@ -81,7 +81,7 @@ param.plot <- function(x, ...) {
 #'
 #' Estimates Posterior Predictive Distribution using MCMC Chain Output
 #'
-#' @param x model object which contains output from an MCMC chain
+#' @param object model object which contains output from an MCMC chain
 #' @param ... additional arguments for specific methods
 #'
 #' @details This is a generic function.  See specific method definitions for
@@ -90,8 +90,8 @@ param.plot <- function(x, ...) {
 #' @seealso \code{\link{post.predict.wsbm.mcmc}}
 #' \code{\link{post.predict.dynsbm.mcmc}}
 #' @export
-post.predict <- function(x, ...) {
-    UseMethod("post.predict",x)
+post.predict <- function(object, ...) {
+    UseMethod("post.predict",object)
 }
 
 
@@ -99,7 +99,7 @@ post.predict <- function(x, ...) {
 #'
 #' Estimates Posterior Predictive Distribution using MCMC Chain Output
 #'
-#' @param x model object which contains output from an MCMC chain
+#' @param object model object which contains output from an MCMC chain
 #' @param ... additional arguments for specific methods
 #'
 #' @details This is a generic function.  See specific method definitions for
@@ -108,8 +108,8 @@ post.predict <- function(x, ...) {
 #' @seealso \code{\link{param.post.predict.dynsbm.mcmc}}
 #'
 #' @export
-param.post.predict <- function(x, ...) {
-    UseMethod("param.post.predict",x)
+param.post.predict <- function(object, ...) {
+    UseMethod("param.post.predict",object)
 }
 
 
@@ -118,14 +118,23 @@ param.post.predict <- function(x, ...) {
 #'
 #' Returns Model Object from MCMC Iteration
 #'
-#' @param x mdl.mcmc object
+#' @param object mdl.mcmc object
 #' @param iter iteration to return
-#' @param ...
+#' @param ... additional parameters
 #'
-#' @details This is a generic function.  Given an object of type
+#' @return Returns an object of the class for which the given MCMC object
+#'   is designed to sample.
+#' @details Assuming the MCMC sampler is iteratively drawing parameters from
+#'   the joint distribution for a given model class, this function will
+#'   return the sample from a given iteration of the correct class.  This
+#'   model object can then be used as a starting point for extending a chain,
+#'   or can be analyzed by any of the functions that allow you to interact
+#'   with that model object.
+#'
+#' @seealso \code{\link{wsbm.fit}}, \code{\link{dynsbm.fit}}
 #' @export
-get.iter <- function(x, iter, ...){
-    UseMethod("get.iter",x)
+get.iter <- function(object, iter, ...){
+    UseMethod("get.iter",object)
 }
 
 
@@ -133,7 +142,7 @@ get.iter <- function(x, iter, ...){
 #'
 #' \code{DIC} returns the Deviance Information Criterion for a Model Object
 #'
-#' @param x object for which to calculate DIC
+#' @param object object for which to calculate DIC
 #' @param ... additional parameters
 #'
 #' @details When comparing models using DIC, the smaller the value, the better
@@ -148,7 +157,32 @@ get.iter <- function(x, iter, ...){
 #'
 #' @seealso \code{\link{AIC}} \code{\link{BIC}}
 #' @export
-DIC <- function(x, ...) {
-    UseMethod("DIC",x)
+DIC <- function(object, ...) {
+    UseMethod("DIC",object)
 }
+
+
+
+
+#' Calculate Bayesian Information Criterion
+#'
+#' \code{BIC} returns the Bayesian Information Criterion for a Model Object
+#'
+#' @param object object for which to calculate BIC
+#' @param ... additional parameters
+#'
+#' @details When comparing models using BIC, the smaller the value, the better
+#' the fit.
+#'
+#' This is a generic function: methods can be defined for it directly
+#' or via the \code{\link{Summary}} group generic. For this to work properly,
+#' the arguments \code{...} should be unnamed, and dispatch is on the first
+#' argument.
+#'
+#' @return Returns the Bayesian Information Criterion.
+#'
+#' @seealso \code{\link{AIC}} \code{\link{DIC}}
+## BIC <- function(object, ...) {
+##     UseMethod("BIC",x)
+## }
 

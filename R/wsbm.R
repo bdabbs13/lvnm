@@ -6,6 +6,8 @@
 #####
 ##############################################################
 
+#' @include generics.R helper.R
+NULL
 
 ######################################################################
 ###################  DATA GENERATION FUNCTION  #######################
@@ -18,17 +20,17 @@
 #' Generates a Model Object for a Weighted Stochastic Block Model
 #'
 #' @param nn number of nodes in the network
-#' @param mmb block memberhsip vector
+#' @param mmb block membership vector
 #' @param BB block propensity matrix
 #' @param SS sender effect vector
 #' @param RR receiver effect vector
 #' @param mmb.prior prior distribution for multinomial distribution over
 #' block memberships
 #' @param self.ties if true self ties are allowed
-#' @param hours scaling factor so that other factors can be interpreted
-#' as hourly rate parameters.
-#' @param gen if TRUE also samples a network from the model and includes it as a
-#' component of the model object
+#' @param hours scaling factor so that parameters can be interpreted
+#' as hourly rate parameters
+#' @param gen if TRUE also samples a network from the model and includes it
+#' as a component of the model object
 #'
 #' @return Returns a "wsbm" model object containing all the parameters needed
 #' for sampling networks from the model.  If gen = TRUE, the object also
@@ -36,11 +38,10 @@
 #'
 #' @examples
 #' kk <- 3
-#' nn <- kk^2 * 10
+#' nn <- 10*kk^2
 #' mmb <-  rep(1:kk,each=nn/kk)
 #' BB <- array(1,c(kk,kk)); diag(BB) <- 5
 #' SS <- RR <- rep(c(rep(5,nn/(kk^2)),rep(1,nn*(kk-1)/(kk^2))),kk)
-#' set.seed(100)
 #' dat <- wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR,gen=TRUE)
 #'
 #' ### Plotting Intensity Matrix and Adjacency Matrix
@@ -76,8 +77,10 @@ wsbm <- function(nn,mmb,BB,SS=rep(1,nn),RR=rep(1,nn),
 }
 
 
+#' @describeIn wsbm Test whether an object is of class wsbm
+#' @param object object that could be of class "wsbm"
 #' @export
-is.wsbm <- function(x) inherits(x,"wsbm")
+is.wsbm <- function(object) inherits(object,"wsbm")
 
 
 #' Generate Weighted Stochastic Block Model Networks
@@ -85,7 +88,8 @@ is.wsbm <- function(x) inherits(x,"wsbm")
 #' Generates networks from the weighted stochastic block model
 #' with or without degree effects.
 #'
-#' @param x object of class "wsbm"
+#' @param object object of class "wsbm"
+#' @param ... additional parameters
 #'
 #' @return Returns a matrix representing the adjacency matrix for a network
 #' drawn from the given weighted stochastic block model
@@ -100,20 +104,21 @@ is.wsbm <- function(x) inherits(x,"wsbm")
 #' model <- wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR)
 #' net <- net.gen(model)
 #'
+#' plot(net)
+#'
+#' par(mfrow=c(2,2))
+#' for(ii in 1:4) plot(net.gen(model))
+#'
+#'
 #' @seealso \code{\link{wsbm}} \code{\link{wsbm.fit}}
 #' @export
-net.gen.wsbm <- function(x){
+net.gen.wsbm <- function(object, ...){
 
-    PI <- mmb.to.PI(x$mmb)
-    pmat <- PI %*% x$BB %*% t(PI)
-    sr.mat <- as.matrix(x$SS) %*% t(as.matrix(x$RR))
-    pmat <- pmat * sr.mat * x$hours
-    net <- net.gen(pmat,self.ties=x$self.ties,d="poisson")
-
-    ## net <- array(rpois(x$nn*x$nn,pmat),c(x$nn,x$nn))
-    ## if(!(x$self.ties)){
-    ##     diag(net) <- NA
-    ## }
+    PI <- mmb.to.PI(object$mmb)
+    pmat <- PI %*% object$BB %*% t(PI)
+    sr.mat <- as.matrix(object$SS) %*% t(as.matrix(object$RR))
+    pmat <- pmat * sr.mat * object$hours
+    net <- net.gen(pmat,self.ties=object$self.ties,d="poisson")
 
     return(net)
 }
@@ -128,20 +133,19 @@ net.gen.wsbm <- function(x){
 #' Estimates parameters for the weighted stochastic block model using
 #' an MCMC algorithm.
 #'
+#' @param kk number of blocks to fit
 #' @param net a matrix object representing the adjacency matrix
-#' @param kk number of blocks
-#' @param hours scaling parameter
-#' @param self.ties if true assumes self ties are possible
 #' @param priors priors for posterior inference.  See wsbm.priors for more
-#' details
+#'   details
 #' @param init.control control parameters for initialization routine.
-#' If init.control contains a member named init.vals it is interpreted as a
-#' list of parameters from which to start the MCMC chain.
+#'   If init.control contains a member named init.vals it is interpreted as a
+#'   list of parameters from which to start the MCMC chain.
 #' @param mcmc.control control parameters for the MCMC algorithm
 #' @param clean.out if true, removes MCMC chain from output and only
 #' returns posterior means
 #' @param verbose higher values correspond to more informative output as the
 #' sampler runs
+#' @inheritParams wsbm
 #'
 #' @return Returns a wsbm object that has posterior means for each parameter
 #' in the weighted directed degree corrected stochastic block model.  If
@@ -249,8 +253,8 @@ wsbm.fit <- function(net, kk=3, hours=1, self.ties=TRUE,
                                 class="wsbm.chain")
 
     if(mcmc.control$label.switch.mode == "kl-loss"){
-        wsbm.chain.obj <- switch.labels(wsbm.chain.obj,verbose=verbose,
-                                        max.runs=mcmc.control$label.switch.max)
+   ## wsbm.chain.obj <- switch.labels(wsbm.chain.obj,verbose=verbose,
+   ##                                 max.runs=mcmc.control$label.switch.max)
     }else{
         ##  Do nothing
     }
@@ -276,11 +280,13 @@ wsbm.fit <- function(net, kk=3, hours=1, self.ties=TRUE,
     return(wsbm.fit.obj)
 }
 
+#' @describeIn wsbm.fit Check if object is output from wsbm.fit
 #' @export
-is.wsbm.fit <- function(x) inherits(x,"wsbm.fit")
+is.wsbm.fit <- function(object) inherits(object,"wsbm.fit")
 
+#' @describeIn wsbm.fit Check if the fitted object is an MCMC chain
 #' @export
-is.wsbm.mcmc <- function(x) inherits(x,"wsbm.mcmc")
+is.wsbm.mcmc <- function(object) inherits(object,"wsbm.mcmc")
 
 
 #' Prior Parameters for wsbm Gamma Priors
@@ -331,13 +337,14 @@ wsbm.priors <- function(eta,
 #' Generates a matrix of predicted intensities for each node pair
 #'
 #' @param object a fitted object of the class "wsbm"
+#' @param ... additional parameters
 #'
 #' @return Returns a matrix of predicted intensities.  These intensities are the
 #' predicted values given the posterior mean parameter estimates
 #'
 #' @examples
 #' data(commuter30)
-#' fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+#' fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 #' pred.mat <- predict(fit.1)
 #'
 #' @seealso \code{\link{wsbm.fit}}, \code{\link{wsbm}}
@@ -358,8 +365,9 @@ predict.wsbm <- function(object,...){
 #'
 #' Generates a posterior predictive distribution for each tie in a network.
 #'
-#' @param x a fitted object of the class "wsbm".  Requires clean.out = FALSE
-#' in the call to wsbm.
+#' @param object a fitted object of the class "wsbm".  Requires
+#'   clean.out = FALSE in the call to wsbm.
+#' @param ... additional parameters
 #'
 #' @return Returns a 3 dimensional array of dimension n x n x total, where n
 #' is the number of nodes in the network and total is the number of draws in
@@ -367,33 +375,24 @@ predict.wsbm <- function(object,...){
 #'
 #' @examples
 #' data(commuter30)
-#' fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+#' fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 #'
-#' pp.dist <- post.pred(fit.1)
-#' density.ppd <- apply(post.pred,3,mean)
+#' pp.dist <- post.predict(fit.1)
+#' density.ppd <- apply(pp.dist,3,mean)
+#' ##  Summarizing Posterior Prediction of Average Ties in Network
 #' summary(density.ppd)
 #'
 #'
 #' @seealso \code{\link{wsbm.fit}} \code{\link{predict.wsbm}}
 #' @export
-post.predict.wsbm.mcmc <- function(x, ...){
-    if(x$chain$clean) stop("Use clean.out = TRUE to keep MCMC chains")
-    nn <- x$nn
-    total <- x$chain$mcmc.control$total
+post.predict.wsbm.mcmc <- function(object, ...){
+    if(object$chain$clean) stop("Use clean.out = TRUE to keep MCMC chains")
+    nn <- object$nn
+    total <- object$chain$mcmc.control$total
 
     pmat.post <- array(NA,c(nn,nn,total))
     for(ii in 1:total){
-        pmat.post[,,ii] <- net.gen(get.iter(x,ii))
-        ## tmp.obj <- with(x$chain,
-        ##                 wsbm(nn=nn,BB=BB[,,ii],SS=SS[,ii],RR=RR[,ii],
-        ##                      mmb=mmb[,ii],self.ties=self.ties,hours=hours))
-
-        ## pmat.post[,,ii] <- net.gen(tmp.obj)
-
-        ## with(x$chain,list(BB=BB[,,ii],SS=SS[,ii],RR=RR[,ii],
-        ##                                  mmb=mmb[,ii],
-        ##                                  self.ties=self.ties,hours=hours))
-        ##     pmat.post[,,ii] <- data.gen.wsbm(tmp.obj)
+        pmat.post[,,ii] <- net.gen(get.iter(object,ii))
     }
     return(pmat.post)
 }
@@ -415,7 +414,7 @@ post.predict.wsbm.mcmc <- function(x, ...){
 #'
 #' @examples
 #' data(commuter30)
-#' met.3 <- wsbm.metric(commuter30,kk=3)
+#' met.3 <- wsbm.metric(commuter30$net,kk=3)
 #'
 #' @seealso \code{\link{wsbm}} \code{\link{predict.wsbm}}
 #' @export
@@ -423,10 +422,10 @@ wsbm.metric <- function(net,kk=2,hours=1,self.ties=TRUE,
                         priors=wsbm.priors(eta=rep(1/kk,kk)),
                         verbose=0,...){
 
-    wsbm.fit <- wsbm(net=net,kk=kk,hours=hours,self.ties=self.ties,
-                     mcmc.control=mcmc.control,priors=priors,
-                     verbose=verbose,clean.out=TRUE, ...)
-    return(predict(wsbm.fit))
+    fit.out <- wsbm.fit(net=net,kk=kk,hours=hours,self.ties=self.ties,
+                        priors=priors,verbose=verbose,clean.out=TRUE, ...)
+
+    return(predict(fit.out))
 }
 
 
@@ -443,16 +442,15 @@ wsbm.metric <- function(net,kk=2,hours=1,self.ties=TRUE,
 #' @param node.order determines ordering of nodes.  "default" uses the original
 #' order of the adjacency matrix.  "membership" first orders the data using the
 #' estimated block membership vector.
-#' @param xaxt a character which specifies the axis type
-#' @param yaxt a character which specifies the axis type
 #' @param pal pallete of colors to use ordered from low to high intensity
+#' @param ... additional graphical parameters
 #'
 #' @details Plots a greyscale image of the adjacency matrix.  Darker colors
 #' indicate larger expected intensities.
 #'
 #' @examples
 #' data(commuter30)
-#' fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+#' fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 #' plot(fit.1)
 #'
 #' @seealso \code{\link{wsbm.fit}}
@@ -473,7 +471,9 @@ plot.wsbm <- function(x,
     adj.image.plot(pmat,ord,pal,...)
 }
 
-
+#' @describeIn network.plot Plots heatmap for net
+#' @param pal Color palette used to indicate tie intensity
+#' @param node.order order in which to plot the nodes
 #' @export
 network.plot.wsbm <- function(x, pal=grey((50:1)/50), node.order=NULL,...){
     net <- x$net
@@ -488,58 +488,53 @@ network.plot.wsbm <- function(x, pal=grey((50:1)/50), node.order=NULL,...){
 
 
 
-#' Diagnostic Plotting Method for WSBM fits
+#' @describeIn diagnostic.plot Plots MCMC chains for various parameters
+#'   in WSBM model.
 #'
-#' Plots MCMC chains for various parameters in WSBM model.
-#'
-#' @param x object of class "wsbm"
-#' @param type which parameters diagnostics to plot.  The default value "block"
+#' @param param which diagnostics to plot.  The default value, "block",
 #' plots the block intensity parameters.  Passing "sender" and "receiver" plots
 #' the chains for the sender and receiver effects.  The last option, "ll",
 #' plots the Log-Likelihood for each step of the chain.
 #' @param scale.ylim logical indicating whether each chain should have the same
 #' range for the y-axis.  This can be suppressed by passing ylim.
-#' @param ... other graphical parameters to pass to the plotting functions
-#'
-#' @details Plots MCMC chains for the specified set of parameters.
 #'
 #' @examples
+#' ### Static SBM Example
 #' data(commuter30)
-#' fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+#' fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 #'
 #' diagnostic.plot(fit.1,param="block")
 #' diagnostic.plot(fit.1,param="sender")
 #' diagnostic.plot(fit.1,param="receiver")
 #' diagnostic.plot(fit.1,param="ll")
 #'
-#' @seealso \code{\link{wsbm.fit}}
 #' @export
-diagnostic.plot.wsbm.mcmc <- function(x,
+diagnostic.plot.wsbm.mcmc <- function(object,
                                       param=c("block","sender","receiver","ll"),
                                       scale.ylim=FALSE, ...){
-    if(x$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    if(object$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
 
     param <- match.arg(param)
     if(param == "block"){
-        block.diagnostic.wsbm.mcmc(x,scale.ylim=scale.ylim, ...)
+        block.diagnostic.wsbm.mcmc(object,scale.ylim=scale.ylim, ...)
     }else if(param == "sender"){
-        sender.diagnostic.wsbm.mcmc(x, scale.ylim=scale.ylim, ...)
+        sender.diagnostic.wsbm.mcmc(object, scale.ylim=scale.ylim, ...)
     }else if(param == "receiver"){
-        receiver.diagnostic.wsbm.mcmc(x, scale.ylim=scale.ylim, ...)
+        receiver.diagnostic.wsbm.mcmc(object, scale.ylim=scale.ylim, ...)
     }else if(param == "ll"){
-        ll.diagnostic.wsbm.mcmc(x, ...)
+        ll.diagnostic.wsbm.mcmc(object, ...)
     }
 
 }
 
 
-block.diagnostic.wsbm.mcmc <- function(x,
+block.diagnostic.wsbm.mcmc <- function(object,
                                        xlim=NULL,ylim=NULL,
                                        scale.ylim=FALSE,
                                        blocks=NULL,...){
 
-    kk <- x$kk
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$BB)
+    kk <- object$kk
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$BB)
     if(is.null(blocks)) blocks <- 1:kk
 
     if(dev.cur() == 1){
@@ -553,7 +548,7 @@ block.diagnostic.wsbm.mcmc <- function(x,
 
     for(ii in blocks){
         for(jj in blocks){
-            plot(x$chain$BB[ii,jj,],ylim=ylim,xlim=xlim,type="l",
+            plot(object$chain$BB[ii,jj,],ylim=ylim,xlim=xlim,type="l",
                  xlab="Iteration",ylab="",
                  main=paste0("B[",ii,",",jj,"]"),
                  ...)
@@ -564,36 +559,36 @@ block.diagnostic.wsbm.mcmc <- function(x,
 
 }
 
-sender.diagnostic.wsbm.mcmc <- function(x,
+sender.diagnostic.wsbm.mcmc <- function(object,
                                         xlim=NULL,ylim=NULL,
                                         scale.ylim=FALSE,
                                         nodes=NULL,...){
 
-    node.diag.plot(x$chain$SS,
+    node.diag.plot(object$chain$SS,
                    xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                    main.prefix="S[",main.suffix="]",nodes=nodes)
     title(main="Sender Effect Chains",outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 
 }
 
 
-receiver.diagnostic.wsbm.mcmc <- function(x,
+receiver.diagnostic.wsbm.mcmc <- function(object,
                                           xlim=NULL,ylim=NULL,
                                           scale.ylim=FALSE,
                                           nodes=NULL,...){
 
-    node.diag.plot(x$chain$RR,
+    node.diag.plot(object$chain$RR,
                    xlim=xlim,ylim=ylim,scale.ylim=scale.ylim,
                    main.prefix="R[",main.suffix="]",nodes=nodes)
     title(main="Receiver Effect Chains",outer=TRUE,
-          cex.main=2.5,line=-3)
+          cex.main=2.5,line=0)
 }
 
 
-ll.diagnostic.wsbm.mcmc <- function(x,...){
+ll.diagnostic.wsbm.mcmc <- function(object,...){
 
-    ll.chain.plot(x,...)
+    ll.chain.plot(object,...)
 
 }
 
@@ -610,57 +605,53 @@ node.boxplot <- function(mat, nodes=NULL, ...){
 
 
 
-#' Parameter Plotting Method for WSBM fits
-#'
-#' Plots boxplots of posterior samples for parameters in WSBM model.
-#'
-#' @param x object of class "wsbm"
-#' @param param which parameters diagnostics to plot.  The default value "block"
+# Parameter Plotting Method for WSBM fits
+#
+#' @describeIn param.plot Displays boxplots of the posterior sample for
+#'   parameters in the WSBM model.
+#' @param param which parameters to use.  The default value "block"
 #' plots the block intensity parameters.  Passing "sender" and "receiver" plots
-#' the chains for the sender and receiver effects.  The last option, "ll",
-#' plots the Log-Likelihood for each step of the chain.
-#' @param ... other graphical parameters to pass to the plotting functions
-#'
-#' @details Plots MCMC chains for the specified set of parameters.
+#' the chains for the sender and receiver effects.
 #'
 #' @examples
+#' ###  WSBM Example
 #' data(commuter30)
-#' fit.1 <- wsbm.fit(commuter30,kk=3,hours=1)
+#' fit.1 <- wsbm.fit(commuter30$net,kk=3,hours=1)
 #'
 #' param.plot(fit.1,param="block")
 #' param.plot(fit.1,param="sender")
 #' param.plot(fit.1,param="receiver")
-#' param.plot(fit.1,param="ll")
 #'
-#' @seealso \code{\link{wsbm.fit}}
 #' @export
-param.plot.wsbm.mcmc <- function(x,
+param.plot.wsbm.mcmc <- function(object,
                                  param=c("block","sender","receiver"),
                                  ...){
-    if(x$chain$clean) stop("clean.out must be FALSE to produce diagnostics")
+    if(object$chain$clean)
+        stop("clean.out must be FALSE to produce diagnostics")
 
     param <- match.arg(param)
     if(param == "block"){
-        block.param.plot.wsbm.mcmc(x, ...)
+        block.param.plot.wsbm.mcmc(object, ...)
     }else if(param == "sender"){
-        sender.param.plot.wsbm.mcmc(x,  ...)
+        sender.param.plot.wsbm.mcmc(object,  ...)
     }else if(param == "receiver"){
-        receiver.param.plot.wsbm.mcmc(x,  ...)
+        receiver.param.plot.wsbm.mcmc(object,  ...)
     }
 
 }
 
-block.param.plot.wsbm.mcmc <- function(x, blocks=NULL,
+block.param.plot.wsbm.mcmc <- function(object, blocks=NULL,
                                        scale.ylim=TRUE,ylim=NULL,...){
 
-    kk <- x$kk
+    kk <- object$kk
     if(is.null(blocks)) blocks <- 1:kk
 
     if(dev.cur() == 1){
         len <- max(length(blocks)*2,7)
         dev.new(height=len,width=len)
     }
-    if(is.null(ylim) && scale.ylim) ylim <- range(x$chain$BB[blocks,blocks,])
+    if(is.null(ylim) && scale.ylim) ylim <- range(object$chain$BB[blocks,
+                                                                  blocks,])
 
 
     old.par <- par(mfrow = c(length(blocks),length(blocks)),
@@ -669,7 +660,7 @@ block.param.plot.wsbm.mcmc <- function(x, blocks=NULL,
 
     for(ii in blocks){
         for(jj in blocks){
-            boxplot(x$chain$BB[ii,jj,],ylim=ylim,
+            boxplot(object$chain$BB[ii,jj,],ylim=ylim,
                     xlab=paste0("B[",ii,",",jj,"]"),ylab="Effect")
         }
     }
@@ -677,18 +668,18 @@ block.param.plot.wsbm.mcmc <- function(x, blocks=NULL,
     par(old.par)
 }
 
-sender.param.plot.wsbm.mcmc <- function(x,
+sender.param.plot.wsbm.mcmc <- function(object,
                                          nodes=NULL, ...){
 
-    node.boxplot(x$chain$SS,nodes=nodes,
+    node.boxplot(object$chain$SS,nodes=nodes,
                  main="Sender Effect Posteriors",
                  xlab="Sending Node",ylab="Effect",...)
 }
 
-receiver.param.plot.wsbm.mcmc <- function(x,
+receiver.param.plot.wsbm.mcmc <- function(object,
                                          nodes=NULL, ...){
 
-    node.boxplot(x$chain$RR,nodes=nodes,
+    node.boxplot(object$chain$RR,nodes=nodes,
                  main="Receiver Effect Posteriors",
                  xlab="Receiving Node",ylab="Effect",...)
 }
@@ -699,79 +690,80 @@ receiver.param.plot.wsbm.mcmc <- function(x,
 ######################################################################
 
 
-#' Log-Likelihood method for WSBM Fits
+#' Log-Likelihood and Information Criteria for WSBM
 #'
-#' Returns log-likelihood for posterior mean estimates.
+#' Computing log-likelihood and information criteria using parameters
+#'   in a "wsbm" model object.
 #'
-#' @param x an object of class "wsbm"
+#' @param object an object of class "wsbm"
+#' @param ... additional parameters
 #'
-#' @return returns the log-likelihood of the data given the posterior mean
-#' parameter estimates.
+#' @return \strong{logLik}: returns the log-likelihood of the data given
+#'   the posterior mean parameter estimates.
 #'
 #' @seealso \code{\link{wsbm}}
 #' @export
-logLik.wsbm <- function(x){
-    if(is.null(x$net)) stop("no network present in object")
-    pmat <- predict.wsbm(x)
-    return(ll.pmat.pois(net=x$net,pmat=pmat,self.ties=x$self.ties))
+logLik.wsbm <- function(object, ...){
+    if(is.null(object$net)) stop("no network present in object")
+    pmat <- predict.wsbm(object)
+    return(ll.pmat.pois(net=object$net,pmat=pmat,self.ties=object$self.ties))
 }
 
 
-#' AIC method for WSBM Fits
+
+# AIC method for WSBM Fits
+#
+# Returns Akaike Information Criterion for WSBM Fit
+#' @rdname logLik.wsbm
 #'
-#' Returns Akaike Information Criterion for WSBM Fit
+#' @param k numeric, the penalty per parameter to be used; the default k = 2
+#' is the classical AIC
 #'
-#' @param x an object of class "wsbm"
+#' @return \strong{AIC}: returns the Akaike Information Criterion using the
+#'   parameters in object as approximations to the MLE.  The number of
+#'   parameters is taken to be \eqn{2(n-k) + k^2 + n}{2(n-k) + k*k + n}.
 #'
-#' @return returns the Akaike Information Criterion using the posterior mean
-#' parameters as approximations to the MLE.  The number of parameters is taken
-#' to be 2*(n-k) + k*k + n.
-#'
-#' @seealso \code{\link{wsbm}}
 #' @export
-AIC.wsbm <- function(x){
-    nn <- length(x$SS)
-    kk <- dim(x$BB)[2]
+AIC.wsbm <- function(object, ..., k=2){
+    nn <- length(object$SS)
+    kk <- dim(object$BB)[2]
     edf <- 2*(nn - kk) + kk^2 + nn
-    return(-2*logLik(x) + 2 * edf)
+    return(-2*logLik(object) + k * edf)
 }
 
 
-#' BIC method for WSBM Fits
+# BIC method for WSBM Fits
+#
+# Returns Bayesian Information Criterion for WSBM Fit
+#' @rdname logLik.wsbm
 #'
-#' Returns Bayesian Information Criterion for WSBM Fit
+#' @return \strong{BIC}: returns the Bayesian Information Criterion using
+#'   the posterior mean parameters as approximations to the MLE.  The
+#'   number of parameters is taken to be 2*(n-k) + k*k + n and the sample
+#'   size is taken to be n*n.
 #'
-#' @param x an object of class "wsbm"
-#'
-#' @return returns the Bayesian Information Criterion using the posterior mean
-#' parameters as approximations to the MLE.  The number of parameters is taken
-#' to be 2*(n-k) + k*k + n and the sample size is taken to be n*n.
-#'
-#' @seealso \code{\link{wsbm}}
 #' @export
-BIC.wsbm <- function(x){
-    nn <- length(x$SS)
-    kk <- dim(x$BB)[2]
+BIC.wsbm <- function(object, ...){
+    nn <- length(object$SS)
+    kk <- dim(object$BB)[2]
     edf <- 2*(nn - kk) + kk^2 + nn
-    log.n <- 2 * log(nrow(x$net))
-    return(-2*logLik(x) + log.n * edf)
+    log.n <- 2 * log(nrow(object$net))
+    return(-2*logLik(object) + log.n * edf)
 }
 
 
-#' DIC method for WSBM Fits
+# DIC method for WSBM Fits
+#
+# Returns Deviance Information Criterion for WSBM Fit
+#' @rdname logLik.wsbm
 #'
-#' Returns Deviance Information Criterion for WSBM Fit
+#' @return \strong{DIC}: returns the Deviance Information Criterion.
 #'
-#' @param x an object of class "wsbm"
-#'
-#' @return returns the Deviance Information Criterion.
-#'
-#' @seealso \code{\link{wsbm}}
 #' @export
-DIC.wsbm <- function(x){
-    if(!is.null(x$chain$logLik)){
-        DIC.df <- (2*logLik(x) - 2*mean(x$chain$logLik))
-        return(-2*logLik(x) + 2 * DIC.df)
+DIC.wsbm <- function(object, ...){
+    if(!is.null(object$chain$logLik)){
+        DIC.df <- (2*logLik(object) - 2*mean(object$chain$logLik))
+        return(-2*logLik(object) + 2 * DIC.df)
     }else{
         return(NULL)
     }
@@ -838,29 +830,22 @@ format.wsbm.mcmc <- function(x, digits=4, max.width=78, ...){
 #################################################################
 ######################  wsbm class functions  ###################
 #################################################################
-summary.wsbm.chain <- function(x,...){
+summary.wsbm.chain <- function(object,...){
 
-    total <- x$mcmc.control$total
-    nn <- x$nn; kk <- x$kk
+    total <- object$mcmc.control$total
+    nn <- object$nn; kk <- object$kk
 
-    BB.hat <- apply(x$BB,c(1,2),mean)
-    PI.mean <- t(apply(x$mmb,1,tabulate,nbins=kk) / total)
+    BB.hat <- apply(object$BB,c(1,2),mean)
+    PI.mean <- t(apply(object$mmb,1,tabulate,nbins=kk) / total)
     mmb <- apply(PI.mean,1,which.max)
 
-    SS.hat <- rowMeans(x$SS)
-    RR.hat <- rowMeans(x$RR)
+    SS.hat <- rowMeans(object$SS)
+    RR.hat <- rowMeans(object$RR)
 
     wsbm.obj <- wsbm(nn=nn,BB=BB.hat,SS=SS.hat,RR=RR.hat,mmb=mmb,
-                     self.ties=x$self.ties,hours=x$hours)
-
-    ## structure(list(mmb=mmb,BB=BB.hat,
-    ##                            SS=SS.hat,RR=RR.hat,PI.mean=PI.mean),
-    ##                       class="wsbm")
-    ## summ.obj$self.ties <- x$self.ties
-    ## summ.obj$hours <- x$hours
+                     self.ties=object$self.ties,hours=object$hours)
 
     return(wsbm.obj)
-
 }
 
 
@@ -940,9 +925,9 @@ load.wsbm.init <- function(init.control,priors,net,kk,hours,self.ties){
 }
 
 
-
+#' @describeIn get.iter returns "wsbm" model object for a specific iteration.
 #' @export
-get.iter.wsbm.mcmc <- function(object,iter){
+get.iter.wsbm.mcmc <- function(object,iter,...){
     if(is.null(object$chain)){
         stop(paste("Object does not contain MCMC chain.",
                    "Call dynsbm with clean.out=FALSE"))
@@ -960,34 +945,3 @@ get.iter.wsbm.mcmc <- function(object,iter){
 
 }
 
-
-
-
-##########################################################
-##################  ROTATION FUNCTIONS  ##################
-##########################################################
-
-## wsbm.load.init.vals <- function(init.vals,nn,kk){
-
-##     if(is.null(init.vals$BB) | is.null(init.vals$PI)){
-##         stop("init.vals must be a list containing BB and PI")
-##     }
-##     ## Checking BB
-##     if(any(dim(init.vals$BB) != kk)) stop("BB must be a kk by kk matrix")
-##     if(any(init.vals$BB < 0 | init.vals$BB > 1))
-##         stop("BB must have values between 0 and 1")
-
-##     ## Checking PI
-##     if(any(dim(init.vals$PI)!=c(nn,kk))) stop("PI must be an nn by kk matrix")
-
-##     BB.init <- double(kk^2)
-##     PI.init <- double(kk*nn)
-##     for(jj in 1:kk){
-##         BB.init[((jj-1) * kk + 1):(jj*kk)] <- init.vals$BB[jj,]
-##     }
-##     for(jj in 1:nn){
-##         PI.init[((jj-1)*kk + 1):(jj*kk)] <- init.vals$PI[jj,]
-##     }
-##     flatTable <- array(c(BB.init,PI.init),c(1,kk*(kk+nn)))
-##     return(flatTable)
-## }

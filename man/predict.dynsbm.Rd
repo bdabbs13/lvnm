@@ -4,10 +4,18 @@
 \alias{predict.dynsbm}
 \title{Predict Method for DynSBM Fits}
 \usage{
-\method{predict}{dynsbm}(x, marginal = TRUE, reps = 1000, ...)
+\method{predict}{dynsbm}(object, marginal = TRUE, reps = 1000, ...)
 }
 \arguments{
 \item{object}{a fitted object of the class "dynsbm"}
+
+\item{marginal}{if TRUE, prediction is made using the marginal model.
+Otherwise, the model conditional on parameter estimates is used}
+
+\item{reps}{Number of samples from the marginal model to use when marginal
+= TRUE}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns an array of predicted intensities.  These intensities are
@@ -16,13 +24,6 @@ the predicted values given the posterior mean parameter estimates.
 \description{
 Generates a matrix of predicted intensities for each node pair
 }
-\examples{
-data(commuter30)
-fit.wsbm <- wsbm(commuter30,kk=3,hours=1)
-pred.mat <- predict(fit.wsbm)
-
-}
 \seealso{
-\code{\link{dynsbm}}
+\code{\link{dynsbm.fit}}
 }
-

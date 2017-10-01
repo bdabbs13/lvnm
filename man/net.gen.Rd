@@ -4,10 +4,10 @@
 \alias{net.gen}
 \title{Network Generation Function}
 \usage{
-net.gen(x, ...)
+net.gen(object, ...)
 }
 \arguments{
-\item{x}{model object}
+\item{object}{model object}
 
 \item{...}{additional arguments for specific methods}
 }
@@ -22,4 +22,3 @@ additional information.
 \code{\link{net.gen.wsbm}},
 \code{\link{net.gen.dynsbm}}
 }
-

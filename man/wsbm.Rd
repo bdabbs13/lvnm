@@ -2,15 +2,18 @@
 % Please edit documentation in R/wsbm.R
 \name{wsbm}
 \alias{wsbm}
+\alias{is.wsbm}
 \title{Create Weighted Stochastic Block Model Object}
 \usage{
 wsbm(nn, mmb, BB, SS = rep(1, nn), RR = rep(1, nn), mmb.prior = c(0.5,
   0.5), self.ties = TRUE, hours = 1, gen = FALSE)
+
+is.wsbm(object)
 }
 \arguments{
 \item{nn}{number of nodes in the network}
 
-\item{mmb}{block memberhsip vector}
+\item{mmb}{block membership vector}
 
 \item{BB}{block propensity matrix}
 
@@ -23,11 +26,13 @@ block memberships}
 
 \item{self.ties}{if true self ties are allowed}
 
-\item{hours}{scaling factor so that other factors can be interpreted
-as hourly rate parameters.}
+\item{hours}{scaling factor so that parameters can be interpreted
+as hourly rate parameters}
 
-\item{gen}{if TRUE also samples a network from the model and includes it as a
-component of the model object}
+\item{gen}{if TRUE also samples a network from the model and includes it
+as a component of the model object}
+
+\item{object}{object that could be of class "wsbm"}
 }
 \value{
 Returns a "wsbm" model object containing all the parameters needed
@@ -37,13 +42,17 @@ contains a network sampled from this parameterization.
 \description{
 Generates a Model Object for a Weighted Stochastic Block Model
 }
+\section{Functions}{
+\itemize{
+\item \code{is.wsbm}: Test whether an object is of class wsbm
+}}
+
 \examples{
 kk <- 3
-nn <- kk^2 * 10
+nn <- 10*kk^2
 mmb <-  rep(1:kk,each=nn/kk)
 BB <- array(1,c(kk,kk)); diag(BB) <- 5
 SS <- RR <- rep(c(rep(5,nn/(kk^2)),rep(1,nn*(kk-1)/(kk^2))),kk)
-set.seed(100)
 dat <- wsbm(nn=nn,mmb=mmb,BB=BB,SS=SS,RR=RR,gen=TRUE)
 
 ### Plotting Intensity Matrix and Adjacency Matrix
@@ -55,4 +64,3 @@ network.plot(dat,main="Adjacency Matrix")
 \seealso{
 \code{\link{wsbm.fit}}
 }
-

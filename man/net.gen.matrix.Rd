@@ -4,14 +4,17 @@
 \alias{net.gen.matrix}
 \title{Generate Adjacency Matrix}
 \usage{
-\method{net.gen}{matrix}(x, self.ties = TRUE, d = c("poisson", "bernoulli"))
+\method{net.gen}{matrix}(object, self.ties = TRUE,
+  distribution = c("poisson", "bernoulli"), ...)
 }
 \arguments{
-\item{x}{object of class matrix}
+\item{object}{object of class matrix}
 
 \item{self.ties}{if FALSE, the diagonals are structurally missing}
 
-\item{d}{distribution for sampling}
+\item{distribution}{distribution for sampling}
+
+\item{...}{additional parameters}
 }
 \value{
 Returns a matrix representing the adjacency matrix for a network
@@ -33,4 +36,3 @@ net.binary <- net.gen(pmat,d="b")
 \seealso{
 \code{\link{net.gen.wsbm}}, \code{\link{net.gen.dynsbm}}
 }
-

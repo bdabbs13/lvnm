@@ -1,0 +1,100 @@
+---
+title: "Weighted Stochastic Block Model Simulation Example"
+author: "Beau Dabbs"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{WSBM Simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '../.')
+knitr::opts_chunk$set(echo = TRUE, message = TRUE, warning = TRUE, cache=TRUE)
+```
+
+
+# New York City Taxi Networks
+
+In this vignette we will go through the process of analyzing data about the pickups and dropoffs of taxis in New York City to build a traffic network and analyze properties of those networks over time.
+
+##  Building a Network
+
+We begin by loading our network into R.  We've already done a lot of the work here to convert a series of networks into a 3-dimensional array where the first two dimensions are indexed by the nodes, and the third dimension represents each individual network
+
+```{r load-nyc, include=FALSE}
+
+library(lvnm)
+data("nyc_sundays_2014")
+dim(nyc_sundays_2014)
+
+```
+
+Next, we can visualize some of the networks
+```{r mapnetplot-nyc-1, dev="png", fig.width=5, fig.asp=2, fig.align="center"}
+man.net.plot(nyc_sundays_2014[,,1])#,edge.size=1/25,pt.size=1)
+```
+
+```{r networkplot-nyc-1, dev="png", fig.width=7,fig.asp=1,fig.align="center"}
+network.plot(nyc_sundays_2014[,,1])
+```
+
+```{r summary-statistics, dev="png", fig.width=7,fig.asp=.75, fig.align="center"}
+plot(rep(1:24,9),apply(nyc_sundays_2014,3,sum),col=c(rep(1,24*4),rep(2,24),rep(1,24*3),rep(4,24)),
+     xlab="Hour",ylab="Total Trips",pch=20)
+legend("topright",legend=c("NYC Marathon","Thanksgiving Sunday"),col=c(2,4),pch=20,cex=1.5)
+```
+
+Now let's try to fit a dynamic model to the four Sundays in October.
+In 2014, October had 4 Sundays, so we just need to take the first 96
+networks and pass them to the `dynsbm.fit` function in the `lvnm` package.
+
+```{r dynsbm-training-1}
+dynsbm_oct_14 <- dynsbm.fit(net.mat=nyc_sundays_2014[,,1:(24*4)],
+                            kk=4, tmap = rep(1:24,4),
+                            hours.vec=rep(1,24),
+                            mcmc.control=list(total=1000,thin=5,
+                                              burn.in=10,extend.max=2))
+
+```
+
+```{r dynsbm-testing}
+# load("4-block-pre-race-fit.RData")
+# sun.24.fit.list.4 <- NULL
+# pre.vals <- list(mmb=sun.24.fit.pre.4$mmb)
+# # save(pre.vals,file="2014-10-4-blocks.RData")
+# for(ii in 1:5){
+#     system.time(sun.24.fit.list.4[[ii]] <- dynsbm(net.mat.sun.both[,,1:24 + (3+ii)*24],kk=4,
+#                                                   tmap = 1:24,
+#                                                   hours.vec=rep(1,24),hyperpriors=flat.priors,
+#                                                   init.vals=pre.vals,
+#                                                   total=5000,thin=1,burn.in=1000,update.mmb=FALSE))
+#     #save(sun.24.fit.list.4,file="4-block-post-race-fit.RData")
+# }
+```
+
+
+<!-- ###  Setting up Prior -->
+<!-- # avg <- 1; size <- 1e-3; eps <- 0.1 -->
+<!-- # pp <- (avg - eps)^size; qq <- (avg + eps)*size; rr <- ss <- size -->
+<!-- #  -->
+<!-- # avg <- 1; size <- 1e-2; eps <- 0.1 -->
+<!-- # pp.med <- (avg - eps)^size; qq.med <- (avg + eps)*size; rr.med <- ss.med <- size -->
+<!-- # flat.priors <- dynsbm.priors(c(pp,qq,rr,ss), -->
+<!-- #                              c(pp.med,qq.med,rr.med,ss.med), -->
+<!-- #                              c(pp.med,qq.med,rr.med,ss.med)) -->
+
+<!-- ###  Loading Short Runs -->
+<!-- # load("block-summary-mats.RData") -->
+<!-- # init.mmb <- mmb.mat[1,4,]; init.vals <- list(mmb=init.mmb) -->
+
+
+<!-- ## save(sun.24.fit.pre.4,file="4-block-pre-race-fit.RData") -->
+<!-- ## system.time(sun.24.fit.4 <- dynsbm(net.mat.sun.both,kk=4,tmap = time.map.sun.both, -->
+<!-- ##                                    hours.vec=rep(1,24),hyperpriors=flat.priors,init.vals=init.vals, -->
+<!-- ##                                    total=5000,thin=1,burn.in=1000)) -->
+<!-- ## save(sun.24.fit.4,file="2014-11-12-sundays-fit-4-daterun-4-30-17.RData") -->
+

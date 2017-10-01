@@ -2,6 +2,8 @@
 % Please edit documentation in R/wsbm.R
 \name{wsbm.fit}
 \alias{wsbm.fit}
+\alias{is.wsbm.fit}
+\alias{is.wsbm.mcmc}
 \title{Weighted Stochastic Block Model Estimator}
 \usage{
 wsbm.fit(net, kk = 3, hours = 1, self.ties = TRUE,
@@ -11,15 +13,20 @@ wsbm.fit(net, kk = 3, hours = 1, self.ties = TRUE,
   extend.alpha = 0.001, extend.max = 10, label.switch.mode = "adhoc",
   label.switch.max = 200, multi.impute = FALSE), clean.out = FALSE,
   verbose = 1)
+
+is.wsbm.fit(object)
+
+is.wsbm.mcmc(object)
 }
 \arguments{
 \item{net}{a matrix object representing the adjacency matrix}
 
-\item{kk}{number of blocks}
+\item{kk}{number of blocks to fit}
 
-\item{hours}{scaling parameter}
+\item{hours}{scaling factor so that parameters can be interpreted
+as hourly rate parameters}
 
-\item{self.ties}{if true assumes self ties are possible}
+\item{self.ties}{if true self ties are allowed}
 
 \item{priors}{priors for posterior inference.  See wsbm.priors for more
 details}
@@ -35,6 +42,8 @@ returns posterior means}
 
 \item{verbose}{higher values correspond to more informative output as the
 sampler runs}
+
+\item{object}{object that could be of class "wsbm"}
 }
 \value{
 Returns a wsbm object that has posterior means for each parameter
@@ -47,7 +56,13 @@ parameters from the call to wsbm are also included.
 Estimates parameters for the weighted stochastic block model using
 an MCMC algorithm.
 }
+\section{Functions}{
+\itemize{
+\item \code{is.wsbm.fit}: Check if object is output from wsbm.fit
+
+\item \code{is.wsbm.mcmc}: Check if the fitted object is an MCMC chain
+}}
+
 \seealso{
 \code{\link{wsbm.priors}}
 }
-

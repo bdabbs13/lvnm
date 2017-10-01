@@ -4,37 +4,19 @@
 \alias{net.gen.dynsbm}
 \title{Generate Set of Dynamic Stochastic Block Model Networks}
 \usage{
-\method{net.gen}{dynsbm}(x, marginal = FALSE)
+\method{net.gen}{dynsbm}(object, marginal = FALSE, ...)
 }
 \arguments{
-\item{nn}{number of nodes in the network}
+\item{object}{object of class "dynsbm"}
 
-\item{TT}{number of networks to generate}
+\item{marginal}{if TRUE, parameters are sampled from prior distributions
+before simulating a new network}
 
-\item{tmap}{mapping from time points 1:TT to equivalence classes}
-
-\item{hours.vec}{number of hours for each equivalence class}
-
-\item{BB.prior}{block effect prior parameters for each equivalence class}
-
-\item{SS.prior}{sender effect prior parameters for each equivalence class}
-
-\item{RR.prior}{receiver effect prior parameters for each equivalence class}
-
-\item{mmb.prior}{prior distribution for multinomial distribution over
-block memberships}
-
-\item{mmb}{block memberhsip vector}
-
-\item{self.ties}{if TRUE self ties are allowed}
-
-\item{normalize}{if TRUE, sender/receiver effects are normalized to have a
-mean of 1 within each block}
+\item{...}{additional parameters}
 }
 \value{
-Returns a list containing the simulated matrix of networks as the
-first component 'net.mat'. The list also contains all of the parameters
-used to simulate the networks.
+Returns an n x n x T array representing a collection of T
+networks with n nodes corresponding to the dynsbm object.
 }
 \description{
 Generates networks from the weighted stochastic block model
@@ -47,18 +29,41 @@ TT <- 10; ee <- 2
 tmap <- rep(1:ee,TT/ee)
 hours.vec <- c(12,12)
 mmb <-  rep(1:kk,each=nn/kk)
+
+###  Setting up Reasonable Prior Distributions
 BB.prior <- array(1,c(kk,kk,2,ee))
 BB.prior[cbind(1:3,c(2,3,1),1,1)] <- 2
 BB.prior[cbind(1:3,c(3,1,2),1,2)] <- 2
 
 SS.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
 RR.prior <- array(rgamma(nn*2*ee,10,10),c(nn,2,ee))
-dat <- data.gen.dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
-                       BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior
-                       mmb=mmb,self.ties=TRUE,normalize=TRUE)
+
+###  Setting up Object with Dynsbm Parameters
+dat <- dynsbm(nn=nn,TT=TT,tmap=tmap,hours.vec=hours.vec,
+              BB.prior=BB.prior,SS.prior=SS.prior,RR.prior=RR.prior,
+              mmb=mmb,self.ties=TRUE,normalize=TRUE)
+
+###  Sampling New Edges Only
+net.mat.1 <- net.gen(dat)
+network.plot(net.mat.1)
+
+net.mat.2 <- net.gen(dat)
+network.plot(net.mat.2)
+
+net.mat.3 <- net.gen(dat)
+network.plot(net.mat.3)
+
+###  Resampling Parameters from Priors and Edges
+net.mat.marg.1 <- net.gen(dat,marginal=TRUE)
+network.plot(net.mat.marg.1)
+
+net.mat.marg.2 <- net.gen(dat,marginal=TRUE)
+network.plot(net.mat.marg.2)
+
+net.mat.marg.3 <- net.gen(dat,marginal=TRUE)
+network.plot(net.mat.marg.3)
 
 }
 \seealso{
-\code{\link{dynsbm}}
+\code{\link{dynsbm}}, \code{\link{dynsbm.fit}}
 }
-
